@@ -10,6 +10,7 @@ import type { AgentView, SessionStatus } from '../../shared/bridge'
 import type { InstructionFile } from '../../shared/instructions'
 import { chatActions, connectChat, useChat } from '../state/chat'
 import { heldSaid, onboarding, useOnboard } from '../state/onboard'
+import { shelfPending } from '../state/shelfAdd'
 import { actions, store, useStore } from '../state/store'
 import { ChatPane } from './chat/ChatPane'
 import { PromptsPane } from './chat/PromptsOnly'
@@ -632,8 +633,17 @@ export function SessionPane({ onReveal, onExport }: { onReveal: () => void; onEx
       fixTried.current = fix
       void start(resumable)
     } else if (session.view === 'terminal' && status === 'idle') {
-      window.torno.session.insert(session.sessionId, fix)
       actions.setFixRequest(null)
+      // The request of a part added by hand has its files copied as it is typed: a terminal has no box to send from (`ui/shelf/addAsk.ts`). Not typed if they were refused.
+      const waiting = shelfPending.holds(fix) ? shelfPending.get() : null
+      if (waiting !== null) {
+        const sessionId = session.sessionId
+        void shelfPending.now(waiting.id, waiting.paths).then((problem) => {
+          shelfPending.clear()
+          if (problem !== null) setProblem(problem)
+          else window.torno.session.insert(sessionId, fix)
+        })
+      } else window.torno.session.insert(session.sessionId, fix)
     }
   }, [fix, objectId, starting, trusting, live, session?.view, session?.sessionId, status, resumable])
 

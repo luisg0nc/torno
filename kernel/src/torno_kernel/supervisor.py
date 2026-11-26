@@ -36,6 +36,7 @@ from .frames import write_frame
 DEFAULT_TIMEOUT = 600.0
 MAX_TIMEOUT = 86400.0  # a day; a longer wait is also more than the event loop can sleep
 MAX_LIVE = 4  # object folders whose last good build is kept for queries
+SHELF_TIMEOUT = 120.0  # seconds a read of the parts shelf has unless the request names another
 MOST_TRIAL_QUERIES = 20  # queries a trial may carry
 QUERY_TIMEOUT = 30.0  # seconds a live worker has to answer a query
 # Seconds it has to make a file of the build, or read one back (``export``): a mesh at a print tolerance takes longer.
@@ -103,6 +104,15 @@ def _is_result(header: Any) -> bool:
     if not isinstance(header, dict):
         return False
     if not isinstance(header.get("scene" if header.get("ok") else "error"), dict):
+        return False
+    return _unwritable(header) is None
+
+
+def _is_shelf_result(header: Any) -> bool:
+    """Whether a worker's frame is the answer of a shelf read: ``ok`` with its ``shelf``, or not with an error; one that can be passed on."""
+    if not isinstance(header, dict):
+        return False
+    if not isinstance(header.get("shelf" if header.get("ok") else "error"), dict):
         return False
     return _unwritable(header) is None
 
@@ -258,6 +268,9 @@ class Supervisor:
         # A trial: a worker forked to build the model with other values of its Params, answer some queries and leave.
         # It is never live, holds no build and is refused when there is no room (``_trial_request``).
         self._trial: _Worker | None = None
+        # A read of the parts shelf: a worker forked to import each part of ``common/parts`` and draw it, reply once and leave.
+        # It holds no build and no live worker is let go for it (``_shelf_request``).
+        self._shelf: _Worker | None = None
         # By object folder, the least recently built or queried first.
         self._live: dict[str, _Worker] = {}
         # The folders whose build was let go for memory and that have had none since.
@@ -273,7 +286,7 @@ class Supervisor:
         except BrokenPipeError:
             pass  # the client is gone
         finally:
-            for worker in (self._building, self._trial, *self._live.values()):
+            for worker in (self._building, self._trial, self._shelf, *self._live.values()):
                 if worker:
                     self._stop(worker, signal.SIGKILL)
         self._drain()
@@ -301,6 +314,9 @@ class Supervisor:
         if self._trial:
             workers.append(self._trial)
             deadlines.append(self._trial.deadline)
+        if self._shelf:
+            workers.append(self._shelf)
+            deadlines.append(self._shelf.deadline)
         wait = max(0.0, min(deadlines) - time.monotonic()) if deadlines else None
         reading = [self._stdin_fd, *(w.sock for w in workers)]
         writing = [w.sock for w in workers if w.outbox]
@@ -313,7 +329,7 @@ class Supervisor:
             if worker.sock in writable and self._is_live(worker):
                 self._send_queries(worker)
             # An earlier iteration may have retired this worker.
-            if worker.sock in readable and (worker is self._building or worker is self._trial or self._is_live(worker)):
+            if worker.sock in readable and (worker is self._building or worker is self._trial or worker is self._shelf or self._is_live(worker)):
                 self._read_worker(worker)
         now = time.monotonic()
         for worker in list(self._live.values()):
@@ -322,6 +338,8 @@ class Supervisor:
             self._time_out(self._building)
         if self._trial and now >= self._trial.deadline:
             self._trial_time_out(self._trial)
+        if self._shelf and now >= self._shelf.deadline:
+            self._shelf_time_out(self._shelf)
         if self._stdin_fd in readable:
             chunk = os.read(self._stdin_fd, 1 << 16)
             if not chunk:
@@ -351,6 +369,8 @@ class Supervisor:
             self._query(id, request)
         elif op == "trial":
             self._trial_request(id, request)
+        elif op == "shelf":
+            self._shelf_request(id, request)
         elif op == "cancel":
             self._cancel_building("cancelled by request")
         elif op == "shutdown":
@@ -431,6 +451,60 @@ class Supervisor:
             return
         self._trial = self._fork(id, dir, model, timeout, overrides, trial=asked, mesh=mesh)
         self._send({"id": id, "event": "trial.started", "pid": self._trial.pid})
+
+    def _shelf_request(self, id: Any, request: dict[str, Any]) -> None:
+        """Read the parts shelf of the workspace ``root`` in a worker of its own, reply once with ``shelf``.
+
+        Nothing live is touched and nothing is written. A build may run meanwhile; another read may not (``busy``).
+        """
+        root, timeout = request.get("root"), request.get("timeout")
+        if not isinstance(root, str):
+            self._fail(id, "bad_request", "shelf needs root, a string")
+            return
+        if (why := _unwritable(root)) is not None:
+            self._fail(id, "bad_request", f"the request {why}")
+            return
+        timeout = SHELF_TIMEOUT if timeout is None else build_timeout(timeout)
+        if timeout is None:
+            self._fail(id, "bad_request", "shelf timeout must be a positive, finite number of seconds")
+            return
+        if self._shelf is not None:
+            self._fail(id, "busy", "another read of the shelf is running")
+            return
+        self._shelf = self._fork(id, root, "", timeout, shelf=True)
+
+    def _shelf_finished(self, worker: _Worker, result: dict[str, Any]) -> None:
+        self._shelf = None
+        output = self._take_output(worker)
+        self._stop(worker, signal.SIGKILL)
+        if result.get("ok"):
+            self._send({"id": worker.request_id, "ok": True, "shelf": result["shelf"]})
+        else:
+            self._send({"id": worker.request_id, "ok": False, "error": {**result["error"], "output": output}})
+
+    def _shelf_died(self, worker: _Worker) -> None:
+        self._shelf = None
+        worker.sock.close()
+        status = _wait(worker.pid, _EXIT_GRACE)
+        if status is None:
+            _kill(worker.pid, signal.SIGKILL)
+            _, status = os.waitpid(worker.pid, 0)
+        how = (
+            f"was killed by {signal.Signals(os.WTERMSIG(status)).name}"
+            if os.WIFSIGNALED(status)
+            else f"exited with status {os.WEXITSTATUS(status)}"
+        )
+        self._fail(worker.request_id, "crash", f"the process reading the shelf {how} before it finished", output=self._take_output(worker))
+
+    def _shelf_time_out(self, worker: _Worker) -> None:
+        self._shelf = None
+        self._stop(worker, signal.SIGKILL)
+        self._fail(
+            worker.request_id,
+            "timeout",
+            f"the shelf was not read within {worker.timeout:g} s and was stopped",
+            output=self._take_output(worker),
+        )
 
     def _has_room(self, dir: str) -> bool:
         """Whether a build of ``dir`` could be forked now without letting any worker go (see ``_make_room``)."""
@@ -582,6 +656,7 @@ class Supervisor:
         overrides: dict[str, Any] | None = None,
         trial: list[dict[str, Any]] | None = None,
         mesh: bool = False,
+        shelf: bool = False,
     ) -> _Worker:
         ours, theirs = socket.socketpair()
         if sys.platform == "darwin":
@@ -603,8 +678,11 @@ class Supervisor:
                 self._out.close()  # nothing is buffered: every frame is flushed
                 for live in self._live.values():
                     live.sock.close()
+                for other in (self._building, self._trial, self._shelf):
+                    if other:
+                        other.sock.close()
             finally:
-                worker_module.run(theirs, capture.fileno(), dir, model, parent, deadline, overrides, trial, mesh)
+                worker_module.run(theirs, capture.fileno(), dir, model, parent, deadline, overrides, trial, mesh, shelf)
         theirs.close()
         ours.setblocking(False)
         now = time.monotonic()
@@ -625,10 +703,18 @@ class Supervisor:
                 self._build_died(worker)
             elif worker is self._trial:
                 self._trial_died(worker)
+            elif worker is self._shelf:
+                self._shelf_died(worker)
             else:
                 self._live_died(worker)
             return
         for header, blob in worker.decoder.feed(chunk):
+            if worker is self._shelf:
+                if _is_shelf_result(header):
+                    self._shelf_finished(worker, header)
+                else:
+                    self._shelf_died(worker)
+                return
             if worker is self._trial:
                 if _is_result(header):
                     self._trial_finished(worker, header, blob)

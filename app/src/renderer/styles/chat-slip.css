@@ -146,3 +146,48 @@
   gap: var(--space-1) var(--space-3);
   margin: var(--space-2) 0 0;
 }
+
+/* The slip of a shelf file (ui/chat/ShelfSlip.tsx, #354): under the card of a write to common/parts/<id>/, what the shelf says of the part now. The part's
+   picture, name, hole and rules are the tab's own (card-shelf.css). */
+.chat-shelf-slip {
+  padding: 10px 12px;
+  border-radius: var(--radius-float);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.chat-shelf-slip-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1);
+  margin: 0;
+}
+
+.chat-shelf-slip-head > span:first-child {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.chat-shelf-slip-id {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chat-shelf-slip-files {
+  margin-left: auto;
+  overflow-wrap: anywhere;
+}
+
+.chat-shelf-slip-body {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: var(--space-2);
+}
+
+.chat-shelf-slip-body .shelf-name {
+  color: var(--ink);
+}

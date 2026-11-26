@@ -103,15 +103,15 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## Bands (`app/src/renderer/ui/view/Band.tsx`, `bandKind.ts`, `styles/bands.css`)
 
 - A **band** is the one sentence at the top left of the view (14 px in, a pill 34 px high, radius full, dropping 8 px in 0.3 s; none
-  under reduced motion) for a mode of the whole view. `bandOf` (`bandKind.ts`, pure) picks one: export, lineup, facePick, review,
+  under reduced motion) for a mode of the whole view. `bandOf` (`bandKind.ts`, pure) picks one: export, lineup, facePick, place, review,
   compare, sketch, failed. A review that is open keeps its band while a sketch opens inside it. `useBand()` is that rule over the stores
   (the model's modes count while the model is shown, the line-up while a tracing is, none on the board or over a page); each mode's component
   (`ReviewBar`, `CompareBar`, `SketchBand`, `FailedBand` in `ViewportPane`, `FacePickBar` in `App`, `LineUp`'s own) draws only while `useBand()` is its kind.
   `exportOpen` is always false until the dock holds export (Task 34).
-- The tone is `BAND_TONE`: `accent` (review, lineup, export; buttons are `--on-accent` grounds with accent text when `primary`) or `quiet`
+- The tone is `BAND_TONE`: `accent` (review, lineup, export, place; buttons are `--on-accent` grounds with accent text when `primary`) or `quiet`
   (`--raise`, ink, a hairline; failed, sketch, compare, facePick). The band carries `data-band`, `data-tone`, `data-part` and **`data-tag-avoid`**
   (tags stand clear of it). It is a toolbar when it holds buttons, else a status. `BoardSwitch` returns nothing while `useBand()` is not null.
-- The words are `bandKind.ts`'s (`sketchWords`, `failedWords`, `compareWords`, `planeSaid`); refs and numbers are in the face of numbers.
+- The words are `bandKind.ts`'s (`sketchWords`, `failedWords`, `compareWords`, `placeWords`, `planeSaid`); refs and numbers are in the face of numbers.
   What a mode could not do is `.band-note` under the band (`--fail` on `--fail-wash`). `.sign-disc` is `reviews.css`'s (`ui/SignDisc.tsx`).
 
 ## Explode (`app/src/renderer`)

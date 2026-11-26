@@ -254,7 +254,8 @@ not write files: it returns shapes and torno draws and exports them.
 `bd_warehouse` is in torno's kernel environment in any workspace: `from bd_warehouse.fastener import SocketHeadCapScrew,
 ClearanceHole, InsertHole`, `from bd_warehouse.bearing import SingleRowDeepGrooveBallBearing`. Use it for a standard
 part rather than computing a head or a tap diameter by hand, with `simple=True` for a screw, and put the fastener
-or bearing itself among `references(p)` (a bought part: see the `torno-model` skill), not among the parts. The
+or bearing itself among `references(p)` (a bought part: see the `torno-model` skill), not among the parts. A bought part
+that is not a standard fastener may already be on the parts shelf (`common/parts/`, see the `torno-model` skill): look there first. The
 hole sizes of metric screws, their heads and nuts, with the standards they come from, the heat-set insert holes
 (assumed values: the insert's datasheet wins), and examples are in `${CLAUDE_SKILL_DIR}/reference/fasteners.md`. Keep
 each size a field of `Params` with its source in a comment, or "assumed" where it has none.

@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { BuildError } from '../../shared/build'
 import type { Scene } from '../../shared/scene'
+import type { KernelShelfPart } from '../../shared/shelf'
 import { withoutSession } from '../sessions/agentEnv'
 import { encodeFrame, FrameDecoder } from './frames'
 
@@ -47,6 +48,9 @@ export type TrialAnswer = { ok: true; result: unknown } | { ok: false; error: { 
 /** A trial: the model built with other values of its `Params` in a worker that is thrown away, and the answers to the queries asked there. `blob`: the mesh a build carries, when `mesh` was asked. */
 export type TrialResult = { ok: true; scene: Scene; answers: TrialAnswer[]; blob?: Buffer } | { ok: false; error: BuildError }
 
+/** The shelf of a workspace as the kernel read it: each part of `common/parts/` alone, one that failed with its `error`. */
+export type ShelfResult = { ok: true; parts: KernelShelfPart[] } | { ok: false; error: BuildError }
+
 export interface KernelClient {
   /** The first start. Rejects if the kernel stops for good before it is ever ready. */
   ready: Promise<{ versions: Record<string, string> }>
@@ -66,6 +70,13 @@ export interface KernelClient {
    * With `mesh` the result carries the mesh blob as a build's does: that is how an older build's copy is drawn (`main/oldbuild.ts`).
    */
   trial?(dir: string, model: string, overrides: Record<string, number | boolean | string>, queries: Array<{ name: string; args: object }>, opts?: { timeout?: number; mesh?: true }): Promise<TrialResult>
+  /**
+   * Read the parts shelf of the workspace at `root`: `common/parts/<id>/part.py`, each part's sizes, name and outlines, in a
+   * worker of its own that is thrown away. Writes nothing and changes no build. Never rejects; a read the kernel refuses
+   * (`busy`, one at a time) or that fails is `{ ok: false }`. `timeout`: seconds for the whole read (the kernel's own default
+   * is 120). Absent from a fake that has none.
+   */
+  shelf?(root: string, opts?: { timeout?: number }): Promise<ShelfResult>
   cancel(): void
   dispose(): Promise<void>
   /** Called when the kernel has exited unexpectedly and was not restarted. */
@@ -144,6 +155,7 @@ type Pending =
   | { type: 'build'; resolve: (r: BuildResult) => void; onStarted?: (started: { retired: string[] }) => void }
   | { type: 'query'; resolve: (result: unknown) => void; reject: (e: KernelError) => void; blob?: boolean }
   | { type: 'trial'; resolve: (r: TrialResult) => void }
+  | { type: 'shelf'; resolve: (r: ShelfResult) => void }
 
 class Kernel implements KernelClient {
   readonly ready: Promise<{ versions: Record<string, string> }>
@@ -194,6 +206,16 @@ class Kernel implements KernelClient {
       const id = this.nextId++
       this.pending.set(id, { type: 'trial', resolve })
       this.send({ id, op: 'trial', dir, model, overrides, queries, ...(opts?.timeout === undefined ? {} : { timeout: opts.timeout }), ...(opts?.mesh ? { mesh: true } : {}) })
+    })
+  }
+
+  shelf(root: string, opts?: { timeout?: number }): Promise<ShelfResult> {
+    if (this.disposed) return Promise.resolve(shelfFailure('cancelled', 'the kernel was shut down'))
+    if (this.stopped) return Promise.resolve(shelfFailure('crash', `the kernel is stopped. ${REBUILD_HOW}`))
+    return new Promise((resolve) => {
+      const id = this.nextId++
+      this.pending.set(id, { type: 'shelf', resolve })
+      this.send({ id, op: 'shelf', root, ...(opts?.timeout === undefined ? {} : { timeout: opts.timeout }) })
     })
   }
 
@@ -328,7 +350,9 @@ class Kernel implements KernelClient {
       return
     }
     this.pending.delete(header.id)
-    if (request.type === 'trial') {
+    if (request.type === 'shelf') {
+      request.resolve(header.ok && Array.isArray(header.shelf?.parts) ? { ok: true, parts: header.shelf.parts } : { ok: false, error: header.error ?? { kind: 'crash', message: 'the shelf could not be read' } })
+    } else if (request.type === 'trial') {
       // The blob is a view into the read buffer: give the scene one of its own (empty unless a mesh was asked).
       request.resolve(header.ok ? { ok: true, scene: header.scene, answers: Array.isArray(header.answers) ? header.answers : [], ...(blob.length > 0 ? { blob: Buffer.from(blob) } : {}) } : { ok: false, error: header.error ?? { kind: 'crash', message: 'the trial failed' } })
     } else if (request.type === 'build') {
@@ -370,6 +394,7 @@ class Kernel implements KernelClient {
     for (const request of requests) {
       if (request.type === 'build') request.resolve(failure(kind, message))
       else if (request.type === 'trial') request.resolve(trialFailure(kind, message))
+      else if (request.type === 'shelf') request.resolve(shelfFailure(kind, message))
       else request.reject(new KernelError(kind, message))
     }
   }
@@ -383,6 +408,10 @@ class Kernel implements KernelClient {
 }
 
 function trialFailure(kind: string, message: string): TrialResult {
+  return { ok: false, error: { kind, message } }
+}
+
+function shelfFailure(kind: string, message: string): ShelfResult {
   return { ok: false, error: { kind, message } }
 }
 

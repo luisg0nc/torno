@@ -3,7 +3,7 @@ import type { CompareState } from '../../state/compare'
 // The pure rules of the band at the top left of the view (`Band.tsx`): which mode of the whole view wears it, and what it says.
 
 /** The modes that put a sentence at the top left of the view. */
-export type BandKind = 'export' | 'review' | 'failed' | 'sketch' | 'compare' | 'lineup' | 'facePick'
+export type BandKind = 'export' | 'review' | 'failed' | 'sketch' | 'compare' | 'lineup' | 'facePick' | 'place'
 
 /** What the view is doing, as each mode says whether it is on. */
 export interface BandState {
@@ -11,6 +11,8 @@ export interface BandState {
   roundOpen: boolean
   lineup: boolean
   facePick: boolean
+  /** A part of the shelf is being placed on the model (#353). */
+  placing: boolean
   comparing: boolean
   sketching: boolean
   failedOnShow: boolean
@@ -24,6 +26,7 @@ export function bandOf(s: BandState): BandKind | null {
   if (s.exportOpen) return 'export'
   if (s.lineup) return 'lineup'
   if (s.facePick) return 'facePick'
+  if (s.placing) return 'place'
   if (s.roundOpen) return 'review'
   if (s.comparing) return 'compare'
   if (s.sketching) return 'sketch'
@@ -36,6 +39,7 @@ export const BAND_TONE: Record<BandKind, 'accent' | 'quiet'> = {
   export: 'accent',
   review: 'accent',
   lineup: 'accent',
+  place: 'accent',
   failed: 'quiet',
   sketch: 'quiet',
   compare: 'quiet',
@@ -46,6 +50,11 @@ export const BAND_TONE: Record<BandKind, 'accent' | 'quiet'> = {
 export function planeSaid(label: string | null): string {
   if (label === null) return 'the surface'
   return label.replace(/\s*\(u = .*\)\s*$/, '').replace(/^([XYZ]{2}) at /, '$1, ')
+}
+
+/** The sentence of the band of a placing: `Placing ec11 from the shelf, 2 placed`. */
+export function placeWords(part: string, placed: number): { lead: string; part: string; mid: string; placed: string } {
+  return { lead: 'Placing ', part, mid: ' from the shelf, ', placed: `${placed} placed` }
 }
 
 /** The sentence of a sketch's band: the lead, the sketch's ref (none until its first stroke gives it a number) and its plane. */

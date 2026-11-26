@@ -15,13 +15,23 @@ describe('sourceOf', () => {
     ['derived: half the width', 'derived'],
     ['assumed: 5 perimeters at 0.4 mm', 'assumed'],
     ['Assumed: capital', 'assumed'],
-    ['object: the base', 'object']
+    ['object: the base', 'object'],
+    ['listing: the seller says 12', 'listing'],
+    ['measured: with calipers', 'measured'],
+    ['standard: the nut', 'standard'],
+    ['ISO 15: the bearing', 'standard'],
+    ['iso 4762: socket head', 'standard'],
+    ['DIN 912: M5', 'standard'],
+    ['EN 10025: the plate', 'standard']
   ])('%s is %s', (doc, source) => expect(sourceOf(doc)).toBe(source))
   it('is unsaid for no comment, no colon, or an unknown word', () => {
     expect(sourceOf(null)).toBe('unsaid')
     expect(sourceOf('')).toBe('unsaid')
     expect(sourceOf('wall of the tub')).toBe('unsaid')
     expect(sourceOf('guess: maybe')).toBe('unsaid')
+    // A standard is a number after ISO, DIN or EN; the word alone is not one.
+    expect(sourceOf('ISO: which one')).toBe('unsaid')
+    expect(sourceOf('ENOUGH 5: x')).toBe('unsaid')
   })
 })
 
@@ -30,7 +40,7 @@ describe('whyUnsaid', () => {
     [null, 'no comment'],
     ['  ', 'no comment'],
     ['wall of the tub', 'its comment does not begin with a source word and a colon (brief: …)'],
-    ['guess: maybe', '"guess" is not a source word (brief, mark, scan, ref, object, datasheet, person, derived, assumed)'],
+    ['guess: maybe', '"guess" is not a source word (brief, mark, scan, ref, object, datasheet, listing, measured, standard, person, derived, assumed)'],
     ['brief: 60 mm', '']
   ])('%s: %s', (doc, why) => expect(whyUnsaid(doc)).toBe(why))
   it('names each field in the line, with its reason, and cuts a long list', () => {
@@ -84,6 +94,9 @@ describe('the source word of a row', () => {
     ['ref notes: the note says 12', 'notes'],
     ['person: "96.5 mm"', 'person'],
     ['datasheet ISO 7380: M5 button head', 'ISO 7380'],
+    ['ISO 15: bearing 6002', 'ISO 15'],
+    ['DIN 912: M5 screw', 'DIN 912'],
+    ['listing: the seller', 'listing'],
     ['derived: rad_height + 2 × fit', 'derived'],
     ['assumed: the web beside the tank', 'assumed'],
     ['brief: 60 wide', 'brief'],

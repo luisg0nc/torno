@@ -77,6 +77,8 @@ declare global {
       /** What a point of the canvas is on of the scans drawn, as `pickAt` is of the parts. */
       pickScanAt(fx: number, fy: number): ScanHit | null
       /** The dashed box the scan read question draws for the unit pointed at, with its size in words; null for none. */
+      /** What is drawn of a shelf part being placed (#353): the ghost at the pointer, and the cutouts of those placed; null for none. */
+      placing(): { ghost: { at: [number, number, number]; normal: [number, number, number] } | null; placed: ReadonlyArray<{ at: [number, number, number] }> } | null
       askedBox(): { min: [number, number, number]; max: [number, number, number]; label: string } | null
       /** Where a point of a scan, in the scan's own frame, is drawn: fractions of the canvas, as `project`. */
       projectScan(id: string, local: [number, number, number]): [number, number]

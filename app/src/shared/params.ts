@@ -3,10 +3,11 @@ import type { Param, Scene } from './scene'
 /**
  * Where a size of the model's `Params` says it comes from: the first word of the field's comment, before a `:`
  * (`# assumed: 5 perimeters at 0.4 mm`). `M<n>` and `S<n>` stand for a mark and a scan, whatever the number; `ref`
- * and `datasheet` may be followed by a name. It is the model's own claim, never checked by torno; a missing or
- * unknown word is `unsaid`, never `assumed`.
+ * and `datasheet` may be followed by a name. `listing` is a seller's page, `measured` the person's own tape or calipers, and
+ * `standard` a standard's number written as the source (`ISO 15`, `DIN 912`, `EN 10025`) or the word itself. It is the
+ * model's own claim, never checked by torno; a missing or unknown word is `unsaid`, never `assumed`.
  */
-export const SOURCES = ['brief', 'mark', 'scan', 'ref', 'object', 'datasheet', 'person', 'derived', 'assumed'] as const
+export const SOURCES = ['brief', 'mark', 'scan', 'ref', 'object', 'datasheet', 'listing', 'measured', 'standard', 'person', 'derived', 'assumed'] as const
 export type Source = (typeof SOURCES)[number] | 'unsaid'
 
 /** The source a comment begins with; `unsaid` for none, or for a word that is not one of the convention's. */
@@ -17,6 +18,7 @@ export function sourceOf(doc: string | null | undefined): Source {
   if (/^s\d+$/.test(word)) return 'scan'
   if (word === 'ref' || word.startsWith('ref ')) return 'ref'
   if (word === 'datasheet' || word.startsWith('datasheet ')) return 'datasheet'
+  if (/^(?:iso|din|en)\s*\d/.test(word)) return 'standard'
   return (SOURCES as readonly string[]).includes(word) ? (word as Source) : 'unsaid'
 }
 

@@ -32,7 +32,7 @@ with torno's when `--plugin-dir` was given, `skills` of the person's only, `apiK
 `mcp_server_errors` or `plugin_errors` (`e2e/account.spec.ts`), and the commands `retry <attempt> [<s>]` (`api_retry`), `deny <tool> <json>` (a permission
 denial in the turn's `result`) and `argv` play the rest. `write <file> <content>` plays a `Write`: its `PreToolUse` and
 `PostToolUse` carry `tool_use_id` and `tool_input` (`file_path`, absolute, and `content`), the file is really written
-between them (`file` from the folder it runs in, a `\n` in the content a new line), and the answer of the `PostToolUse`
+between them (`file` from the folder it runs in, the folders it stands in made, a `\n` in the content a new line), and the answer of the `PostToolUse`
 is said as a `system`/`hook_response`; `edit <file> <old> <new>` plays an `Edit` the same way (`old_string`,
 `new_string`; the words are bare or JSON strings, `edit part.py "W = 2" "W = 3"`), replacing `old` by `new` in the
 file between the hooks. A `PreToolUse` that torno answers with `permissionDecision: deny` writes nothing: the tool's result is the reason, an error. A `Stop` torno answers with `decision: block` is not the end of the turn: the

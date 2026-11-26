@@ -9,6 +9,7 @@ import type { Camera, SectionPlane, ViewName } from '../../shared/view'
 import type { AlignPoint } from './alignPoints'
 import type { AskedBox } from './askedBox'
 import type { BrushRing } from './brushRing'
+import type { PlaceShape } from './placeGhost'
 import { CameraMove, pivotOn, standingAt } from './cameraMoves'
 import { PartsApart, asBuilt, drawnAt, drawnBox, reachingApart, leavesView } from './explode'
 import type { TrackPlan } from './explodeTrack'
@@ -526,6 +527,17 @@ export class Viewport {
   showBrush(ring: BrushRing | null): void {
     this.overlay.brush = ring
     this.invalidate()
+  }
+
+  /** A shelf part being placed: the ghost at the pointer and the cutouts of the ones placed in this go, in the accent and in no picture; null for none. */
+  showPlacing(placing: { ghost: PlaceShape | null; placed: readonly PlaceShape[] } | null): void {
+    this.overlay.placing = placing
+    this.invalidate()
+  }
+
+  /** What is drawn of a part being placed, for the tests. */
+  placingShown(): { ghost: PlaceShape | null; placed: readonly PlaceShape[] } | null {
+    return this.overlay.placing
   }
 
   /** The box a scan would have if it were read in another unit (its read question is asked), dashed with its size: in `--accent`, in no picture. Null for none. */

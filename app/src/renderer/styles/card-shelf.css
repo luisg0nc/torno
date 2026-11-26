@@ -1,0 +1,626 @@
+/* ---- The Shelf tab of the bench (ui/card/ShelfPanel.tsx): the parts of common/parts/ at one scale, find and chips ----
+   The tab fills the panel: the find box and chips at the head, the rows scroll, the foot stays. The parts are drawn in a metal
+   tone that is in no theme's palette, and the picture's well takes the ground (--surface), so a part reads as a part on a bench. */
+
+:root {
+  --shelf-metal: #3E434A;
+  --shelf-metal-line: rgb(32 36 43 / 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shelf-metal: #4A5059;
+    --shelf-metal-line: rgb(233 231 226 / 0.4);
+  }
+}
+
+.bench-panel:has(.shelf-tab) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.shelf-tab {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shelf-head {
+  flex: none;
+  padding-top: var(--space-1);
+}
+
+.shelf-find-icon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  width: 13px;
+  height: 13px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.shelf-find .params-find-input {
+  padding: 0 var(--space-3) 0 31px;
+}
+
+.shelf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0 var(--space-4) var(--space-2);
+}
+
+.shelf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shelf-chip .num {
+  margin: 0;
+}
+
+.shelf-chip:hover {
+  color: var(--ink);
+}
+
+.shelf-chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.shelf-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--space-4) var(--space-2);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.shelf-none {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.shelf-empty {
+  margin: var(--space-3) 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.shelf-empty b {
+  display: block;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.shelf-empty p {
+  margin: 4px 0 0;
+}
+
+.shelf-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: var(--space-2) 0 2px;
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 400;
+}
+
+.shelf-group-title .num {
+  margin: 0;
+}
+
+/* A row: the part's picture, its name over what it cuts and its rules, how many the project used. */
+.shelf-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% + 12px);
+  margin: 0 -6px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shelf-row:hover:not(.hot) {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+.shelf-row.hot {
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* A row taken up to be dropped on the model: ringed in the accent, its picture faint, as it is carried. */
+.shelf-row.lifted {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+/* The drawing is a picture, no text: the row's words stay as they are. */
+.shelf-row.lifted .shelf-draw {
+  filter: opacity(0.35);
+}
+
+.shelf-row:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The picture's well: the ground, with the floor line the part stands on. */
+.shelf-pic {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  align-items: flex-end;
+  justify-content: center;
+  height: 54px;
+  padding: 4px 0 6px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.shelf-pic::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 5px;
+  left: 0;
+  height: 1.5px;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+/* One scale for every part; a part too big for the well is the one that is let down to fit it. */
+.shelf-draw {
+  display: block;
+  flex: none;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: visible;
+}
+
+.shelf-draw path {
+  fill: var(--shelf-metal);
+  stroke: var(--shelf-metal-line);
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.shelf-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shelf-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shelf-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.shelf-hole .num {
+  color: var(--ink);
+}
+
+.shelf-broken {
+  color: var(--warn);
+}
+
+.shelf-used {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* A part's sizes as short rules, one a size: solid with a source, thick and green checked on the part, dashed and warm assumed,
+   dotted worked out from the others. */
+.shelf-rules {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.shelf-rules i {
+  display: block;
+  width: 9px;
+  height: 0;
+  border-top: 2px solid var(--muted);
+}
+
+.shelf-rules i.r-so {
+  border-top-color: var(--ink);
+}
+
+.shelf-rules i.r-ck {
+  border-top: 3px solid var(--ok);
+}
+
+.shelf-rules i.r-as {
+  border-top: 2px dashed var(--warn);
+}
+
+.shelf-rules i.r-mo {
+  border-top: 2px dotted var(--muted);
+}
+
+.shelf-foot {
+  display: grid;
+  flex: none;
+  gap: 2px;
+  padding: 9px var(--space-4) 10px;
+  border-top: 1px solid var(--hairline);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.shelf-foot .file {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  letter-spacing: -0.02em;
+}
+
+.shelf-said {
+  color: var(--warn);
+}
+
+/* ---- Files dropped on the tab (#355): the drop's look over the tab, and the short form that adds a part by hand ---- */
+
+/* Over the tab while files are carried across it: a dashed accent edge on a wash of the accent. It takes no pointer, so the drop lands on the tab. */
+.shelf-drop {
+  position: absolute;
+  inset: 6px;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  border: 1.5px dashed var(--accent);
+  border-radius: var(--radius-float);
+  background: color-mix(in srgb, var(--accent-wash) 92%, transparent);
+  color: var(--accent);
+  font-size: 12.5px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.shelf-drop b {
+  font-weight: 500;
+}
+
+.add-part {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.add-back {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-2) var(--space-3) 0;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.add-back svg {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+
+.add-back:hover svg {
+  color: var(--ink);
+}
+
+.add-back .num {
+  font-weight: 400;
+}
+
+.add-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* The files as pictures at one height, a PDF or a STEP as a tile with its ending; each named in mono under it. */
+.add-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.add-file {
+  display: grid;
+  gap: 3px;
+  width: 96px;
+}
+
+.add-pic {
+  position: relative;
+  display: grid;
+  height: 64px;
+  place-items: center;
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.add-pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.add-pic-file {
+  background: var(--surface);
+}
+
+.add-ending {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.add-take {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--raise);
+  box-shadow: 0 0 0 1px var(--hairline);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.add-take svg,
+.add-clear svg {
+  width: 9px;
+  height: 9px;
+}
+
+.add-take:hover,
+.add-clear:hover {
+  color: var(--ink);
+}
+
+.add-file-name {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-said {
+  margin: 0;
+  padding: 0;
+  color: var(--warn);
+  font-size: 11.5px;
+  line-height: 1.4;
+  list-style: none;
+}
+
+.add-field {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.add-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--field-edge);
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.add-input.num {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: -0.03em;
+}
+
+.add-input::placeholder {
+  color: var(--muted);
+}
+
+.add-input[aria-invalid='true'] {
+  border-color: var(--warn);
+}
+
+.add-help {
+  min-height: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.add-help:empty {
+  display: none;
+}
+
+.add-help[data-tone='warn'] {
+  color: var(--warn);
+}
+
+/* The sizes in one box: what it measures, its value as typed, where it came from. */
+.add-sizes {
+  padding: 2px 8px;
+  border-radius: var(--radius-float);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.add-size {
+  display: grid;
+  /* What it measures has a line of its own, the whole width; the value, its source and the clear button are under it. */
+  grid-template-columns: minmax(0, 1fr) 96px 18px;
+  gap: 5px 6px;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 12px;
+}
+
+.add-size > :first-child {
+  grid-column: 1 / -1;
+}
+
+.add-size + .add-size {
+  border-top: 1px solid var(--hairline);
+}
+
+.add-size .add-input {
+  height: 24px;
+  padding: 0 6px;
+  font-size: 11.5px;
+}
+
+.add-size .add-input.num {
+  font-size: 11px;
+}
+
+.add-source {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0 2px 0 5px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--raise);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+}
+
+/* A guess is the warm word, as an assumed size is in the part's rules. */
+.add-source[data-source='guess'] {
+  color: var(--warn);
+}
+
+.add-clear {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.add-more {
+  padding: 4px 0;
+}
+
+.add-more .button svg {
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+}
+
+.add-ask {
+  justify-content: center;
+}
+
+.add-problem {
+  margin: 0;
+  color: var(--fail);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.add-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.add-note .file {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  letter-spacing: -0.02em;
+}
+
+.add-back:focus-visible,
+.add-input:focus-visible,
+.add-source:focus-visible,
+.add-take:focus-visible,
+.add-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

@@ -43,9 +43,11 @@ While iterating run the focused test; run all four suites before a commit. `app/
 
 ## Global invariants
 
-- Never write inside a user workspace except under `<object>/.torno/`. Four exceptions: making a new object (its folder, with its photos, doodles, STEP files and PDFs copied into `reference/`
+- Never write inside a user workspace except under `<object>/.torno/`; a shelf part's folder `common/parts/<id>/` counts as a project for torno's own files (its `.torno/`, the checked dates).
+  Five exceptions: making a new object (its folder, with its photos, doodles, STEP files and PDFs copied into `reference/`
   and its board, `.torno/board/board.json`), an export the person saves, "Keep this as a folder" on the example (each one new folder or file, whole or not there), and Go
-  back, which writes and removes `.py` files of its own project's folder after the person confirms (`goback`).
+  back, which writes and removes `.py` files of its own project's folder after the person confirms (`goback`), and, when the person sends an "add a part" request from the Shelf tab (in a terminal, when they press the button),
+  the files they dropped (at most 8: pictures, PDFs, STEP), copied into `common/parts/<id>/`, whose folders it makes when missing (plain files, size-capped, whole or not there, never over a file of that name in any case or through a link; `shelf`).
   The kernel never writes a file. Never run `uv sync` there: always `uv run --no-sync`, and only when
   `<workspace>/.venv` exists (`workspace-writes`).
 - The kernel supervisor only imports. It never loads a model, builds, tessellates or answers a query. Workers never fork.
@@ -111,4 +113,5 @@ heading names the folder its text came from. Paths are as written there: from `a
   `chat-cards-and-refs`, `drawing-on-view`.
 - Scans: `scans-store`, `scans-regions`, `scans-window`. Screens: `first-screen`, `readiness`, `page-of-objects`,
   `new-object-create`, `new-object-onboard`, `new-object-page`.
+- The parts shelf: `shelf` (`common/parts/`: the kernel's op, the store, the types).
 - Files and shipping: `workspace-writes`, `export-page`, `export-saving`, `launcher-and-packaging`.

@@ -5,15 +5,17 @@ import { actions, store, useStore } from '../../state/store'
 import { tried } from '../paramRows'
 import { Layers } from '../Layers'
 import { ParamsPanel } from '../ParamsPanel'
+import { ShelfPanel } from './ShelfPanel'
+import { useShelf } from '../../state/shelf'
 import { giveKeysBack, TYPING } from '../typing'
 
-const TITLES: Record<BenchTab, string> = { params: 'Parameters', parts: 'Parts' }
+const TITLES: Record<BenchTab, string> = { params: 'Parameters', parts: 'Parts', shelf: 'Shelf' }
 
 /**
- * The bench: Parameters and Parts as two folder tabs that fill the column under the On block. The open one is kept for
+ * The bench: Parameters, Parts and Shelf as folder tabs that fill the column under the On block. The open one is kept for
  * each project (`store.benchTab`, in the window's storage). The tabs a project has are `benchTabs`: a one-part model
- * shows Parameters alone, a model with no Params Parts alone. The bodies are the Parameters and Parts components, as they
- * were in sections; the tab says how many each holds, and a dot on Parameters says a value is being tried.
+ * shows Parameters, a model with no Params Parts, and Shelf always comes last, with `Shelf 0` when the shelf is empty. The bodies are the Parameters, Parts and Shelf components; the tab says how many each holds, and a dot on
+ * Parameters says a value is being tried.
  */
 export function Bench() {
   const objectId = useStore((s) => s.objectId)
@@ -22,6 +24,7 @@ export function Bench() {
   const parts = useStore((s) => (s.scene?.parts ?? []).filter((p) => p.layout === layout).length)
   const params = useStore((s) => s.scene?.params)
   const tryingCount = (params ?? []).filter(tried).length
+  const shelf = useShelf((s) => s.parts.length)
   const tabs = benchTabs(parts, params?.length ?? 0)
   const open = tabShown(kept, tabs)
   const list = useRef<HTMLDivElement>(null)
@@ -37,7 +40,7 @@ export function Bench() {
 
   return (
     <div className="bench" data-tabs={tabs.length} key={objectId ?? ''}>
-      <div className="bench-tabs" role="tablist" aria-label="Parameters and parts" ref={list}>
+      <div className="bench-tabs" role="tablist" aria-label="Parameters, parts and shelf" ref={list}>
         {tabs.map((tab) => (
           <button
             key={tab}
@@ -55,13 +58,13 @@ export function Bench() {
               if (e.detail > 0) giveKeysBack(e.currentTarget)
             }}
           >
-            {TITLES[tab]} <span className="num">{tab === 'params' ? (params?.length ?? 0) : parts}</span>
+            {TITLES[tab]} <span className="num">{tab === 'params' ? (params?.length ?? 0) : tab === 'shelf' ? shelf : parts}</span>
             {tab === 'params' && tryingCount > 0 && <span className="bench-tried" title={`${tryingCount} ${tryingCount === 1 ? 'value' : 'values'} being tried`} role="img" aria-label={`${tryingCount} being tried`} />}
           </button>
         ))}
       </div>
       <div className="bench-panel" id="bench-panel" role="tabpanel" aria-labelledby={`bench-tab-${open}`}>
-        {open === 'params' ? <ParamsPanel /> : <Layers />}
+        {open === 'params' ? <ParamsPanel /> : open === 'shelf' ? <ShelfPanel /> : <Layers />}
       </div>
     </div>
   )

@@ -45,7 +45,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `O_NOFOLLOW` open, so no link, folder or pipe; read through the open handle, never more than the size said). Doodles
   come as PNG bytes (signature checked, at most 8 MB). Vendor STEP files (bought parts; `.step`/`.stp`) come as paths too, copied as they are to `reference/<their name>`
   (`stepFiles` in `shared/objectName.ts` names them, window and main alike: the stem made safe, the ending lower case, `-2` for a name taken, in any case), at most 50 MB
-  (`MAX_STEP_BYTES`), through the same `readRegular` (no link, folder or pipe). They are listed in the brief after the doodles and
+  (`MAX_STEP_BYTES`), through the same `readRegular` (no link, folder or pipe). `openRegular` (exported) is the reader under it, which `main/shelf/add.ts` also uses for the files of a part added by hand (`shelf`). They are listed in the brief after the doodles and
   named in the first prompt as a reference body for `import_step` and `references(p)` (`OnboardDraft.steps`: `reference/<file>` and a note;
   the file is checked as a plain file of `reference/` with a STEP name). torno reads nothing of them. `objects:pickStep` is their dialog
   (`__tornoMain.pickStep`, `stepPicks` count). Scans are not copied (`objects:onboard` imports them, or the window does when the project is made without starting Claude: `MakeDeps.importScan`) and other objects are named

@@ -36,6 +36,7 @@ def run(
     overrides: dict[str, Any] | None = None,
     trial: list[dict[str, Any]] | None = None,
     mesh: bool = False,
+    shelf: bool = False,
 ) -> NoReturn:
     """Build ``dir/model`` and serve queries on ``sock``. Never returns.
 
@@ -48,10 +49,14 @@ def run(
     answered in this process, one frame says it all and the worker leaves; it never serves. With ``mesh`` that
     frame carries the mesh blob a build's does, and the folder above ``dir`` is first on ``sys.path`` (a copy of
     a build lies in a workspace of its own: the one the kernel runs in is not the one its imports are of).
+    ``shelf`` makes it a read of the parts shelf of the workspace ``dir`` (``shelf.read``): one frame, no build, and it leaves.
     """
     try:
         _isolate(capture_fd, os.getppid() if parent is None else parent)
         channel = sock.makefile("rwb")
+        if shelf:
+            _shelf(channel, dir, deadline)
+            return
         built = _build(channel, dir, model, deadline, overrides, trial, mesh)
         if built is not None:
             _serve(channel, *built)
@@ -144,6 +149,12 @@ def _build(
         scene["overrides"] = {"applied": report.get("applied", {}), "dropped": report.get("dropped", [])}
         scene["groups"] = groups
         scene["uses"] = loader.used_files(Path(dir), model)
+        # The parts of the shelf (common/parts/<id>/part.py) it used and how many times its code called each: null where
+        # that could not be counted (no sys.monitoring before Python 3.12, a part imported inside a maker).
+        shelf = loader.shelf_uses((Path(dir) / model).resolve().parent.parent, scene["uses"])
+        if shelf:
+            calls = report.get("shelf_calls", {})
+            scene["shelf"] = {id: calls.get(id) for id in shelf}
         # Each part names its group, so that whoever has the part has it (an explode moves a group as one).
         group_of = {name: group["name"] for group in groups for name in group["parts"]}
         for part in scene.get("parts", []):
@@ -176,6 +187,16 @@ def _build(
         error["diagnosis"] = diagnosis
     write_frame(channel, {"ok": False, "error": error})
     return None
+
+
+def _shelf(channel: Any, root: str, deadline: float | None) -> None:
+    """Send the one frame of a shelf read: ``{"ok": true, "shelf": {"parts": [...]}}``, or the error that stopped it."""
+    from . import shelf
+
+    try:
+        write_frame(channel, {"ok": True, "shelf": shelf.read(Path(root), deadline)})
+    except BaseException as e:
+        write_frame(channel, {"ok": False, "error": _exception(str(e) or type(e).__name__)})
 
 
 def _tag_parts(scene: dict[str, Any], tags: dict[tuple[str, str], Any], kept: dict[Any, Any]) -> None:

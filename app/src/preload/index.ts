@@ -124,6 +124,12 @@ const bridge: TornoBridge = {
     problem: (objectId) => invokePlain('sets:problem', objectId),
     dismissProblem: (objectId) => invokePlain('sets:dismissProblem', objectId)
   },
+  shelf: {
+    list: () => invokePlain('shelf:list'),
+    measured: (id, name, value) => invokePlain('shelf:measured', id, name, value),
+    addFiles: (id, paths) => invokePlain('shelf:addFiles', id, paths),
+    onChanged: (cb) => subscribe('shelf:changed', cb)
+  },
   tracings: {
     list: (objectId) => invokePlain('tracings:list', objectId),
     make: (objectId, ask) => invokePlain('tracings:make', objectId, ask),

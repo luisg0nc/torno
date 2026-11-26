@@ -6,6 +6,9 @@ import { MOST_NOTE_PICTURES, NOTE_PICTURE_EDGE } from './notes/pictures'
 import { DEFAULT_SIZE, MAX_SIZE, SERVER_INSTRUCTIONS } from './mcp/schemas'
 import { registerTools, type ToolDeps } from './mcp/tools'
 import { FULL_PROMPT, SYSTEM_PROMPT } from './prompt'
+import type { Param } from '../shared/scene'
+import type { ShelfPart } from '../shared/shelf'
+import { SHELF_LIMIT, shelfLine } from './shelf/told'
 
 // What a turn costs (#127), held so that it only grows on purpose. Measured from the code, never with the real agent.
 // Claude 4.7 and later read an image in 28 px patches, one visual token each, up to 4,784 of them and 2,576 px on the long
@@ -49,5 +52,22 @@ describe('what a turn costs', () => {
   it('the text torno adds to the system prompt, with the instructions of its server, is under 12,000 characters', () => {
     expect(SYSTEM_PROMPT.length + SERVER_INSTRUCTIONS.length).toBeLessThan(12_000)
     expect(FULL_PROMPT.length).toBeLessThan(8900)
+  })
+})
+
+describe('what the parts shelf costs a conversation (#349)', () => {
+  const sized = (n: number): Param[] => Array.from({ length: n }, (_, i) => ({ name: `s${i}`, type: 'float', default: 1, literal: true, doc: 'assumed: a guess' }))
+  const BUTTON: ShelfPart = { id: 'push_button_16', file: 'common/parts/push_button_16/part.py', name: '16 mm push button', what: '', params: sized(2), checked: {}, files: [], cutout: { side: [], plan: [], size: { w: 33.4, h: 18.4 } } }
+  it('a part\'s line is at most 60 characters, for a long id, a window and sizes assumed', () => {
+    const lines = shelfLine([BUTTON]).split('\n')
+    expect(lines).toHaveLength(2)
+    expect(lines[1]).toBe('push_button_16: window 33.4 × 18.4, 2 sizes assumed')
+    expect(lines[1]!.length).toBeLessThanOrEqual(60)
+  })
+  it('the block of 30 parts is at most SHELF_LIMIT characters, the rest counted', () => {
+    const parts = Array.from({ length: 30 }, (_, i) => ({ ...BUTTON, id: `${BUTTON.id.slice(0, 11)}_${String(i).padStart(2, '0')}` }))
+    const block = shelfLine(parts)
+    expect(block.length).toBeLessThanOrEqual(SHELF_LIMIT)
+    expect(block).toMatch(/\nand \d+ more$/)
   })
 })

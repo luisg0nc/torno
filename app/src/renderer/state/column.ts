@@ -100,13 +100,17 @@ export function cardFor(s: { page: 'object' | 'objects' | 'new'; objectId: strin
   return s.page === 'object' && s.objectId !== null
 }
 
-/** The two tabs of the bench: the model's Params and its parts. */
-export type BenchTab = 'params' | 'parts'
+/** The tabs of the bench: the model's Params, its parts, and the workspace's shelf of bought parts. */
+export type BenchTab = 'params' | 'parts' | 'shelf'
 
-/** Which tabs a project has: Parameters when the model has Params, Parts when it has more than one part (or no Params to show instead). A one-part model shows Parameters alone, a model with no Params Parts alone. */
+/**
+ * Which tabs a project has: Parameters when the model has Params, Parts when it has more than one part (or no Params to show instead). A one-part
+ * model shows Parameters, a model with no Params Parts. Shelf is always the last tab while a project is open, whatever the model has and
+ * even when the shelf is empty: it is where the first part is dropped (#355).
+ */
 export function benchTabs(parts: number, params: number): BenchTab[] {
-  if (params === 0) return ['parts']
-  return parts > 1 ? ['params', 'parts'] : ['params']
+  const model: BenchTab[] = params === 0 ? ['parts'] : parts > 1 ? ['params', 'parts'] : ['params']
+  return [...model, 'shelf']
 }
 
 /** The tab to draw: the one kept for the project if it has it, else the first of its tabs (Parameters). */
@@ -129,7 +133,7 @@ export function readBench(raw: string | null): BenchKept {
   }
   if (typeof kept !== 'object' || kept === null || Array.isArray(kept)) return {}
   const out: BenchKept = {}
-  for (const [id, tab] of Object.entries(kept)) if (tab === 'params' || tab === 'parts') out[id] = tab
+  for (const [id, tab] of Object.entries(kept)) if (tab === 'params' || tab === 'parts' || tab === 'shelf') out[id] = tab
   return out
 }
 

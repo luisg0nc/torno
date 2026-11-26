@@ -58,11 +58,11 @@ async function open(name: string): Promise<void> {
   await expect.poll(async () => { const s = await state(); return s.objectId === name && s.build?.status }, { timeout: 30_000 }).toBe('ok')
 }
 
-test('a model with no Params has no Parameters tab: the bench is Parts alone, and there are no rows', async () => {
+test('a model with no Params has no Parameters tab: the bench is Parts and the fixture workspace\'s Shelf, and there are no rows', async () => {
   await open('plain')
   await expect(page.locator('.left .layers')).toBeVisible()
   await expect(benchTab(page, 'Parameters')).toHaveCount(0)
-  await expect(page.locator('.left .bench-tab')).toHaveCount(1)
+  await expect(page.locator('.left .bench-tab')).toHaveText([/^Parts\s*\d+$/, /^Shelf\s*1$/])
   await expect(section()).toHaveCount(0)
   await expect(section().locator('[data-param]')).toHaveCount(0)
 })

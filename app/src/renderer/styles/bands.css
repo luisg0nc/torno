@@ -31,6 +31,12 @@
 }
 
 /* The buttons inside are 26 px pills: on the accent band, `--on-accent` grounds with accent text; on a quiet one, transparent. */
+/* The shelf's mark in front of the words of a placing: the size of the text, in the band's ink. */
+.band-icon {
+  flex: none;
+  margin-right: -4px;
+}
+
 .band-button {
   height: 26px;
   padding: 0 11px;

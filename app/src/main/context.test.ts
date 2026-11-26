@@ -23,6 +23,8 @@ import { openSketch, sketchHandlers } from './sketches/ipc'
 import { MarkStore } from './marks/store'
 import { describeMark } from './marks/describe'
 import type { Round, RoundsView } from '../shared/reviews'
+import type { ShelfPart } from '../shared/shelf'
+import { shelfLine } from './shelf/told'
 
 const BRACKET: ObjectInfo = { id: 'bracket', name: 'bracket', dir: '/ws/bracket', model: 'bracket.py' }
 
@@ -40,9 +42,10 @@ const SCENE: Scene = {
 
 const CAMERA = { position: [1, 2, 3], target: [0, 0, 0], up: [0, 0, 1], ortho: false, fov: 35, zoom: 1 } as ViewState['camera']
 
-function deps(over: { build?: BuildState; scene?: Scene; revision?: number; view?: ViewState; now?: number; open?: string | null; name?: string; references?: string[] }): ContextDeps {
+function deps(over: { build?: BuildState; scene?: Scene; revision?: number; view?: ViewState; now?: number; open?: string | null; name?: string; references?: string[]; shelf?: ShelfPart[] }): ContextDeps {
   return {
     references: () => over.references ?? [],
+    ...(over.shelf ? { shelf: () => over.shelf as ShelfPart[] } : {}),
     object: (id) => (id === 'bracket' ? { ...BRACKET, name: over.name ?? BRACKET.name } : undefined),
     openObjectId: () => (over.open === undefined ? 'bracket' : over.open),
     build: () => over.build,
@@ -79,6 +82,54 @@ describe('the references of a new conversation', () => {
     const text = contextFor(deps({ build: OK, scene: SCENE, references: many }), 'bracket', [], { fresh: true }).text
     expect(text).toContain(`reference/: ${many.slice(0, 12).join(', ')} and 2 more. Read them when they matter`)
     expect(text).not.toContain('photo-13.jpg')
+  })
+})
+
+describe('the parts shelf of a new conversation (#349)', () => {
+  const OK: BuildState = { objectId: 'bracket', status: 'ok', revision: 1, seconds: 0.5, stale: false }
+  const shelved = (id: string): ShelfPart => ({ id, file: `common/parts/${id}/part.py`, name: id, what: '', params: [], checked: {}, files: [], cutout: { side: [], plan: [], size: { d: 7 } } })
+  const SHELF = [shelved('ec11'), shelved('jack')]
+  const LINE = shelfLine(SHELF)
+  it('is told as a block in a new conversation or after /clear, and with no other prompt', () => {
+    const d = deps({ build: OK, scene: SCENE, shelf: SHELF })
+    expect(contextFor(d, 'bracket', [], { fresh: true }).text.endsWith(`\n${LINE}`)).toBe(true)
+    expect(contextFor(d, 'bracket', [], { newConversation: true }).text.endsWith(`\n${LINE}`)).toBe(true)
+    expect(contextFor(d, 'bracket').text).not.toContain('On the shelf')
+  })
+  it('is not told of an answer to an edit (the build only), and is nothing when the shelf is empty or not kept', () => {
+    expect(buildContextFor(deps({ build: OK, scene: SCENE, shelf: SHELF }), 'bracket').text).not.toContain('On the shelf')
+    expect(contextFor(deps({ build: OK, scene: SCENE, shelf: [] }), 'bracket', [], { fresh: true }).text).not.toContain('On the shelf')
+    expect(contextFor(deps({ build: OK, scene: SCENE }), 'bracket', [], { fresh: true }).text).not.toContain('On the shelf')
+  })
+  it('is told with the onboarding prompt too: a new project should know the shelf', () => {
+    const d = deps({ build: OK, scene: SCENE, shelf: SHELF, references: ['photo-1.jpg'] })
+    const text = contextFor(d, 'bracket', [], { newConversation: true, onboarding: true }).text
+    expect(text).toContain(LINE)
+    expect(text).not.toContain('reference/')
+  })
+  it('comes after the references and before the instruction files, the last line', () => {
+    const d = deps({ build: OK, scene: SCENE, shelf: SHELF, references: ['photo-1.jpg'] })
+    const FILES: InstructionFile[] = [{ path: '/home/me/objects/CLAUDE.md', shown: '~/objects/CLAUDE.md', kind: 'project', bytes: 7300 }]
+    const lines = contextFor(d, 'bracket', [], { newConversation: true, instructions: FILES }).text.split('\n')
+    const files = instructionsLine(FILES) as string
+    expect(lines.at(-1)).toBe(files)
+    expect(lines.slice(-1 - LINE.split('\n').length, -1).join('\n')).toBe(LINE)
+    expect(lines[lines.length - 2 - LINE.split('\n').length]).toContain('reference/: photo-1.jpg')
+  })
+  it('is left out whole when it does not fit beside the marks, and the marks keep their room', () => {
+    const d = deps({ build: OK, scene: SCENE, shelf: SHELF })
+    const pin = (id: string): Mark => ({ id, kind: 'pin', author: 'user', note: 'n'.repeat(60), status: 'draft', anchorState: 'ok', layout: 'assembly', revision: 1, camera: CAMERA, createdAt: '', checkedRevision: 1, anchor: { point: [0, 0, 0] } }) as Mark
+    const many = Array.from({ length: 200 }, (_, i) => pin(`M${i + 1}`))
+    const full = contextFor(d, 'bracket', many, { newConversation: true })
+    expect(full.text.length).toBeLessThanOrEqual(CONTEXT_LIMIT)
+    expect(full.text).not.toContain('On the shelf')
+    expect(full.sentMarkIds.length).toBeGreaterThan(0)
+  })
+  it('is never more than its limit', () => {
+    const big = Array.from({ length: 60 }, (_, i) => shelved(`part_with_a_long_name_${i}`))
+    const text = contextFor(deps({ build: OK, scene: SCENE, shelf: big }), 'bracket', [], { fresh: true }).text
+    expect(text).toContain('On the shelf, common/parts/ (60 parts;')
+    expect(text).toMatch(/\nand \d+ more$/)
   })
 })
 

@@ -12,7 +12,7 @@ numbers; the agent is told what you pointed at and has tools to see what you
 see.
 
 The window has three parts. On the left, the
-route card: the On block and, filling the column, Parameters and Parts as two tabs, which pushes
+route card: the On block and, filling the column, Parameters, Parts and Shelf as tabs, which pushes
 the 3D view over. In the
 middle, the parts in 3D, with the compass at the top right and the tools down the
 left edge. On the right, the terminal the agent runs in. A line at the bottom
@@ -373,6 +373,162 @@ from `bd_warehouse`, which torno's own kernel environment has (`simple=True` for
 model itself (`import_step`) and returned among the references, as torno reads no file of its own accord. A reference that is a
 library's compound of many solids is taken as the solids it holds, in one shape.
 
+**The parts shelf.** A part bought for several projects lives once, in the workspace's `common/parts/`: one folder a part,
+`common/parts/<id>/part.py`, where `<id>` is a Python identifier (`ec11`, `push_button_16`; a name with a `-` cannot be imported).
+The file says what Claude and torno read of it:
+
+```python
+"""EC11 rotary encoder
+A 20-detent encoder with a push switch, on a 7 mm bushing."""
+@dataclass(frozen=True)
+class Params:
+    bushing_d: float = 7.0   # datasheet ec11.pdf: bushing thread
+    shaft_h: float = 15.0    # assumed: above the panel
+
+def body(p): ...      # the part as bought
+def cutout(p): ...    # optional: what to subtract from a panel, the fit included
+def keepout(p): ...   # optional: the room to keep clear around and behind it
+```
+
+The docstring's first line is the part's name, the rest what it is. Every size of `Params` says where it comes from, as in any model
+(see Parameters). `body(p)` is drawn with the panel it mounts in as the XY plane, its front face at `z = 0`, and `+Z` the side you see;
+`cutout(p)` is the solid to subtract from a panel at the origin and `keepout(p)` the room to keep clear. Its datasheets and photos sit
+beside `part.py`. A project uses a part by importing it
+(`from common.parts.ec11.part import Params as EC11, body as ec11_body, cutout as ec11_cutout`), putting the body among its
+`references(p)` and subtracting the cutout in the model; a save in the part's folder builds each project that imports it, as any save in
+`common/` does.
+
+Claude is told what is on the shelf: a conversation's first prompt (and the first after `/clear` or a compaction, and the first
+prompt of a new project) carries a block of at most 600 characters, `On the shelf, common/parts/ (6 parts; use one before researching
+it, and say which sizes are assumed):` and a line a part, `ec11: hole Ø7, 2 sizes assumed`; what does not fit is counted (`and 4 more`),
+and a part that does not build says so. With no part on the shelf the prompt has no such block. Claude uses a part from the shelf
+before it researches one, says which of its sizes are assumed, and before it writes a part it researched to the shelf it asks you
+(`Put EC11 rotary encoder on the parts shelf?`, with a line for each size, its value, what it measures and its source, and the choices
+`Put it on the shelf` and `Not this one`); it writes the folder only when you say yes, and copies into it the datasheet or photo the
+sizes came from.
+
+Claude asks before it shelves a part. A question whose header is `Shelf` is drawn as an offer, not as a list of rows: the first line of
+the question is its title, each line after it that reads `<value> <what> (<source>)` is a row of a small table (the value in the face of
+numbers, what it is, and where it comes from: `assumed` in the warning colour, `measured` green, any other quiet), and any other line is
+text, in its place. **Put it on the shelf** (the main button) and **Not this one** answer at once; the field beside them, `or answer in
+your words`, takes anything else, and **Send** appears when you have typed. A `Shelf` question with no size line is an ordinary question.
+After Claude writes, edits or makes a file in `common/parts/<id>/` (Write, Edit or MultiEdit, in the chat's tool cards), a slip stands under
+that card: `On the shelf: ec11` and the file, and, once the shelf lists the part (a moment after the file is saved), its picture, name,
+what it cuts and its rules as the tab has them, with **Open it**, which opens the part's page. A part that does not build says so in the
+warning colour. Several writes to one part in one turn are one slip, under the last. A refused write has no slip, and nothing of the slip is stored: the
+chat draws it from what its cards say.
+
+What torno reads of the shelf. When a workspace opens, and again 400 ms after the last save under `common/parts/`, the kernel reads
+the shelf in a worker of its own, as it builds a project, and imports each part alone: a part that fails to import or to draw is that
+part's error, and the others are read as they are. For each part it takes the name and what it is from the docstring, the sizes of
+`Params` with their units and where each comes from, the other files of the folder, and, drawn with the sizes `Params` has by default,
+the part's body (its box and its section from the side), its cutout (the section from the side and from above, and the size of the
+hole: a diameter when it is one circle, else its width and height) and its keep-out. The drawings are the B-rep's cross-sections in
+millimetres, at most 400 points an outline, never a mesh. Alongside, torno reads each part's `.torno/checked.json`, the sizes you
+have checked on the part with the day (reading it changes nothing; the one thing torno writes there is that file, when you say you measured a
+size, see "A part opened"). No file of a part is made or changed by reading it. A project's build says which parts of the shelf it used (`shelf` in its scene, beside `uses`): for each, how many times
+the model called the part's `cutout` (its `body` when it has none) while it built. Python before 3.12 cannot count, and a part
+imported only inside a maker is not seen coming: such a part is told used with no count.
+
+The Shelf tab. Every open project has a last tab on the left, **Shelf** and the number of its parts, after Parameters and Parts, whether
+or not the project has Params. With no part on the shelf it says `Shelf 0`, and the tab says `No parts on the shelf yet.` and `Claude asks
+before it puts a part it researched here. Or drop a datasheet, STEP or photo here to add one.` instead of the list; the drop works there
+as on a full shelf (see "Adding a part by hand"). A row for each part: its picture, its
+name, what it cuts (`hole Ø7.2` for a round hole, `window 18.4 × 33.4` for another; nothing for a part with no cutout), a row of short
+rules and, at the right, `× 9` for how many times the open project used it. The picture is the part's section from the side as the kernel
+drew it, on a floor line, at one scale for all the parts, 1.25 px a millimetre, so a bigger part is drawn bigger (one too big for its
+frame is let down to fit it); a part that does not build shows its name and `does not build` instead. The rules are one a size: a solid
+one for a size with a source, a thick green one for a size you checked on the part (its comment says `measured:` or it has an entry in
+`.torno/checked.json`), a dashed one in the warning colour for an assumed size, a dotted one for a size worked out from others
+(`derived:`); the tooltip of the rules says it in words, `7 sizes: 5 with a source, 2 assumed, 1 checked on the part`. The parts the open
+project used (it counted them, or it read their files) come first, under `In <project>` and their number, then those under `Not in this
+project`, each by name. Over the rows, a find box, `Find a part or a size`, narrows them by every word typed, any case, in the part's
+id, its name, what it is or a size's value as written (`7.2`; Esc clears it), and three chips, `All`, `In this project` and
+`Assumed sizes`, each with its number, keep every part, those the project used and those with a size still assumed (one you checked is
+not). A find that matches nothing says `No part matches`. A row is a button: a click, or Enter on it, lights it and opens the part in the view (below). At the foot the tab says `All at one
+scale. From common/parts/, which Claude keeps.` and `Drag a part onto the model, or drop a datasheet, STEP or photo here.`
+
+A part opened. Opening a part shows it in the view as a tracing is shown: the switch at the top left gets a tab with the part's id in the
+monospace face and a `×`, as in `Model  Brief  ec11 ×  +`, and the page takes the view's place (the 3D view is not drawn meanwhile).
+Model and Brief show theirs again and leave the tab; the tab shows the part again; `×` closes the page and the tab, back to the model
+(and the row is no longer lit). `Ctrl+Tab` goes on round to the part after the last view the project has. The window keeps which part
+and whether its page was shown for each project, so a project opens on it again; a part that is no longer on the shelf (its folder was
+deleted) closes its page. The page has the part's name, what it is and `common/parts/<id>/part.py`, and these buttons: **Place on the
+model** (shows the model and starts placing, see "Placing a part on the model"), **Ask Claude about it**, which puts
+`About the shelf's ec11: ` in the message box for you to finish (it opens the chat if it is shut and starts a session when none runs;
+never sent), and the part's other files by name. Under them is the drawing, then what its lines say, then the sizes.
+
+Placing a part on the model. Drag a row of the Shelf tab onto a face of the model, or press **Place on the model** on a part's page and
+click a face. The row you carry is ringed in the accent, with its picture faint. Over a face the part's ghost lies on it, in the accent: the
+cutout's outline as a solid line and the keep-out's as a dashed one over a light wash, in the face's plane at the pointer, the part's top
+(its +Z, the side you see) along the face's outward normal and its X along the world X taken into the face (along the world Y on a face
+that looks along X), so the ghost keeps its turn as the pointer moves. A drop, or a click while placing, on a face leaves a **pin** there, a
+mark of yours with the note `ec11 from the shelf` and no note to write, and the face keeps a small accent ring of the cutout while you go on.
+A drop off the model, over an edge, while the build is not the one on screen or while the parts are drawn apart, does nothing. Files dropped
+on the view are imported as scans as before. A tag by the pin says `ec11 on the face, M7` and what the part cuts and keeps clear, from the
+kernel's numbers (`cuts Ø 7.2, keeps 16 × 16 clear`, or `cuts 33.4 × 18.4` for a window); it goes when the pointer moves on.
+
+While you place, a band at the top left says `Placing ec11 from the shelf, 1 placed`, with **Ask Claude** and **Stop**. Each pin adds to a
+request in the message box, never sent by itself: `Put the shelf's ec11 at M7 on the face: cut its cutout and keep its keep-out clear.`,
+and with more pins `at M7 and M8` or `at M7, M8 and M9`, and `on the faces` when the pins are not all on one face. The sentence is made
+longer where it stands, so what you wrote round it stays; when you have changed the sentence itself, the next pin gets a sentence of its own
+at the cursor. With no session running one is started with the request in its box; with a terminal session the request is typed at its
+prompt once, when placing ends. Placing ends on **Stop**, on `Esc` (when the keys are not in a field), when you take another tool or
+switch project, and when the part leaves the shelf; **Ask Claude** ends it and gives the keys to the message box. The pins stay, and are
+marks like any other: they go to Claude with your next prompt.
+
+The drawing is made from the numbers the kernel read, never from ours. On the left, the part through a panel, seen from the side: the
+panel is a slab 2 mm thick (z from -2 to 0) cut where the cutout's section crosses it, the part's section in the shelf's metal over it,
+and the keep-out as a dashed box in the accent, labelled `keep clear`. On the right, `the cutout, from above`: a square of panel with
+the hole, its centre lines and the keep-out. Four dimensions in the monospace face, from the kernel's measures: the cutout's size over
+the top (`Ø 7.2`, or `33.4 × 18.4` for a window; also under the view from above), the height above the panel (the box's highest
+point), the depth below it, and the body's width under it. The scale is the largest at which the part, its keep-out and the numbers fit
+(at most 16 px a mm), so a tiny insert is not drawn huge. A dimension takes the line style of the one size in `Params` whose value is
+the same to a millionth of a millimetre; with none, or with two of them, it is a plain solid line. A size with a source (datasheet,
+listing, standard, anything else written) is a solid line, one checked on the part (its comment says `measured:`, or it has an entry in
+`.torno/checked.json`) is green, thicker and ends in a ring with a tick, an assumed one is dashed in the warning colour, one worked out
+from the others (`derived:`) is dotted and quiet; the legend under the drawing says it. A part with no cutout has no gap in the panel and
+no view from above, one with no keep-out no dashed box, and a part that does not build shows its error in the monospace face instead of
+a drawing.
+
+The sizes are a ledger, a row for each size of `Params`: its value with its unit, what the comment says after its source word, the
+size's name, the source word as written (`datasheet EC11`, `assumed`; in the warning colour for an assumed one, green for a measured
+one, quiet for a listing or a worked-out one) and, at the end, one of three things. A size worked out from the others says `from the
+maker`. One you checked says `checked 26 Nov` with a green ring tick (and, when the value you measured is not the part's, `, at 6.6`:
+Claude has not changed the file yet). Any other has a button, **I measured it…**, which turns the row into `You measured [value] mm`:
+the field has the keys and the part's value in it, **Ask Claude to change it** is the main button (it waits for a number above 0 and
+under 10,000; Enter does the same) and **Cancel** (Esc too) puts the row back. Asking writes the value and today's date into the part's
+`common/parts/<id>/.torno/checked.json` (`{ "body_h": { "value": 6.6, "date": "2026-11-26" } }`, merged with the sizes already there; the
+file stays with the part and goes to git with it), and puts `In the shelf's ec11, set body_h to 6.6: I measured it on the part. Make its
+comment measured.` in the message box, never sent: Claude changes the value and the comment in `part.py`, and until it does the size
+is checked and the part's file still says the old value. torno writes nothing else, and never into `part.py`. It writes that file only
+when `.torno` is a real folder (a link or a file in its place is refused with a reason shown in the row), and leaves a
+`checked.json` it cannot read as it is, saying so.
+
+Adding a part by hand. Drop a datasheet, a STEP file or a photo on the Shelf tab (it shows a dashed edge in the accent while you carry files
+over it) and the tab becomes a short form in place of the list: **New part, from 2 files you dropped**. It takes PDFs, PNG, JPEG and WebP
+pictures and STEP files (`.step`, `.stp`), at most 8 for a part, a picture or a PDF of at most 25 MB and a STEP of at most 50 MB; any other
+file, one with no place on the disk, one over its size or one that would have the same name as another is left out and said above the
+form. The files show as pictures (a PDF or a STEP as a tile with its ending), each with its name, and a small cross takes one off. **Name**
+is the part's folder, in mono, made from the first file's name and yours to change: a lower-case identifier of letters, digits and `_`, not
+starting with a digit (a project imports the part by it), checked as you type, and not a part already on the shelf. **What is it** is a
+line. The box of sizes has a row for each size you know: what it measures, its value as you type it (`6.2`, `13 × 8`, `Ø 6.2`) and where it
+came from, **datasheet**, **listing**, **measured** or **a guess** (up to 20 rows; **Add a size**; the cross clears a row). An empty row is
+left out; a row with only one of its boxes filled holds the button back. **Back**, and Esc, leave the form with nothing written.
+
+**Ask Claude to put it on the shelf** puts a request in the message box, shown first and never sent: `Put the MTS-101 mini toggle, SPST,
+two pins on the shelf as mts_101: Ø 6.2 panel hole (datasheet), 6 bushing (datasheet), 10 lever (assumed). Its files are in
+common/parts/mts_101/: drawing.jpg, sizes.jpg. Model it as the torno-model skill says.` (a guess is told as `assumed`). Claude writes the
+part's `part.py` itself, after it has asked you with the Shelf question. torno copies your files into `common/parts/<name>/` when you
+send a message that still has `common/parts/<name>/` in it, and before it goes: the folders `common/`, `common/parts/` and the part's are
+made when they are not there, and each file is copied whole or not at all, never over a file of that name in any case of its letters (so
+more photos may be added to a part that is on the shelf, and nothing there is changed), and never through a link, which is also how a file
+that is a link is refused. torno writes nothing else, no `part.py` and no `.torno`. If a file is refused, the message is not sent: the
+box's error line says which file and why, and the text stays for you to change and send again (the files that were copied stay; a second
+send copies only what is left). A message that no longer has the folder in it goes without the files, and torno forgets the request. In a
+terminal session there is no box to send from, so the files are copied when you press the button (the form says so), and the request is
+typed at the prompt after that; when it is refused nothing is typed.
+
 **Builds.** Saving a file in the project's folder (dotfiles, `out/`, `cache/`,
 `.torno/` and `__pycache__/` are ignored, as are `build/`, `dist/`,
 `node_modules/`, `.venv/` and `.git/`) or in the workspace's `common/` starts
@@ -490,7 +646,7 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the block of the build on show, "Latest build · prompt 5" (see Marks). Under it **Parameters** and **Parts** are two tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone. Scans and Tracings are not in the column: they are tabs of the view's switch, shown when the project has a scan or a tracing, with their panels in the column in place of the two tabs while the view is shown (see Scans and Tracings). Checks and Marks are not in the column: they are blocks of the Brief page (see The brief). Drag the right edge of the card to make itDrag the right edge of the card to make it
+**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the block of the build on show, "Latest build · prompt 5" (see Marks). Under it **Parameters**, **Parts** and **Shelf** are tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone; Shelf (see The parts shelf) comes last whenever the workspace has a part on its shelf. Scans and Tracings are not in the column: they are tabs of the view's switch, shown when the project has a scan or a tracing, with their panels in the column in place of the two tabs while the view is shown (see Scans and Tracings). Checks and Marks are not in the column: they are blocks of the Brief page (see The brief). Drag the right edge of the card to make itDrag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. How wide the card is, and how wide the session pane is, are kept by the window, not in the folder. The card is there only while a project is open: on the page of projects, while a new
@@ -509,7 +665,7 @@ rest back. That is a view of the list: the agent is told every mark as before. I
 in the view lights its row, and the rows of its marks and of its checks, with the accent wash and a bar at the left, instead of
 lines drawn to them. **`Ctrl+P` opens the picker**, a sheet over the middle of the view, for a model with many parts: every part of the layout, under its group's name, and then every value of the model, in one list. What you type narrows it (a part is found by its name or its group's, a value by its name or its comment; every word must be found), and the count at the foot says `4 of 40`; at most 60 rows are drawn, so a model of hundreds is searched, not scrolled. `Up` and `Down` choose; `Enter` takes the row: a part is selected and brought into view (and switched on if it was hidden), a value opens the Parameters tab with its control in focus. `Alt+Enter` shows only the part and `Alt+H` hides it or shows it again; the pointer on a row lights the part in the view as in the Parts tab. `Esc`, `Ctrl+P` again or a press beside it puts it away. Parameters lists the fields of
 the model's `Params` (a model with none has no Parameters tab). Over the list, a find box (`/` from anywhere outside a field opens the tab and puts the cursor in it; Esc clears it) narrows the rows by what is in a name or a comment, and a tally of four counts over the list, `all`, `assumed`, `brief` and `no source`, each the number over its word and each a filter (assumed in the warning colour; the names of the sizes are in its tooltip), keeps the sizes whose comment says `assumed:` or `brief:` or says no source; with a find or a filter on, a line says `3 of 22 match`. The list is a ledger, one line a field in the model's order: its name, where its comment says it comes from in one word
-(`photo-1` for `ref photo-1.jpg:`, `you` for `person:`, `model` for `derived:`, `brief`, `assumed`, `ISO 7380`, `no source`), and
+(`photo-1` for `ref photo-1.jpg:`, `you` for `person:`, `model` for `derived:`, `brief`, `assumed`, `listing`, `measured`, `ISO 7380`, `no source`), and
 its value in a field of its own, in the monospace face (four digits at most, the whole value on hover), said once. Each
 number says its unit in its field, muted, after the value: `96 mm`, `15°`, `9` for a count. A number written as a `float`
 is in millimetres unless the model says otherwise; a whole number (an `int`) has no unit unless the model gives one, since
@@ -524,7 +680,8 @@ The comment is in the line's tooltip (and, in a column 360 px wide or more, on t
 or `Enter` on it in the picker): the comment whole with its source as written, the slider where the model gives a
 range, and, for a value you are trying, the kept line with Reset. A value you try keeps its line open. Pointing at a line lights the faces
 its value drives and moves nothing. The model's comments should begin with where a size
-comes from (`brief:`, `M3:`, `S1 ≈:`, `ref <file>:`, `object:`, `datasheet <name>:`, `person:`, `derived:` or
+comes from (`brief:`, `M3:`, `S1 ≈:`, `ref <file>:`, `object:`, `datasheet <name>:`, `listing:` (a seller's page),
+`measured:` (your own tape or calipers), a standard (`ISO 15:`, `DIN 912:`, `EN 10025:` or `standard:`), `person:`, `derived:` or
 `assumed:`), and the tally counts them; it is what the model says, not something torno has checked. Trying a value never writes the model. A
 field whose default is a number or a flag written in the file (`wall: float = 2`, `lid: bool = True`), or a
 `Literal["round", "square"]`, is its own control: type a number and press Enter, or let go of a slider
@@ -1219,6 +1376,8 @@ Open marks: M2 (moved), M6 (unchecked)
   after `/clear`, or after a compaction) ends with a line naming the files in `reference/` (twelve at
   most, then how many more), to read when they matter. The first prompt of a new project names them itself, and
   has no such line.
+- The same prompts, the first prompt of a new project too, carry a block naming the parts on the parts shelf (`common/parts/`, see
+  "The parts shelf" under the model): a line a part, its hole and how many of its sizes are assumed, in at most 600 characters.
 - The first prompt of every session, resumed or not, and the first after
   `/clear`, ends with a line naming the instruction files Claude Code reads
   there by default (six at most, with their sizes;
@@ -2049,7 +2208,7 @@ replace its own proposals (12 at most) and never a view of yours.
 ## The brief
 
 Each project has a brief: one page that says what the project is, the sizes you gave, the rules, and the notes and pictures that go with them. **Model**, **Brief**, **Scans** and **Tracing** (below) take the main
-area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); Scans and Tracing are in the switch only while the project has a scan or a tracing (or while that view is the one shown), and `Ctrl+Tab` passes over what is not there. A `+` at the end of the switch makes the first of either: **Import scan…** and **New tracing…**. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
+area in turn by the switch at its top left and by `Ctrl+Tab` (not while a field has the keys); Scans and Tracing are in the switch only while the project has a scan or a tracing (or while that view is the one shown), a part of the parts shelf that is open has its id there too (see "A part opened"), and `Ctrl+Tab` passes over what is not there. A `+` at the end of the switch makes the first of either: **Import scan…** and **New tracing…**. The window remembers the last choice for each project; a project opens on the model until its brief has something of yours or Claude's.
 The model stays loaded while the brief or a tracing is shown, so nothing is built again on the swap, and the card, the chat and the status line stay as they are.
 
 The page is in two voices: who wrote what is said by where it stands. From the top:
@@ -3057,7 +3216,7 @@ With a real agent:
 - **A failed or old Claude Code in the chat.** A `claude` that does not know one of the chat's flags, or is signed out: the pane says "Claude Code stopped (exit code 1)" with the last line it wrote, and "It did not start: is `claude` up to date and signed in?". Not yet seen with a real old CLI; the stand-in prints to stderr and exits 1.
 - **A chat that could not use the login, with the real CLI.** The stand-in plays it (`FAKE_AGENT_AUTH_ERROR`) in the shape of the Agent SDK's types (an assistant message with `error: "authentication_failed"`, then a `result` with `is_error: true`); no real CLI has been seen to print it. Start torno with `CLAUDE_CODE_SIMPLE=1` (what `--bare` sets) and no `ANTHROPIC_API_KEY`, send a prompt in a chat: the CLI's words, then the warning "Claude Code's chat could not use your login" with "Use the terminal", once. Note what the CLI prints then (`claude -p --bare --output-format stream-json --verbose hello` in a terminal, with no key: the assistant message's `error`, the `result`'s `subtype`, `is_error` and `api_error_status`) and whether a signed-out `claude` (`claude auth logout`) or a login that ran out answers the same way or exits (an exit leaves the chat ended, and its "Use the terminal" still starts the terminal). Then start torno without the variable: "Use the terminal" ends the chat and the same conversation goes on in the terminal.
 - **Subagents and thinking.** A turn with a subagent (`Task`; newer versions may call the tool `Agent`) and one with extended thinking: the card counts steps and lists the tools, "Thought for N s" shows after a thought. The number was worked out from a recording; nobody has looked at it with the real CLI.
-- **The chat with the real Claude Code.** In a session in chat: a prompt with a pin or two marked (the "with" line shows them and they turn to sent); a command that asks permission, answered "Allow", then another with "Allow for this session" (the next like it is not asked, and `~/.claude/settings.json` and the project's `.claude/` are as they were), then one "Deny"; a question (`AskUserQuestion`) answered with an option and with "Other", and three questions read as three steps ("1 of 3", one at a time, then "Review" and "Send answers"), a question with four options fitting the dock without scrolling; a plan in plan mode approved; "Attach view" (the agent describes what you see); the model menu (the next answer is from that model, and `/model` in the terminal still shows your default); the effort menu (a level chosen is taken, `/effort` in the terminal still shows your default, and `~/.claude/settings.json` is as it was); a new project made with a model and an effort chosen beside "Create" (its first answer is from that model, at that effort); `/compact` (one note, the conversation goes on); "Terminal", then "Chat" again: the same conversation, its earlier part shown.
+- **The chat with the real Claude Code.** In a session in chat: a prompt with a pin or two marked (the "with" line shows them and they turn to sent); a command that asks permission, answered "Allow", then another with "Allow for this session" (the next like it is not asked, and `~/.claude/settings.json` and the project's `.claude/` are as they were), then one "Deny"; a question (`AskUserQuestion`) answered with an option and with "Other", a `Shelf` question for a part it researched (the table of sizes, "Put it on the shelf", then the slip under the Write with "Open it"; "Not this one" writes nothing), and three questions read as three steps ("1 of 3", one at a time, then "Review" and "Send answers"), a question with four options fitting the dock without scrolling; a plan in plan mode approved; "Attach view" (the agent describes what you see); the model menu (the next answer is from that model, and `/model` in the terminal still shows your default); the effort menu (a level chosen is taken, `/effort` in the terminal still shows your default, and `~/.claude/settings.json` is as it was); a new project made with a model and an effort chosen beside "Create" (its first answer is from that model, at that effort); `/compact` (one note, the conversation goes on); "Terminal", then "Chat" again: the same conversation, its earlier part shown.
 - **Making a new project with the real Claude Code.** "New project" with a name, a description, two photos from a phone (one large), a doodle, a scan and a reference to another project, each with a note, then "Create": the project is opened, its chat shows the one prompt with the pictures, Claude Code's reply speaks of them and of the notes, the scan is in the Scans list, `reference/` holds the original photos, and nothing else was written in the workspace. The stand-in agent has taken the prompt; the real CLI has not.
 - **The Brief of a new project, with the real Claude Code.** Make a project with sizes and a PDF, and start Claude: its first prompt names the sizes (and its brief line says no card is new), it does not ask for a size you gave, it reads the PDF with its own tools, and a size it adds with `add_card` shows on the Brief as a row that says "from Claude".
 - **Asking what is open, with the real Claude Code.** Make a project whose description gives one size and leaves out the rest (a lid for a box of an unnamed size, screws not named): before the first write of the model, Claude Code asks once, in one card, with a typical value among the options of a size and "Other" taking "build with assumptions"; it asks nothing about a fillet radius or a wall; after the answers it builds, and a size you did not give is a field of `Params` commented "assumed" and listed in its reply. Make one whose sizes are all given and whose mounting is not (a holder for a sensor board, and nothing said of how it is fixed): it asks how it is mounted. Make one with nothing open (a washer with its outside, bore and thickness): it asks nothing. Then ask for a new feature with no key size (a hole for "a screw"): it asks once, not again. The stand-in agent only plays the card. The eval cases `m-open-mount` and `m-nothing-to-ask` (`pnpm -C app eval`, started from the first prompt torno writes for their drafts) and the `missing dimensions` track measure the real model's choice to ask; they have not been run since the prompt changed (#324).

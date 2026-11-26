@@ -1,7 +1,7 @@
 import { NO_SCAN_YET, doesOf, hint, pressed } from '../../shared/keys'
 import { useEffect, useState, type ReactNode } from 'react'
 import type { ShapeKind } from '../../shared/marks'
-import { BETWEEN, ROUND, SELECT_SCOPES, TOOLS, TOOL_GROUPS, setBetween, setRound, setSelectScope, setShape, setTool, toolStore, useBetween, useRound, useSelectScope, useShape, useTool, type BetweenMeasure, type RoundMeasure, type SelectScope, type ToolName } from '../state/tools'
+import { BETWEEN, ROUND, SELECT_SCOPES, TOOLS, TOOL_GROUPS, setBetween, setRound, setSelectScope, setShape, setTool, toolStore, useBetween, useRound, useSelectScope, useShape, useTool, type BetweenMeasure, type RoundMeasure, type SelectScope, type PaletteTool, type ToolName } from '../state/tools'
 import { count } from '../../shared/format'
 import { regionStore, useRegion, type RegionMode } from '../state/region'
 import { scanless } from '../state/step'
@@ -320,7 +320,7 @@ export const SHAPE_ICONS: Record<ShapeKind, ReactNode> = {
 }
 
 /** The picture of each tool; the marks panel shows the same ones for what the tools leave. */
-export const ICONS: Record<ToolName, ReactNode> = {
+export const ICONS: Record<PaletteTool, ReactNode> = {
   // A pointer.
   select: (
     <Icon>

@@ -248,6 +248,33 @@ describe("Claude Code's prompt, with the skills", () => {
   })
 })
 
+// #349: a part bought for several projects is a folder of the parts shelf, and the skills say how it is made, used and saved.
+describe('the skills and the parts shelf', () => {
+  const skill = (name: string) => readFileSync(join(__dirname, '../../resources/agent-plugin/skills', name, 'SKILL.md'), 'utf8').replace(/\s+/g, ' ')
+  it('whose model skill says a part is a folder of the shelf, its contract, and how a project uses it', () => {
+    const model = skill('torno-model')
+    for (const said of [
+      '`common/parts/<id>/part.py`', 'a Python identifier', 'The docstring\'s first line is its name', '`Params` with a source comment on every size', '`body(p)`',
+      'front face is the XY plane at z = 0 and +Z is the side the person sees', 'an optional `cutout(p)`', 'an optional `keepout(p)`', 'datasheets and photos beside it',
+      'from common.parts.ec11.part import Params as EC11, body as ec11_body, cutout as ec11_cutout', 'puts the body among `references(p)`', 'subtracts the cutout in the model',
+      'Use a part from the shelf (the prompt lists it) before researching one', 'say which of its sizes are assumed'
+    ]) expect(model).toContain(said)
+    expect(model).not.toContain('common/parts.py')
+  })
+  it('whose model skill has Claude ask before it shelves a part, and write the folder only on a yes', () => {
+    const model = skill('torno-model')
+    for (const said of [
+      'ask with `AskUserQuestion`', 'header `Shelf`', 'question `Put <name> on the parts shelf?`', 'one line a size, `<value> <what> (<source>)`',
+      'options `Put it on the shelf` and `Not this one`', 'Write the folder only on a yes', 'copy the datasheet or photo it came from into it'
+    ]) expect(model).toContain(said)
+  })
+  it('whose model skill names the new source words, and whose build123d skill points to the shelf', () => {
+    const model = skill('torno-model')
+    for (const said of ['`listing`', '`measured`', '`ISO 15`', '`DIN 912`']) expect(model).toContain(said)
+    expect(skill('build123d')).toContain('the parts shelf (`common/parts/`, see the `torno-model` skill)')
+  })
+})
+
 // #50: which wins for seeing the build is one line of the skill and one of the first prompt of a session (`instructionsLine`); the system prompt has no room for it.
 describe('the model skill and a CLAUDE.md that names another way to see the build', () => {
   const model = readFileSync(join(__dirname, '../../resources/agent-plugin/skills/torno-model/SKILL.md'), 'utf8').replace(/\s+/g, ' ')

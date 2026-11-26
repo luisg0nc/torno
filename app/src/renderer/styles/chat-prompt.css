@@ -99,7 +99,7 @@
   content-visibility: visible;
 }
 
-.chat-tools > .chat-group:has(.chat-tool-body, .chat-pictures, .chat-build, .chat-tool-said, .chat-tasks),
+.chat-tools > .chat-group:has(.chat-tool-body, .chat-pictures, .chat-build, .chat-shelf-slip, .chat-tool-said, .chat-tasks),
 .chat-tools > .chat-fold[data-open] {
   flex: 1 1 100%;
 }

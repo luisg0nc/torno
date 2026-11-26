@@ -175,6 +175,24 @@ describe('kernel client', () => {
     expect((await k.query<{ blob: Buffer }>('/ws/a', 'echo', {}, { blob: true })).blob.length).toBe(0)
   })
 
+  it('reads the shelf of a workspace and says why when it cannot', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'torno-shelf-'))
+    try {
+      mkdirSync(join(root, 'common', 'parts', 'ec11'), { recursive: true })
+      writeFileSync(join(root, 'common', 'parts', 'ec11', 'part.py'), '')
+      mkdirSync(join(root, 'common', 'parts', 'empty'))
+      const k = start()
+      expect(await k.shelf?.(root)).toEqual({ ok: true, parts: [{ id: 'ec11', name: 'ec11', what: '', params: [], files: [] }] })
+      expect(await k.shelf?.('/ws/boom')).toMatchObject({ ok: false, error: { kind: 'exception', message: 'boom' } })
+      // A read that is not answered fails when the kernel dies, as every pending request does.
+      const stuck = k.shelf?.('/ws/hang')
+      await k.build('/ws/a', 'die.py')
+      expect(await stuck).toMatchObject({ ok: false, error: { kind: 'crash' } })
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('sends each query with the folder of the object it is about', async () => {
     const k = start()
     const [a, b] = await Promise.all([
