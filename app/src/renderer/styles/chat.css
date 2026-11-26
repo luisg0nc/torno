@@ -652,6 +652,23 @@ button.ref-chip {
   margin-top: var(--space-1);
 }
 
+/* What the turn took (#368): one sentence under its end, the cost first in ink; the note under a resumed turn's, quieter. */
+.chat-turn-usage,
+.chat-turn-note {
+  max-width: 60ch;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.chat-turn-cost {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.chat-turn-note {
+  font-size: 0.95em;
+}
+
 /* What the person may do with a turn: See changes, Compare and the dots, quiet, at the right. */
 .chat-turn-actions {
   display: flex;

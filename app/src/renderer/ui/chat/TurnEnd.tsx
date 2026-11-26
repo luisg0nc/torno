@@ -12,6 +12,7 @@ import { useMenu } from '../useMenu'
 import type { JoinedTurn } from './historyJoin'
 import { UndoableTurn } from './turnContext'
 import { isEmpty, summaryParts, type TurnAccount, type TurnSummary } from './turnSummary'
+import { TurnUsageLine } from './TurnUsage'
 
 
 type TurnItem = Extract<ChatItem, { kind: 'turn' }>
@@ -172,6 +173,7 @@ export const TurnEnd = memo(function TurnEnd({ item, account, joined }: { item: 
           <TurnMore item={item} joined={joined} account={account} />
         </TurnActions>
       </div>
+      <TurnUsageLine usage={item.usage} />
       {pulled && <p className="chat-turn-line chat-turn-pulled">{numbered(pulled)}</p>}
     </div>
   )

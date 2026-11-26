@@ -1,4 +1,5 @@
 import type { ChatItem, PromptRow, TokenCount, TurnUsage } from './chat'
+import { dollars, tokens } from './format'
 
 // What Claude Code spent on a project (#357), from what its `result` messages said and the chat's own items: the
 // prompts of the project with what their turns used (`UsageRow`, read by main from `.torno/chat/`, `main/sessions/usage.ts`),
@@ -12,7 +13,7 @@ export interface Usage extends TokenCount {
 }
 
 /** What a turn's items say it did besides spending: the pictures that came into the conversation and the builds its edits started. */
-export interface TurnFacts {
+export interface UsageFacts {
   /** By where from: a tool's own name (`look`, `Read`), `you` for the person's own pictures. */
   pictures: Record<string, number>
   /** The builds that ran (ok or failed); `from` the build on show when the prompt was sent, `to` the last that worked. */
@@ -27,7 +28,7 @@ export interface UsageRow extends PromptRow {
   usage?: Usage
   /** Its turn was the first of a resumed conversation: its tokens are its own, its cost cannot be told apart. */
   resumed?: true
-  facts: TurnFacts
+  facts: UsageFacts
   /** The ids of the turn items that answered it, in order. */
   turns: string[]
 }
@@ -42,7 +43,7 @@ export interface ProjectUsage {
 export const toolName = (name: string): string => (name.startsWith('mcp__') && name.split('__').length > 2 ? name.split('__').slice(2).join('__') : name)
 
 /** What the items of one turn (from the prompt to its end) did besides spending: pictures that came in, builds that ran. */
-export function turnFacts(items: readonly ChatItem[]): TurnFacts {
+export function usageFacts(items: readonly ChatItem[]): UsageFacts {
   const pictures: Record<string, number> = {}
   const add = (from: string, n: number): void => {
     if (n > 0) pictures[from] = (pictures[from] ?? 0) + n
@@ -64,7 +65,7 @@ export function turnFacts(items: readonly ChatItem[]): TurnFacts {
 }
 
 /** The facts of two turns of one prompt taken together. */
-export function addFacts(a: TurnFacts, b: TurnFacts): TurnFacts {
+export function addUsageFacts(a: UsageFacts, b: UsageFacts): UsageFacts {
   const pictures = { ...a.pictures }
   for (const [from, n] of Object.entries(b.pictures)) pictures[from] = (pictures[from] ?? 0) + n
   const from = a.builds.from ?? b.builds.from
@@ -91,3 +92,29 @@ export function medianCost(rows: readonly UsageRow[]): number | undefined {
   const mid = Math.floor(costs.length / 2)
   return costs.length % 2 === 1 ? costs[mid]! : (costs[mid - 1]! + costs[mid]!) / 2
 }
+
+/** The tokens that were new to the conversation: what was sent uncached and what was written to the cache. */
+export const newTokens = (u: TokenCount): number => u.input + u.cacheCreation
+
+/** All the tokens of a usage. */
+export const allTokens = (u: TokenCount): number => u.input + u.output + u.cacheRead + u.cacheCreation
+
+const calls = (n: number): string => `${n} ${n === 1 ? 'call' : 'calls'}`
+
+/**
+ * What a turn took, in one sentence for its end (#368): the cost first (`lead`), then the calls and the three kinds of
+ * token (`$0.64 for 8 calls: 742 k of context read again, 14.2 k new to it, 6.3 k written.`). With no cost (the first
+ * turn after a resume) the lead says it is not known, and the tokens follow. Null for a turn the CLI counted nothing for.
+ */
+export function usageLine(u: Usage | undefined): { lead: string; rest: string; known: boolean } | null {
+  if (!u || (allTokens(u) === 0 && !u.requests && !u.costUsd)) return null
+  const kinds = `${tokens(u.cacheRead)} of context read again, ${tokens(newTokens(u))} new to it, ${tokens(u.output)} written.`
+  if (u.costUsd === undefined) return { lead: 'Cost not known for this turn.', rest: ` ${u.requests !== undefined ? `${calls(u.requests)}: ` : ''}${kinds}`, known: false }
+  return { lead: dollars(u.costUsd), rest: `${u.requests !== undefined ? ` for ${calls(u.requests)}` : ''}: ${kinds}`, known: true }
+}
+
+/** Why a resumed conversation's first turn has no cost, said once under it. */
+export const RESUMED_NOTE = "Claude Code counts a resumed conversation's cost together with what its earlier processes spent, so this turn's own share cannot be told apart."
+
+/** What a cost is on a Claude plan, said where costs are shown. */
+export const PLAN_NOTE = 'On a Claude plan these are what the tokens would cost through the API, not what you pay.'

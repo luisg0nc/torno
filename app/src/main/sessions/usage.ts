@@ -1,5 +1,5 @@
 import type { ChatItem } from '../../shared/chat'
-import { addFacts, addUsage, medianCost, turnFacts, usageOf, type ProjectUsage, type UsageRow } from '../../shared/usage'
+import { addUsageFacts, addUsage, medianCost, usageFacts, usageOf, type ProjectUsage, type UsageRow } from '../../shared/usage'
 import { readLog } from './chatlog'
 import { listPrompts } from './prompts'
 
@@ -39,12 +39,12 @@ function tookOf(items: readonly ChatItem[]): Map<string, Took> {
     }
     if (prompt !== undefined) {
       const was = out.get(prompt)
-      const facts = turnFacts(turn)
+      const facts = usageFacts(turn)
       const used = item.usage ? usageOf(item.usage) : undefined
       const usage = was?.usage && used ? addUsage(was.usage, used) : (was?.usage ?? used)
       // Tokens said with no cost: the first turn of a resumed conversation (`TurnUsage`).
       const resumed = was?.resumed === true || (item.usage !== undefined && item.usage.costUsd === undefined)
-      out.set(prompt, { facts: was ? addFacts(was.facts, facts) : facts, turns: [...(was?.turns ?? []), item.id], ...(usage ? { usage } : {}), ...(resumed ? { resumed: true } : {}) })
+      out.set(prompt, { facts: was ? addUsageFacts(was.facts, facts) : facts, turns: [...(was?.turns ?? []), item.id], ...(usage ? { usage } : {}), ...(resumed ? { resumed: true } : {}) })
     }
     turn = []
   }

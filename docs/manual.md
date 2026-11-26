@@ -1065,7 +1065,12 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   longer under the turn's account. The turn ends with "Done in 58 s" and what it did, and at its right the buttons of the turn: **See changes**,
   **Compare** (draws the last build over the one the prompt began from, as "Compare" below does; it reads "Comparing" while it is on and puts it
   away again), and the dots, a menu with **Go back to before this prompt**, **Star** (keeps the last build: a starred build is never let go;
-  **Unstar** takes it away).
+  **Unstar** takes it away). Under it, one sentence says what the turn took, from Claude Code's own numbers: "$0.64 for 8 calls: 742 k
+  of context read again, 14.2 k new to it, 6.3 k written". The dollars are Claude Code's estimate; on a Claude plan they are what the
+  tokens would cost through the API, not what you pay. Each call reads the whole conversation again, which is why "read again" is
+  usually the largest. The first turn after a resumed conversation says "Cost not known for this turn" with its tokens, because Claude
+  Code counts a resumed conversation's cost together with what its earlier processes spent. A turn Claude Code counted nothing for
+  says nothing.
 - **Between turns.** What you did yourself shows as one quiet line between the turns: "You saved
   `common/fillets.py` in your editor · `h39`" for a build your own save made, "You set `wall` to `3` · not in the model yet · `h40`" for a
   value you set in Parameters (a value put back reads "You put `wall` back to the file's value"; a build kept before the values were
