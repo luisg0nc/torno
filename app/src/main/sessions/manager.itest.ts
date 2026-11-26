@@ -3173,7 +3173,8 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     let last = ''
     const timer = setInterval(() => {
       const now = existsSync(join(obj.dir, 'part.py')) ? readFileSync(join(obj.dir, 'part.py'), 'utf8') : ''
-      if (now === last) return
+      // Empty is a save half done: writeFileSync truncates the file before it writes, and no edit leaves it so.
+      if (now === '' || now === last) return
       last = now
       if (now === 'W = 1\nH = 2\n') return
       land(building(obj.id, 1))
