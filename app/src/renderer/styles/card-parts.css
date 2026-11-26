@@ -155,6 +155,44 @@
   opacity: 1;
 }
 
+/* Renaming a part (#359): its name is a field in the row; what main refused is said under it, and the row grows to hold it. */
+.layers .row[data-renaming] {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 28px;
+  padding-block: 3px;
+}
+
+.layer-rename-field {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 5px;
+  border: var(--field-border);
+  border-radius: var(--radius-inline);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.layer-rename-field:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.layer-rename-field[aria-invalid='true'] {
+  border-color: var(--fail);
+}
+
+.layer-rename-why {
+  flex-basis: 100%;
+  padding: 2px 0 2px 12px;
+  color: var(--fail);
+  font-size: var(--text-small);
+  line-height: 1.35;
+}
+
 /* A group of parts (the model's groups(p)): a header in the sans, because the name is the model's; its parts are indented under it. */
 .layers .layer-group .row-name {
   font-family: var(--font-ui);

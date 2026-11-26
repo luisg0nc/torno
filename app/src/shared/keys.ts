@@ -225,6 +225,7 @@ const ROWS = [
 
   row('bench.next', ['Right'], 'On a tab of the bench: the next tab', 'Everywhere', 'bench'),
   row('bench.previous', ['Left'], 'On a tab of the bench: the tab before', 'Everywhere', 'bench'),
+  row('part.rename', ['F2'], 'Rename the part whose name has the focus in the Parts tab: torno writes the new name into the model', 'Everywhere', 'bench'),
   row('left.resize', ['Left', 'Right'], 'On the edge of the card: narrower or wider', 'Session', 'leftedge'),
 
   row('field.keep', ['Enter'], 'Field: keep what was typed', 'In a field, a menu or a sheet', 'field'),

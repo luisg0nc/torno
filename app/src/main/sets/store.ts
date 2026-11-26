@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from 'node:util'
 import type { Mark, Vec3 } from '../../shared/marks'
 import type { Part, Scene } from '../../shared/scene'
+import { renamedIn } from '../../shared/rename'
 import {
   MOST_SET_MEMBERS,
   SET_COLOURS,
@@ -248,6 +249,19 @@ export class SetStore {
   }
 
   /** The person accepts the agent's proposal: it is theirs, and no longer proposed. Refused for a set that is not proposed. */
+  /** The part `from` of the model is now `to` (`main/rename.ts`): every member that names it follows, in one change. How many names it changed. */
+  renamePart(objectId: string, from: string, to: string): Promise<number> {
+    return this.change(objectId, (file) => {
+      let count = 0
+      file.sets = file.sets.map((set) => {
+        const renamed = renamedIn(set, from, to)
+        count += renamed.count
+        return renamed.value
+      })
+      return count === 0 ? UNCHANGED : count
+    }).then((count) => (count === UNCHANGED ? 0 : count))
+  }
+
   accept(objectId: string, id: string): Promise<NamedSet> {
     return this.write(objectId, (file) => {
       const set = setOf(file, id)

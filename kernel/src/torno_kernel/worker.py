@@ -161,6 +161,8 @@ def _build(
             if part.get("name") in group_of:
                 part["group"] = group_of[part["name"]]
         _tag_parts(scene, getattr(layouts, "tags", {}), kept)
+        # Which files the build is of, for a rename the person asks for (``names.query``): read again then, never written.
+        kept["source",] = {"dir": dir, "model": model, "uses": scene["uses"]}
         scene["checks"] = _model_checks(declared, shapes, groups, kept)
         _flush_output()
         # Inside the try: a scene that cannot be written as JSON (a NaN volume)

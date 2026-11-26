@@ -227,8 +227,9 @@ export interface PromptContext {
  * the build (`instructionsLine`), in the very last line. Its room is kept before the status is fitted and any mark is listed, and it outranks
  * the references. None of it is told with the answer to an edit.
  *
- * What a Go back left for the agent (`opts.notice`, `takeGoBackNotice`, a sentence of main's) is the first line, ahead of the
- * rest and in addition to CONTEXT_LIMIT (it is short: `goback.ts` keeps it so): nothing is left out for it.
+ * What a Go back or a rename of a part left for the agent (`opts.notice`, `takeGoBackNotice` and `takeRenameNotice`, sentences of
+ * main's) is the first line, ahead of the rest and in addition to CONTEXT_LIMIT (it is short: `goback.ts` and `rename.ts` keep it so):
+ * nothing is left out for it.
  *
  * A tool of torno's is named as the agent's client names it to its model
  * (`opts.toolName`; as Claude Code does when nothing says).
