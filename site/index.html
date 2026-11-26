@@ -12,7 +12,10 @@
 <link rel="icon" href="assets/torno.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/instrument-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/story.css">
 <script src="assets/site.js" defer></script>
+<script src="assets/story.js" defer></script>
+<script src="stories/simracing-panel.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to the page</a>
@@ -43,27 +46,7 @@
     <p class="note">New and early. Linux and macOS. Apache-2.0.</p>
   </div>
 
-  <figure class="bench" aria-labelledby="bench-cap">
-    <svg id="part" viewBox="0 0 400 340" role="img" aria-labelledby="bench-cap">
-      <g class="grid" aria-hidden="true"></g>
-      <g class="edges" aria-hidden="true"></g>
-      <g class="dim" aria-hidden="true">
-        <line class="dim-line"></line>
-        <text class="dim-text"></text>
-      </g>
-      <g class="pin" aria-hidden="true">
-        <line class="pin-stem"></line>
-        <circle class="pin-head" r="7"></circle>
-        <text class="pin-ref">M1</text>
-      </g>
-    </svg>
-    <figcaption id="bench-cap">
-      <span class="readout"><span class="ref">M1</span> pin on <span class="ref">bracket/F4</span>: make this wall
-        <span class="num" data-want>3</span> mm</span>
-      <span class="readout"><span class="ref">M2</span> wall <span class="num" data-wall>2.000</span> mm,
-        <span class="verdict" data-verdict>fails</span></span>
-    </figcaption>
-  </figure>
+  <figure class="hero-story" data-story="simracing-panel"></figure>
 </section>
 
 <section class="loop reveal" aria-labelledby="loop-title">

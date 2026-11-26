@@ -125,7 +125,10 @@ lists.
 ## How it works
 
 <p align="center">
-  <img src="docs/images/demo.gif" alt="The loop in twenty seconds: an airbox in a scan of its engine bay, a pin on its tub wall with a note, a prompt asking for 3 mm, Claude Code looking and measuring, its edit of the model, the rebuild, and the dimension turning to passes" width="800">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/story-dark.gif">
+    <img src="docs/images/story.gif" alt="A sim racing button box made in seven prompts: a box with buttons, toggles and a screen grows from a 20 mm cube, turns vertical, gets an engraved face, is mounted on the rig on an arm that locks, gains two knobs and label plates, and is narrowed until its width dimension passes. Each prompt types out beside the part, Claude Code looks, measures and edits, and every build says how many checks pass" width="800">
+  </picture>
 </p>
 
 <p align="center">

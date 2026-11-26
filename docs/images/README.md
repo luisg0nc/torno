@@ -61,9 +61,15 @@ repository's social preview.
 
 ## A short recording
 
-Made: `demo.gif` and `demo.mp4`, from eight frames `app/e2e/demo.spec.ts` captures the same way (`TORNO_DEMO=<folder>`
+The README shows `story.gif` and `story-dark.gif`: the landing page's hero, a sim racing button box made in seven
+prompts (`site/stories/simracing-panel.js`, drawn by `site/assets/story.js`), recorded in each colour scheme by
+`node app/scripts/record-story.mjs` after `node app/scripts/build-site.mjs`. Headless Chromium draws it a frame at a
+time, 12 to the second, and ffmpeg makes the GIFs, 800 px wide. A new story is one more file in `site/stories/`;
+`<story>.html?t=12.5` holds one at that second while it is written.
+
+Made: `demo.gif` and `demo.mp4` (the landing page's "Twenty seconds of it" and the release notes), from eight frames `app/e2e/demo.spec.ts` captures the same way (`TORNO_DEMO=<folder>`
 with the same `TORNO_README_*` settings, one launch a frame) and `demo-frames/make.sh` crossfades with ffmpeg; the
-hold of each frame is set there. The README shows the GIF. The MP4 is for an issue or a release note, where GitHub
+hold of each frame is set there. The MP4 is for an issue or a release note, where GitHub
 plays it. `loop.svg` is an animated diagram of the loop (CSS animation only, both colour schemes) for wherever a
 picture of the loop is wanted without a window; `how-it-works.svg` is the diagram of the pieces (the window, Claude
 Code, the model, the kernel) drawn the same way, for "How it works". Both are hand-written SVG with the same
