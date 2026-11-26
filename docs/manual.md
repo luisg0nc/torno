@@ -12,7 +12,7 @@ numbers; the agent is told what you pointed at and has tools to see what you
 see.
 
 The window has three parts. On the left, the
-route card: the On block and, filling the column, Parameters and Parts as two tabs, which pushes
+route card: the On block and, filling the column, Parameters, Parts and Shelf as tabs, which pushes
 the 3D view over. In the
 middle, the parts in 3D, with the compass at the top right and the tools down the
 left edge. On the right, the terminal the agent runs in. A line at the bottom
@@ -419,6 +419,22 @@ reading it. A project's build says which parts of the shelf it used (`shelf` in 
 the model called the part's `cutout` (its `body` when it has none) while it built. Python before 3.12 cannot count, and a part
 imported only inside a maker is not seen coming: such a part is told used with no count.
 
+The Shelf tab. A workspace with a part on its shelf has a third tab on the left, **Shelf** and the number of its parts, after Parameters
+and Parts, whether or not the open project has Params (a workspace with no part has no such tab). A row for each part: its picture, its
+name, what it cuts (`hole Ø7.2` for a round hole, `window 18.4 × 33.4` for another; nothing for a part with no cutout), a row of short
+rules and, at the right, `× 9` for how many times the open project used it. The picture is the part's section from the side as the kernel
+drew it, on a floor line, at one scale for all the parts, 1.25 px a millimetre, so a bigger part is drawn bigger (one too big for its
+frame is let down to fit it); a part that does not build shows its name and `does not build` instead. The rules are one a size: a solid
+one for a size with a source, a thick green one for a size you checked on the part (its comment says `measured:` or it has an entry in
+`.torno/checked.json`), a dashed one in the warning colour for an assumed size, a dotted one for a size worked out from others
+(`derived:`); the tooltip of the rules says it in words, `7 sizes: 5 with a source, 2 assumed, 1 checked on the part`. The parts the open
+project used (it counted them, or it read their files) come first, under `In <project>` and their number, then those under `Not in this
+project`, each by name. Over the rows, a find box, `Find a part or a size`, narrows them by every word typed, any case, in the part's
+id, its name, what it is or a size's value as written (`7.2`; Esc clears it), and three chips, `All`, `In this project` and
+`Assumed sizes`, each with its number, keep every part, those the project used and those with a size still assumed (one you checked is
+not). A find that matches nothing says `No part matches`. A row is a button: a click lights it. At the foot the tab says `All at one
+scale. From common/parts/, which Claude keeps.` and `Drag a part onto the model, or drop a datasheet, STEP or photo here.`
+
 **Builds.** Saving a file in the project's folder (dotfiles, `out/`, `cache/`,
 `.torno/` and `__pycache__/` are ignored, as are `build/`, `dist/`,
 `node_modules/`, `.venv/` and `.git/`) or in the workspace's `common/` starts
@@ -536,7 +552,7 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the block of the build on show, "Latest build · prompt 5" (see Marks). Under it **Parameters** and **Parts** are two tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone. Scans and Tracings are not in the column: they are tabs of the view's switch, shown when the project has a scan or a tracing, with their panels in the column in place of the two tabs while the view is shown (see Scans and Tracings). Checks and Marks are not in the column: they are blocks of the Brief page (see The brief). Drag the right edge of the card to make itDrag the right edge of the card to make it
+**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the block of the build on show, "Latest build · prompt 5" (see Marks). Under it **Parameters**, **Parts** and **Shelf** are tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone; Shelf (see The parts shelf) comes last whenever the workspace has a part on its shelf. Scans and Tracings are not in the column: they are tabs of the view's switch, shown when the project has a scan or a tracing, with their panels in the column in place of the two tabs while the view is shown (see Scans and Tracings). Checks and Marks are not in the column: they are blocks of the Brief page (see The brief). Drag the right edge of the card to make itDrag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. How wide the card is, and how wide the session pane is, are kept by the window, not in the folder. The card is there only while a project is open: on the page of projects, while a new

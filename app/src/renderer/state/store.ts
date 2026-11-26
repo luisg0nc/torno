@@ -65,6 +65,8 @@ export interface TornoState {
   column: ColumnPrefs
   /** The open tab of the bench, for each project (`torno.bench`). */
   benchTab: BenchKept
+  /** The part of the shelf chosen on the Shelf tab (its id): its row is lit; the page that shows it is #352. Of the open project. */
+  shelfOpen: string | null
   /** The last good scene of the open object, and the revision it is. */
   scene: Scene | null
   /** The scene that was on show before `scene` landed, of the same object; null for the first build of an object. What the status line says a build changed is held against it. */
@@ -196,7 +198,7 @@ const NO_SCANS: ScanInfo[] = []
 const NOT_CLIPPED: readonly string[] = []
 const NO_VIEWS: SavedView[] = []
 const NO_SELECTION = { selection: NOTHING_SELECTED, picked: NOTHING_PICKED }
-const NO_OBJECT = { objectId: null, build: null, errorOpen: false, compare: null, fixRequest: null, promptsOpen: false, promptShown: null, scene: null, before: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, folded: [], tracingsShown: [], activeView: null, marks: [], marksProblem: null, marksOnPart: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, hoveredMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
+const NO_OBJECT = { objectId: null, build: null, errorOpen: false, compare: null, fixRequest: null, promptsOpen: false, promptShown: null, shelfOpen: null, scene: null, before: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, folded: [], tracingsShown: [], activeView: null, marks: [], marksProblem: null, marksOnPart: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, hoveredMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
 
 export const store = createStore<TornoState>(() => ({
   workspace: null,
@@ -761,6 +763,11 @@ export const actions = {
     const next = { ...benchTab, [objectId]: tab }
     store.setState({ benchTab: next })
     writeBench(windowStorage(), next)
+  },
+
+  /** A row of the Shelf tab was chosen (or none: null). */
+  openShelfPart(id: string | null): void {
+    if (store.getState().shelfOpen !== id) store.setState({ shelfOpen: id })
   },
 
   /** The width the person gave the card, once it is let go (at least the narrow default); the window keeps it. */

@@ -4,6 +4,10 @@ paths:
   - "app/src/shared/shelf.ts"
   - "kernel/src/torno_kernel/shelf.py"
   - "kernel/tests/test_shelf.py"
+  - "app/src/renderer/state/shelf.ts"
+  - "app/src/renderer/state/shelfFind.ts"
+  - "app/src/renderer/ui/card/ShelfPanel.tsx"
+  - "app/src/renderer/styles/card-shelf.css"
 ---
 
 # The parts shelf: the kernel's read, main's store, the types
@@ -32,3 +36,8 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
   An answer of a workspace that has been left is dropped (`epoch`).
 - **The window gets it through `shelf:list` and `shelf:changed`** (`window.torno.shelf.list()`, `onChanged`), and a new
   conversation is told it through `shelfLine` (`shelf/told.ts`, rule `agent-prompt`). `Scene.shelf` says which parts a project used.
+- **The tab is #351** (`ui/card/ShelfPanel.tsx`; the text of it is in the rule `left-column`): the window keeps the shelf in `state/shelf.ts`
+  (`connectShelf`: `shelf.list()` and `onChanged`, the newest wins), draws a part from `body.side` and nothing else (`drawingOf`, 1.25 px
+  a mm, one scale for all) and says nothing of a part's sizes that `ruleKinds` does not: only a size has a rule, a `checked` entry or a
+  `measured` source is checked, and a checked size is no longer assumed in the tab (the block told to Claude counts `assumed` by the
+  comment alone, `assumedCount`).

@@ -1,0 +1,270 @@
+/* ---- The Shelf tab of the bench (ui/card/ShelfPanel.tsx): the parts of common/parts/ at one scale, find and chips ----
+   The tab fills the panel: the find box and chips at the head, the rows scroll, the foot stays. The parts are drawn in a metal
+   tone that is in no theme's palette, and the picture's well takes the ground (--surface), so a part reads as a part on a bench. */
+
+:root {
+  --shelf-metal: #3E434A;
+  --shelf-metal-line: rgb(32 36 43 / 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shelf-metal: #4A5059;
+    --shelf-metal-line: rgb(233 231 226 / 0.4);
+  }
+}
+
+.bench-panel:has(.shelf-tab) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.shelf-tab {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shelf-head {
+  flex: none;
+  padding-top: var(--space-1);
+}
+
+.shelf-find-icon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  width: 13px;
+  height: 13px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.shelf-find .params-find-input {
+  padding: 0 var(--space-3) 0 31px;
+}
+
+.shelf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0 var(--space-4) var(--space-2);
+}
+
+.shelf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shelf-chip .num {
+  margin: 0;
+}
+
+.shelf-chip:hover {
+  color: var(--ink);
+}
+
+.shelf-chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.shelf-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--space-4) var(--space-2);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.shelf-none {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.shelf-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: var(--space-2) 0 2px;
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 400;
+}
+
+.shelf-group-title .num {
+  margin: 0;
+}
+
+/* A row: the part's picture, its name over what it cuts and its rules, how many the project used. */
+.shelf-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% + 12px);
+  margin: 0 -6px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shelf-row:hover:not(.hot) {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+.shelf-row.hot {
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.shelf-row:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The picture's well: the ground, with the floor line the part stands on. */
+.shelf-pic {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  align-items: flex-end;
+  justify-content: center;
+  height: 54px;
+  padding: 4px 0 6px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.shelf-pic::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 5px;
+  left: 0;
+  height: 1.5px;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+/* One scale for every part; a part too big for the well is the one that is let down to fit it. */
+.shelf-draw {
+  display: block;
+  flex: none;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: visible;
+}
+
+.shelf-draw path {
+  fill: var(--shelf-metal);
+  stroke: var(--shelf-metal-line);
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.shelf-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shelf-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shelf-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.shelf-hole .num {
+  color: var(--ink);
+}
+
+.shelf-broken {
+  color: var(--warn);
+}
+
+.shelf-used {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* A part's sizes as short rules, one a size: solid with a source, thick and green checked on the part, dashed and warm assumed,
+   dotted worked out from the others. */
+.shelf-rules {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.shelf-rules i {
+  display: block;
+  width: 9px;
+  height: 0;
+  border-top: 2px solid var(--muted);
+}
+
+.shelf-rules i.r-so {
+  border-top-color: var(--ink);
+}
+
+.shelf-rules i.r-ck {
+  border-top: 3px solid var(--ok);
+}
+
+.shelf-rules i.r-as {
+  border-top: 2px dashed var(--warn);
+}
+
+.shelf-rules i.r-mo {
+  border-top: 2px dotted var(--muted);
+}
+
+.shelf-foot {
+  display: grid;
+  flex: none;
+  gap: 2px;
+  padding: 9px var(--space-4) 10px;
+  border-top: 1px solid var(--hairline);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.shelf-foot .file {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  letter-spacing: -0.02em;
+}

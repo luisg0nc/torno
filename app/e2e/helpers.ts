@@ -11,8 +11,8 @@ const HELD = { Checks: 'checks', Marks: 'marks' } as const
 
 export type SectionName = keyof typeof PANEL | keyof typeof HELD
 
-/** The bench's two tabs, which are no sections: Parameters and Parts. */
-const TABS = { Parts: 'parts', Parameters: 'params' } as const
+/** The bench's tabs, which are no sections: Parameters, Parts and Shelf (the workspace's bought parts, there when it has any). */
+const TABS = { Parts: 'parts', Parameters: 'params', Shelf: 'shelf' } as const
 export type TabName = keyof typeof TABS
 
 /** A tab of the bench, by the name on it. */
@@ -56,12 +56,12 @@ export const cardSection = (page: Page, name: SectionName): Locator =>
 export const switchTab = (page: Page, name: 'Model' | 'Brief' | 'Scans' | 'Tracing'): Locator => page.locator('.pboard-switch').getByRole('button', { name, exact: true })
 
 /**
- * Brings a part of the project into sight as a person does: Parameters and Parts are the bench's tabs, Checks and Marks blocks of the Brief page
+ * Brings a part of the project into sight as a person does: Parameters, Parts and Shelf are the bench's tabs, Checks and Marks blocks of the Brief page
  * (which is shown and stays up: `showModel` goes back), Scans and Tracings tabs of the view's switch, pressed when the project has one (a project with
  * none has no such tab: there is no panel to open, and the call leaves the view as it is).
  */
 export async function openSection(page: Page, name: SectionName | TabName): Promise<void> {
-  if (name === 'Parts' || name === 'Parameters') return openTab(page, name)
+  if (name === 'Parts' || name === 'Parameters' || name === 'Shelf') return openTab(page, name)
   if (name === 'Checks' || name === 'Marks') {
     await showBrief(page)
     await cardSection(page, name).scrollIntoViewIfNeeded()

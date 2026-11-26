@@ -114,6 +114,17 @@ describe('the tabs of the bench', () => {
     expect(benchTabs(1, 0)).toEqual(['parts'])
     expect(benchTabs(4, 22)).toEqual(['params', 'parts'])
   })
+  it('adds Shelf, last, when the workspace has a part on its shelf, with or without Params', () => {
+    expect(benchTabs(1, 22, 1)).toEqual(['params', 'shelf'])
+    expect(benchTabs(4, 22, 6)).toEqual(['params', 'parts', 'shelf'])
+    expect(benchTabs(4, 0, 2)).toEqual(['parts', 'shelf'])
+    expect(benchTabs(1, 0, 2)).toEqual(['parts', 'shelf'])
+    expect(benchTabs(4, 22, 0)).toEqual(['params', 'parts'])
+  })
+  it('draws Shelf when it was kept and there is a shelf, else the first tab', () => {
+    expect(tabShown('shelf', ['params', 'shelf'])).toBe('shelf')
+    expect(tabShown('shelf', ['params'])).toBe('params')
+  })
   it('draws the tab kept if the project has it, else Parameters', () => {
     expect(tabShown('parts', ['params', 'parts'])).toBe('parts')
     expect(tabShown('parts', ['params'])).toBe('params')
@@ -121,7 +132,7 @@ describe('the tabs of the bench', () => {
     expect(tabShown('params', ['parts'])).toBe('parts')
   })
   it('reads what was kept for each project and nothing else', () => {
-    expect(readBench(JSON.stringify({ hollow: 'parts', gear: 'params', odd: 'marks' }))).toEqual({ hollow: 'parts', gear: 'params' })
+    expect(readBench(JSON.stringify({ hollow: 'parts', gear: 'params', bench: 'shelf', odd: 'marks' }))).toEqual({ hollow: 'parts', gear: 'params', bench: 'shelf' })
     expect(readBench('nonsense')).toEqual({})
     expect(readBench(null)).toEqual({})
     expect(readBench('[1]')).toEqual({})

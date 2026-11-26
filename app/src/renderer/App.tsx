@@ -7,7 +7,9 @@ import { connectBoard, useBoard } from './state/board'
 import { connectTracings } from './state/tracings'
 import { connectReview } from './state/review'
 import { connectSets, setActions } from './state/sets'
-import { actions, sceneFileOf, store, useStore } from './state/store'
+import { connectShelf } from './state/shelf'
+import { shelfFind } from './state/shelfFind'
+import { actions, onWorkspaceSet, sceneFileOf, store, useStore } from './state/store'
 import { BuildStatus } from './ui/BuildStatus'
 import { closingWhy, isExporting, leavingWhy, unkept, type Reason } from './closing'
 import { unsentSessions } from './ui/chat/Composer'
@@ -190,6 +192,9 @@ function useMain(): void {
     const offSetsProblem = window.torno.sets.onProblem(setActions.problemTold)
     // The named sets of the open project, read from main and followed.
     const offSets = connectSets()
+    // The parts shelf of the workspace, read from main and followed.
+    const offShelf = connectShelf()
+    const offShelfFind = onWorkspaceSet(shelfFind.clear)
 
     // Layer and layout changes are written to <object>/.torno/scene.json, once they stop coming.
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -226,6 +231,8 @@ function useMain(): void {
       offTracings()
       offReview()
       offSets()
+      offShelf()
+      offShelfFind()
       offSetsProblem()
       offMarks()
       offMarksProblem()
