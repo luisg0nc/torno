@@ -1,5 +1,5 @@
 // Copies into site/ what the landing page (site/index.html) uses and git does not keep there: the Instrument Sans and Martian Mono faces
-// from app/node_modules and the pictures and the recording from docs/images. Run by .github/workflows/pages.yml
+// from app/node_modules and the pictures from docs/images. Run by .github/workflows/pages.yml
 // after `pnpm install`, and by hand to look at the page locally:
 //   node app/scripts/build-site.mjs && python3 -m http.server -d site 8765
 // app/src/site.test.ts reads COPIED to check that every local address of the page is a file that will be there.
@@ -25,7 +25,6 @@ export const COPIED = {
   'assets/img/review.png': 'docs/images/review.png',
   'assets/img/tracing.png': 'docs/images/tracing.png',
   'assets/img/social-preview.png': 'docs/images/social-preview.png',
-  'assets/img/demo.mp4': 'docs/images/demo.mp4',
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
