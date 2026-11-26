@@ -57,7 +57,7 @@
 //       argv                      says its own arguments as JSON (a text, as `say` is)
 //       write <file> <content>    a `Write` tool: `PreToolUse` and `PostToolUse` with `tool_use_id` and `tool_input`
 //                                 (`file_path`, absolute, and `content`), and between them the file really written (`file`
-//                                 is from the folder it runs in; a `\n` in the content is a new line). What the
+//                                 is from the folder it runs in, and the folders it stands in are made; a `\n` in the content is a new line). What the
 //                                 `PostToolUse` is answered with is said as a `system`/`hook_response`
 //       edit <file> <old> <new>   an `Edit` tool, the same way: `tool_input` has `file_path` (absolute), `old_string` and
 //                                 `new_string`, and between the hooks `old` is replaced by `new` in the file, once (the
@@ -95,8 +95,8 @@
 // The turns after it run as ever; with FAKE_AGENT_AUTH_EXIT=1 too it exits 1 after that `result` instead. (The shape is the
 // SDK's, not yet seen from a real CLI.)
 import { spawn } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 
 const argv = process.argv.slice(2)
@@ -333,6 +333,8 @@ async function streamMode() {
   async function write(file, content) {
     const path = resolve(process.cwd(), file)
     await fileTool('Write', { file_path: path, content }, () => {
+      // As the CLI's Write does, it makes the folders the file stands in.
+      mkdirSync(dirname(path), { recursive: true })
       writeFileSync(path, content)
       return { response: { type: 'create', filePath: path }, result: `wrote ${path}` }
     })

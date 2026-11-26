@@ -16,6 +16,8 @@ import { boardCountsSaid, boardSentSaid } from './boardLine'
 import { Pictures } from './Pictures'
 import { RefChip } from './RefChip'
 import { useChatOffers } from './offers'
+import { ShelfSlip } from './ShelfSlip'
+import { shelfSlips } from './shelfSlip'
 import { ToolCard } from './ToolCard'
 import { type Entry, foldRuns } from './fold'
 import { TasksCard } from './Tasks'
@@ -363,7 +365,9 @@ export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { item
   }, [order])
   const ids = useMemo(() => new Set(order.map((item) => item.id)), [order])
   // What is drawn on its own: a context whose prompt or card is here is drawn under that one.
-  const entries = useMemo(() => foldRuns(order.filter((item) => !(item.kind === 'context' && ids.has(item.forUser))), new Set(under.keys())), [order, ids, under])
+  // The slips of the shelf files a tool wrote (#354): a tool with one under it does not fold into a run.
+  const slips = useMemo(() => shelfSlips(order), [order])
+  const entries = useMemo(() => foldRuns(order.filter((item) => !(item.kind === 'context' && ids.has(item.forUser))), new Set([...under.keys(), ...slips.keys()])), [order, ids, under, slips])
   const lists = useMemo(() => listsAt(order), [order])
   // The prompts whose turn is over, and the one still going (the last the person said, with no turn after it): which of them a build that runs now belongs to.
   const { ended, open } = useMemo(() => {
@@ -440,6 +444,7 @@ export function ChatItems({ items, beat, history, numbers = NO_NUMBERS }: { item
       <div key={item.id} className="chat-group" data-id={item.id} data-struck={item.kind === 'user' && struck.has(item.id) ? '' : undefined}>
         {item.kind === 'user' && <PromptHead id={item.id} number={numbering.get(item.id)} builds={history ? headBuilds(history.entries, item.id, ended.has(item.id), building && open === item.id) : undefined} queued={item.state === 'queued'} ended={ended.has(item.id)} />}
         {item.kind === 'tool' && item.name === 'TodoWrite' && listed ? <TasksCard list={listed} /> : <ItemView item={item} beat={underWay(item) ? beat : true} account={accounts.get(item.id)} joined={joins.get(item.id)} />}
+        {slips.has(item.id) && <ShelfSlip slip={slips.get(item.id)!} />}
         {under.get(item.id)?.map((context) => (context.forTool ? <BuildLine key={context.id} item={context} history={history} /> : <Added key={context.id} item={context} />))}
         {listed && !(item.kind === 'tool' && item.name === 'TodoWrite') && <TasksCard list={listed} />}
       </div>

@@ -1,11 +1,12 @@
-import { Fragment, useId } from 'react'
+import { useId } from 'react'
 import type { ShelfPart } from '../../../shared/shelf'
-import { drawingOf, holeParts, partGroups, ruleKinds, rulesTitle, timesUsed, useShelf } from '../../state/shelf'
+import { partGroups, timesUsed, useShelf } from '../../state/shelf'
 import { findShelf, shelfCounts, shelfFind, SHELF_FILTERS, useShelfFind } from '../../state/shelfFind'
 import { boardActions } from '../../state/board'
 import { placingActions, SHELF_DRAG_TYPE, usePlacing } from '../../state/placing'
 import { useStore } from '../../state/store'
 import { giveKeysBack } from '../typing'
+import { PartLine, PartPicture } from '../shelf/PartBits'
 import { pressed } from '../../../shared/keys'
 import type { Scene } from '../../../shared/scene'
 
@@ -110,9 +111,6 @@ function Group({ title, parts, scene, chosen }: { title: string; parts: ShelfPar
 }
 
 function Row({ part, used, hot }: { part: ShelfPart; used: number | null; hot: boolean }) {
-  const drawing = drawingOf(part)
-  const hole = holeParts(part)
-  const kinds = ruleKinds(part)
   const lifted = usePlacing((s) => s.dragging === part.id)
   return (
     <button
@@ -131,37 +129,10 @@ function Row({ part, used, hot }: { part: ShelfPart; used: number | null; hot: b
       }}
       onDragEnd={() => placingActions.drag(null)}
     >
-      <span className="shelf-pic">
-        {drawing && (
-          <svg className="shelf-draw" width={drawing.width} height={drawing.height} viewBox={`0 0 ${drawing.width} ${drawing.height}`} aria-hidden="true">
-            <path d={drawing.path} fillRule="evenodd" />
-          </svg>
-        )}
-      </span>
+      <PartPicture part={part} />
       <span className="shelf-text">
         <b className="shelf-name">{part.name}</b>
-        <span className="shelf-line">
-          {part.error ? (
-            <span className="shelf-broken">does not build</span>
-          ) : (
-            <>
-              {hole.length > 0 && (
-                <span className="shelf-hole">
-                  {hole.map((piece, n) => (
-                    <Fragment key={n}>{n % 2 === 1 ? <span className="num">{piece}</span> : piece}</Fragment>
-                  ))}
-                </span>
-              )}
-              {kinds.length > 0 && (
-                <span className="shelf-rules" title={rulesTitle(part)}>
-                  {kinds.map((kind, n) => (
-                    <i key={n} className={`r-${kind}`} />
-                  ))}
-                </span>
-              )}
-            </>
-          )}
-        </span>
+        <PartLine part={part} />
       </span>
       <span className="shelf-used num">{used === null ? '' : `× ${used}`}</span>
     </button>

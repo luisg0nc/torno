@@ -54,6 +54,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   only when the composer is empty and not focused and the focus is in no other field (`Takeover`, `typing.ts`: a parameter, a slider, the terminal). An unsent prompt in a chat that is not over is among what closing
   the window asks about (`closingWhy`'s `unsent`). "Attach view" is sent in order: main waits for the picture
   before taking the next prompt, so one sent meanwhile cannot overtake it.
+- **A question with the header `Shelf` is an offer** (`shelfOffer.ts`, `ShelfOffer.tsx`: a table of the size lines, buttons that answer at once; #354), and a write to `common/parts/<id>/` has a slip
+  under its card (`shelfSlip.ts`, `ShelfSlip.tsx`: the part as the shelf has it, "Open it"; a tool with a slip does not fold). Both are in the rule `shelf`.
 - **A tool is a chip** (`ui/chat/ToolCard.tsx`, `ToolFold`; spec "The conversation"): 24 px, round, on `--surface`, its line in 12 px
   with the word that carries it in bold ink (`labelParts`: the file of a `Read`, the name of the others, `torno · look` for
   torno's own); a tool of torno's is on `--accent-wash` with its name in `--accent` (`data-torno`), and the one running

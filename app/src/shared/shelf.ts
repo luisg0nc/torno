@@ -99,3 +99,19 @@ export function holeText(part: Pick<ShelfPart, 'cutout'>): string {
 
 /** How many of the part's sizes say `assumed` in their comment's source. */
 export const assumedCount = (part: Pick<ShelfPart, 'params'>): number => sourceCount(part.params).assumed.length
+
+/**
+ * The part and the file a path names when it is inside a shelf part's folder (`common/parts/<id>/<file>`), as the path of a tool call is
+ * given (relative to the workspace or absolute: the folder is found by its segments, not by the workspace's root); null for any other path,
+ * a folder with no file in it, a name that is no part id and a path that climbs with `..`.
+ */
+export function shelfFileOf(path: unknown): { id: string; file: string } | null {
+  if (typeof path !== 'string' || path === '') return null
+  const parts = path.split(/[\\/]+/).filter((segment) => segment !== '' && segment !== '.')
+  if (parts.includes('..')) return null
+  const at = parts.findLastIndex((segment, n) => segment === 'common' && parts[n + 1] === 'parts')
+  if (at < 0) return null
+  const id = parts[at + 2]
+  const file = parts.slice(at + 3)
+  return id !== undefined && isPartId(id) && file.length > 0 ? { id, file: file.join('/') } : null
+}

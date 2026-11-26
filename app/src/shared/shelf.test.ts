@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Param } from './scene'
-import { assumedCount, holeText, isPartId, type ShelfPart } from './shelf'
+import { assumedCount, holeText, isPartId, shelfFileOf, type ShelfPart } from './shelf'
 
 const size = (name: string, doc: string | null, value = 1): Param => ({ name, type: 'float', default: value, literal: true, doc })
 
@@ -35,4 +35,26 @@ describe('assumedCount', () => {
     expect(assumedCount(part({ params: [flag, size('a', 'assumed: x')] }))).toBe(1)
   })
   it('is 0 for a part with none', () => expect(assumedCount(part())).toBe(0))
+})
+
+describe('shelfFileOf', () => {
+  it('reads the part and the file of a path inside common/parts, relative or absolute', () => {
+    expect(shelfFileOf('common/parts/ec11/part.py')).toEqual({ id: 'ec11', file: 'part.py' })
+    expect(shelfFileOf('/home/me/ws/common/parts/esp32_c6_lcd_147/part.py')).toEqual({ id: 'esp32_c6_lcd_147', file: 'part.py' })
+    expect(shelfFileOf('./common/parts/ec11/datasheet/ec11.pdf')).toEqual({ id: 'ec11', file: 'datasheet/ec11.pdf' })
+    expect(shelfFileOf('common//parts/ec11/./part.py')).toEqual({ id: 'ec11', file: 'part.py' })
+    expect(shelfFileOf('C:\\ws\\common\\parts\\ec11\\part.py')).toEqual({ id: 'ec11', file: 'part.py' })
+  })
+  it('is null for anything else: another folder, a folder with no file, a name that is no id, a path that climbs out', () => {
+    expect(shelfFileOf('common/parts.py')).toBeNull()
+    expect(shelfFileOf('common/parts/ec11')).toBeNull()
+    expect(shelfFileOf('common/parts/ec11/')).toBeNull()
+    expect(shelfFileOf('common/parts/ec-11/part.py')).toBeNull()
+    expect(shelfFileOf('common/parts/EC11/part.py')).toBeNull()
+    expect(shelfFileOf('hollow/part.py')).toBeNull()
+    expect(shelfFileOf('uncommon/parts/ec11/part.py')).toBeNull()
+    expect(shelfFileOf('common/parts/ec11/../../x.py')).toBeNull()
+    expect(shelfFileOf('')).toBeNull()
+    expect(shelfFileOf(undefined)).toBeNull()
+  })
 })
