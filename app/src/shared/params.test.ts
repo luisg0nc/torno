@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assumedKey, assumedLine, sameValue, sourceCount, sourceOf, sourceWord, splitSource, triedParams, whyUnsaid } from './params'
+import { assumedKey, assumedLine, sameValue, sourceCount, sourceOf, sourceWord, splitSource, triedParams, unitMark, unitOf, whyUnsaid, withUnit } from './params'
 import type { Param } from './scene'
 
 const p = (name: string, def: unknown, doc: string | null): Param => ({ name, type: 'float', default: def, literal: true, doc })
@@ -98,5 +98,52 @@ describe('the source word of a row', () => {
     expect(splitSource('ref photo-1.jpg: over the tabs')).toEqual({ source: 'ref photo-1.jpg:', rest: ' over the tabs' })
     expect(splitSource('over the tabs')).toEqual({ source: '', rest: 'over the tabs' })
     expect(splitSource(null)).toEqual({ source: '', rest: '' })
+  })
+})
+
+describe('the unit of a field', () => {
+  const field = (more: Partial<Param>): Param => ({ name: 'wall', type: 'float', default: 2, literal: true, doc: null, editable: 'float', ...more })
+
+  it('is millimetres for a number the model reads as a float and says nothing of', () => {
+    expect(unitOf(field({}))).toBe('mm')
+    expect(unitOf(field({ unit: null }))).toBe('mm')
+    // Worked out in the model: not offered, and still a float as written.
+    expect(unitOf(field({ literal: false, editable: null }))).toBe('mm')
+    expect(unitOf(field({ type: 'float | None', literal: false, editable: null }))).toBe('mm')
+    // A type of the model's own that the kernel offers as a float.
+    expect(unitOf(field({ type: 'Length' }))).toBe('mm')
+  })
+
+  it('is none for a whole number the model says nothing of: it is most often a count', () => {
+    expect(unitOf(field({ type: 'int', default: 9, editable: 'int' }))).toBe('')
+    expect(unitOf(field({ type: 'int', default: 9, literal: false, editable: null }))).toBe('')
+  })
+
+  it('is what the model declares, as written, the empty one included', () => {
+    expect(unitOf(field({ unit: 'deg' }))).toBe('deg')
+    expect(unitOf(field({ unit: 'count' }))).toBe('count')
+    expect(unitOf(field({ unit: '' }))).toBe('')
+    expect(unitOf(field({ unit: 'N·m' }))).toBe('N·m')
+    expect(unitOf(field({ type: 'int', default: 4, editable: 'int', unit: 'mm' }))).toBe('mm')
+  })
+
+  it('is none for a flag, a text, a choice, a list and a value there is none of, whatever is declared', () => {
+    expect(unitOf(field({ type: 'bool', default: true, editable: 'bool', unit: 'mm' }))).toBe('')
+    expect(unitOf(field({ type: 'str', default: 'M3', editable: null }))).toBe('')
+    expect(unitOf(field({ type: "Literal[2, 3]", default: 2, editable: 'choice', choices: [2, 3], unit: 'mm' }))).toBe('')
+    expect(unitOf(field({ type: 'tuple[float, float]', default: [1, 2], editable: null }))).toBe('')
+    expect(unitOf(field({ default: null, literal: false, editable: null }))).toBe('')
+  })
+
+  it('is written close to its number for degrees and per cent, after a space otherwise, and not at all for a count', () => {
+    expect(unitMark('deg')).toBe('°')
+    expect(unitMark('count')).toBe('')
+    expect(unitMark('rpm')).toBe('rpm')
+    expect(withUnit('96', 'mm')).toBe('96 mm')
+    expect(withUnit('15', 'deg')).toBe('15°')
+    expect(withUnit('15', '°')).toBe('15°')
+    expect(withUnit('50', '%')).toBe('50%')
+    expect(withUnit('9', 'count')).toBe('9')
+    expect(withUnit('9', '')).toBe('9')
   })
 })

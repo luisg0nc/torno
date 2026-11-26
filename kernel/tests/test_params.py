@@ -5,7 +5,7 @@ import textwrap
 from torno_kernel.loader import load_model
 
 
-def told(name, type, default, literal, doc, editable=None, choices=None, metadata=None, value="same"):
+def told(name, type, default, literal, doc, editable=None, choices=None, metadata=None, value="same", unit=None):
     """A field as ``read_params`` tells it."""
     return {
         "name": name,
@@ -16,6 +16,7 @@ def told(name, type, default, literal, doc, editable=None, choices=None, metadat
         "editable": editable,
         "choices": choices,
         "metadata": metadata or {},
+        "unit": unit,
         "doc": doc,
     }
 
@@ -160,6 +161,35 @@ def test_only_literal_numbers_bools_and_literals_are_offered(tmp_path):
     assert by["shape"]["choices"] == ["round", "square"]
     assert by["wall"]["metadata"] == {"min": 1, "max": 5, "step": 0.2}
     assert by["ribs"]["metadata"] == {} and by["ribs"]["choices"] is None
+
+
+def test_a_unit_in_the_metadata_is_told_as_written_and_what_is_no_text_is_left_out(tmp_path):
+    folder = write(
+        tmp_path,
+        """
+        from dataclasses import dataclass, field
+
+        from build123d import Box
+
+
+        @dataclass(frozen=True)
+        class Params:
+            tilt: float = field(default=15.0, metadata={"min": 0, "max": 45, "unit": "deg"})
+            buttons: int = field(default=9, metadata={"unit": "count"})
+            ratio: float = field(default=2.0, metadata={"unit": ""})
+            load: float = field(default=3.0, metadata={"unit": " N·m "})
+            odd: float = field(default=1.0, metadata={"unit": 5})
+            wall: float = 2.0
+
+
+        def assembly(p):
+            return {"tray": Box(10, 10, p.wall)}
+        """,
+    )
+    _, params, _, _ = load_model(folder, "thing.py")
+    by = {p["name"]: p for p in params}
+    assert [by[n]["unit"] for n in ("tilt", "buttons", "ratio", "load", "odd", "wall")] == ["deg", "count", "", "N·m", None, None]
+    assert by["tilt"]["metadata"] == {"min": 0, "max": 45}
 
 
 def test_an_override_reaches_every_call_of_params_the_loader_makes(tmp_path):

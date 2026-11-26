@@ -95,6 +95,7 @@ def test_build_bracket_replies_started_then_scene_and_blob(kernel, ws):
             "editable": "float",
             "choices": None,
             "metadata": {},
+            "unit": None,
             "doc": None,
         }
     ]

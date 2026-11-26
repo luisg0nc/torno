@@ -29,7 +29,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   model file: it is the person's, outside `.torno/`. A `Params` that cannot be read is no failure: `[]`.
   Each field also says `value` (what this build used), `editable` (`float`, `int`, `bool` or `choice`: only a field
   whose default is a literal number or bool, or a `Literal` of literals, with a default among them), `choices` and
-  `metadata` (the plain numbers `min`, `max`, `step` of the field's own `metadata`).
+  `metadata` (the plain numbers `min`, `max`, `step` of the field's own `metadata`) and `unit` (the text that same
+  `metadata` gives as `unit`, on one line, else as written, known or not; `''` says none; null when it says nothing or
+  no text). The kernel applies no default: what a field is shown in is the app's `unitOf` (rule `params`).
 - **A build may carry overrides of `Params`** (`overrides`, field name to a bool, number or string; anything
   else is a `bad_request`). The loader makes every `Params()` it calls (`assembly`, `printables`, `make_<part>`,
   `groups`, `checks`) as `dataclasses.replace(Params(), **applied)` (`loader._params`); `apply_overrides` takes only

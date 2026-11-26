@@ -66,7 +66,17 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`sourceOf` is `assumed`) has a dashed field edge and its word in `--warn` ("nothing checks this"). A number whose `metadata`
   has `min` and `max` fills its field to where the value stands (`.param-fill`, `role="img"`, `aria-label` from `gaugeSaid`).
   The comment (`doc`) is in the name's title and, whole with its source as written (`splitSource`), in the open part. No unit is taken from a comment.
-- **Widths and the find** (a container query on `.section.params`, `styles/card-params.css`): at 360 px and wider `.param-doc` is a column of the line between the name and the source word; at 270 px and narrower the source and value columns tighten (46 and 50 px) so `tab_hole_from_rear` reads whole. While a find is typed (`data-finding`), every line shows its comment whole under it at any width and the words found are marked, in the name and the comment (`ui/markWords.tsx`, `wordsOf` reads them as `findParams` does).
+- **Units** (`unitOf`, `unitMark`, `withUnit` in `shared/params.ts`: one rule for the window and the agent). Only a number has
+  one (a flag, a text, a choice, a list and a missing value have none, whatever is declared). It is the `unit` of the field's
+  `metadata` as written (`Param.unit`, `''` for none); where the model says nothing, `mm` for a float (offered as one, or
+  `float` in the type as written) and none for an `int`, most often a count. `deg` is written `°`, `count` not at all, any
+  other as it is; `°` and `%` stand against the number, the rest after a space. torno converts nothing. In the line it is
+  `.param-unit`, muted, in the field after the input and never in its value (`ParamRow.unit`; `value`, `full` and `file` are
+  numbers alone); a press on it focuses the field. The row's title, the field's title and `aria-description`, the worked
+  value's title, the slider (its ends, title and `aria-valuetext`) and the kept line say it. The value column is 66 px, 60 at
+  270 px and narrower, so that a long name and four digits with `mm` both read whole (`e2e/params.spec.ts`). `scene`'s
+  `params[].unit` is `unitOf`'s answer.
+- **Widths and the find** (a container query on `.section.params`, `styles/card-params.css`): at 360 px and wider `.param-doc` is a column of the line between the name and the source word; at 270 px and narrower the source and value columns tighten (46 and 60 px) so `tab_hole_from_rear` reads whole. While a find is typed (`data-finding`), every line shows its comment whole under it at any width and the words found are marked, in the name and the comment (`ui/markWords.tsx`, `wordsOf` reads them as `findParams` does).
 - **A line opens in place** (`.param-open`, `data-open`) while its field or slider has the keys (a click on the value, Tab, the
   picker's Enter, which focuses `[data-param-field]`) and for as long as its value is tried: the comment whole, the slider, and the kept line
   with Reset. Pointing at a line lights its faces (and borrows the leader) and moves nothing; the keys on the name do not open it.

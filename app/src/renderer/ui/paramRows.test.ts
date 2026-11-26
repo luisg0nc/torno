@@ -32,9 +32,19 @@ describe('the row of a field of Params', () => {
   })
 
   it('describes the field for a title: name, type as written, the full value and the comment', () => {
-    expect(paramRow(param({ default: 2.123456789, doc: 'Wall' })).title).toBe('Params.wall: float = 2.123456789. Wall')
-    expect(paramRow(param({ default: 2.4 })).title).toBe('Params.wall: float = 2.4')
+    expect(paramRow(param({ default: 2.123456789, doc: 'Wall' })).title).toBe('Params.wall: float = 2.123456789 mm. Wall')
+    expect(paramRow(param({ default: 2.4 })).title).toBe('Params.wall: float = 2.4 mm')
+    expect(paramRow(param({ default: 15, unit: 'deg' })).title).toBe('Params.wall: float = 15°')
     expect(paramRow(param({ default: null, literal: false })).title).toBe('Params.wall: float, worked out in the model')
+  })
+})
+
+describe('the unit of a row', () => {
+  it('is apart from the value, which stays the number alone', () => {
+    expect(paramRow(param({}))).toMatchObject({ value: '2.4', unit: 'mm' })
+    expect(paramRow(param({ default: 15, unit: 'deg' }))).toMatchObject({ value: '15', unit: 'deg' })
+    expect(paramRow(param({ type: 'int', default: 9 }))).toMatchObject({ value: '9', unit: '' })
+    expect(paramRow(param({ type: 'bool', default: true }))).toMatchObject({ unit: '' })
   })
 })
 
