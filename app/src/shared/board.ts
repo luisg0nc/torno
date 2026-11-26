@@ -55,7 +55,39 @@ export interface Card {
   copy?: BuildCopy
   /** What a `size` card says: only ever on that kind. */
   size?: SizeFact
+  /** The prompt the agent made or last changed it in. Main's only (#336): never taken from the window or a tool's arguments. */
+  turn?: CardTurn
+  /** When it was made or last changed, ISO 8601. Main's only. */
+  at?: string
+  /** What an agent's card said before each edit of its words, oldest first, the last `MAX_WAS`. Main's only. */
+  was?: CardWas[]
+  /** A card the person made theirs (`adopt`, #339): it was the agent's, written in that prompt. Main's only. */
+  from?: CardFrom
 }
+
+/** A prompt, as a build's turn names it (`BuildTurn`) without its words: those stay in the chat log, which does not travel with the project. */
+export interface CardTurn {
+  /** The chat's `user` item, or `t-<conversation>-<n>` for a terminal's prompt. */
+  prompt: string
+  conversation?: string
+}
+
+/** What a card said before an edit, and the prompt and time it said it from. */
+export interface CardWas {
+  text: string
+  turn?: CardTurn
+  at?: string
+}
+
+/** Who a card the person made theirs was by, and when and in which prompt that one wrote it. */
+export interface CardFrom {
+  by: 'agent'
+  turn?: CardTurn
+  at?: string
+}
+
+/** The most earlier words a card keeps (`was`). */
+export const MAX_WAS = 6
 
 export interface Arrow {
   /** `C<n>`: arrows take their ids from the same count as cards. */

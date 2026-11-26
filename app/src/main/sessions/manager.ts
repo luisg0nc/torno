@@ -623,6 +623,17 @@ export class Sessions {
     return { cause: 'person' }
   }
 
+  /**
+   * The prompt a session of the object is answering now, as a build's turn names it, without its words: what the agent
+   * writes on the brief in it is stamped with it (#336). None between turns, and none before the prompt's hook was answered.
+   */
+  turnNow(objectId: string): { prompt: string; conversation?: string } | undefined {
+    const session = this.of(objectId)
+    if (!session?.turn?.prompt) return undefined
+    const { prompt, conversation } = turnOf(session, session.turn)
+    return { prompt, ...(conversation ? { conversation } : {}) }
+  }
+
   /** Resolves at the next change of a build, or at `until` (ms epoch), whichever comes first. */
   private nextBuild(until: number): Promise<void> {
     return new Promise((done) => {

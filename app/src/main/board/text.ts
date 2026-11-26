@@ -202,12 +202,18 @@ function pictureOf(card: Card): Omit<BoardPicture, 'card'> | undefined {
   return undefined
 }
 
+/** The prompt a card of the agent's was written in, after its author: `, prompt 11`; nothing when it has none or its number is not known here. */
+function promptOf(card: Card, prompts: ReadonlyMap<string, number> | undefined): string {
+  const number = card.turn && prompts?.get(card.turn.prompt)
+  return card.by === 'agent' && number ? `, prompt ${number}` : ''
+}
+
 /**
  * The board, or the frames and cards named in `only` (the frames' cards with them), as text: a block for each card in
  * reading order, then the arrows between what is told. Hidden cards are not in it. `exists` says whether a picture's
  * file is on this computer. The text is at most `limit` characters; what does not fit is replaced by a sentence.
  */
-export function boardText(board: BoardFile, live: LiveFacts, opts: { only?: string[] | 'all'; limit: number; exists?: (file: string) => boolean }): BoardText {
+export function boardText(board: BoardFile, live: LiveFacts, opts: { only?: string[] | 'all'; limit: number; exists?: (file: string) => boolean; /** The number of each prompt by its id (`listPrompts`): a card of the agent's says the prompt it was written in. */ prompts?: ReadonlyMap<string, number> }): BoardText {
   const only = opts.only === undefined || opts.only === 'all' ? null : new Set(opts.only)
   const cards = readingOrder(board.cards).filter((c) => only === null || only.has(c.id) || (c.frame !== undefined && only.has(c.frame)))
   const exists = opts.exists ?? ((): boolean => true)
@@ -231,7 +237,7 @@ export function boardText(board: BoardFile, live: LiveFacts, opts: { only?: stri
 
   const block = (card: Card): string => {
     const where = card.frame !== undefined && frames.has(card.frame) ? ` · in ${frames.get(card.frame)}` : ''
-    const head = `${card.id} · ${LABEL[card.kind]} · by ${WHO[card.by]}${where}`
+    const head = `${card.id} · ${LABEL[card.kind]} · by ${WHO[card.by]}${promptOf(card, opts.prompts)}${where}`
     // A size is one line, said after its head; the numbers it holds follow it in full.
     if (card.kind === 'size') {
       const numbers = card.size ? parseSize(card.size.value, card.size.unit)?.numbers : undefined

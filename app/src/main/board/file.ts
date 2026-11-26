@@ -1,6 +1,6 @@
 import { copyFile, lstat, readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type Arrow, type BoardFile, type Card, type CardKind, type SavedCamera, CARD_ID, MAX_NAME_CHARS, MAX_TEXT_CHARS, PICTURE_NAME } from '../../shared/board'
+import { type Arrow, type BoardFile, type Card, type CardKind, type CardTurn, type CardWas, type SavedCamera, CARD_ID, MAX_NAME_CHARS, MAX_TEXT_CHARS, MAX_WAS, PICTURE_NAME } from '../../shared/board'
 import { checkSize, checkTie } from '../../shared/size'
 import { FOLDER, ownTorno, writeOwn } from '../own'
 
@@ -26,6 +26,35 @@ function cameraOf(value: unknown): SavedCamera | undefined {
   return { position, target, up, ortho: value.ortho, fov: value.fov, zoom: value.zoom }
 }
 
+/** The longest id of a prompt or a conversation a card keeps. */
+const MAX_TURN_ID = 200
+
+/** A prompt as a card names it (`turn`), with only its two fields; undefined when it is not one. */
+function turnOf(value: unknown): CardTurn | undefined {
+  if (!isRecord(value)) return undefined
+  const prompt = str(value.prompt, MAX_TURN_ID)
+  if (prompt === undefined || prompt === '') return undefined
+  const conversation = str(value.conversation, MAX_TURN_ID)
+  return { prompt, ...(conversation !== undefined && conversation !== '' ? { conversation } : {}) }
+}
+
+/** A time as a card keeps it: ISO 8601 that reads as a date; undefined otherwise. */
+const timeOf = (value: unknown): string | undefined => (typeof value === 'string' && value.length <= 40 && Number.isFinite(Date.parse(value)) ? value : undefined)
+
+/** What a card said before its edits, each whole, the last `MAX_WAS`; undefined when none is. */
+function wasOf(value: unknown): CardWas[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const kept = value.flatMap((one): CardWas[] => {
+    if (!isRecord(one)) return []
+    const text = str(one.text, MAX_TEXT_CHARS)
+    if (text === undefined) return []
+    const turn = turnOf(one.turn)
+    const at = timeOf(one.at)
+    return [{ text, ...(turn ? { turn } : {}), ...(at ? { at } : {}) }]
+  })
+  return kept.length > 0 ? kept.slice(-MAX_WAS) : undefined
+}
+
 /** A card as the file holds it, with only the fields this version knows and each of the right shape; null when it is not a card. */
 export function sanitiseCard(value: unknown): Card | null {
   if (!isRecord(value)) return null
@@ -49,6 +78,12 @@ export function sanitiseCard(value: unknown): Card | null {
   const camera = cameraOf(value.camera)
   if (camera) card.camera = camera
   if (value.hidden === true) card.hidden = true
+  const turn = turnOf(value.turn)
+  if (turn) card.turn = turn
+  const at = timeOf(value.at)
+  if (at !== undefined) card.at = at
+  const was = wasOf(value.was)
+  if (was) card.was = was
   const copy = value.copy
   if (isRecord(copy) && typeof copy.id === 'string' && typeof copy.line === 'string' && typeof copy.cause === 'string' && typeof copy.sources === 'string') {
     card.copy = { id: copy.id, line: copy.line, cause: copy.cause, sources: copy.sources }

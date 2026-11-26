@@ -1,5 +1,5 @@
 import { checkSize } from '../../shared/size'
-import { type AgentChange, type Arrow, type BoardFile, type Card, type PersonChange, CARD_ID, MADE_KINDS, MAX_CARDS, MAX_NAME_CHARS, MAX_TEXT_CHARS, PICTURE_NAME } from '../../shared/board'
+import { type AgentChange, type Arrow, type BoardFile, type Card, type CardTurn, type PersonChange, CARD_ID, MADE_KINDS, MAX_CARDS, MAX_NAME_CHARS, MAX_TEXT_CHARS, MAX_WAS, PICTURE_NAME } from '../../shared/board'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { FOLDER, ownTorno, writeOwn } from '../own'
@@ -73,7 +73,7 @@ export const REMOVED_KEPT = 200
  * What the person asked, done to `board` (a copy of the file). Throws a `Refusal` and the copy is thrown away.
  * Nothing the window says is taken for an id, an author or `hidden`: those are main's.
  */
-function applyPerson(board: BoardFile, change: PersonChange, removed: Removed): void {
+function applyPerson(board: BoardFile, change: PersonChange, removed: Removed, at: string): void {
   switch (change.op) {
     case 'add': {
       const said = change.card as Partial<Card> | undefined
@@ -81,7 +81,7 @@ function applyPerson(board: BoardFile, change: PersonChange, removed: Removed): 
       if (board.cards.length >= MAX_CARDS) throw new Refusal(`The board holds ${MAX_CARDS} cards, and that is all it takes.`)
       const { kind, x, y, w, h } = said
       if (!finite(x) || !finite(y) || !finite(w) || !finite(h) || w <= 0 || h <= 0) throw new Refusal('A card needs a place and a size.')
-      const card: Card = { id: give(board), kind: kind as Card['kind'], x, y, w, h, by: 'person' }
+      const card: Card = { id: give(board), kind: kind as Card['kind'], x, y, w, h, by: 'person', at }
       if (kind === 'text') card.text = checkedText(said.text ?? '', MAX_TEXT_CHARS, 'text')
       if (kind === 'frame') card.name = checkedText(said.name ?? '', MAX_NAME_CHARS, 'name')
       if (kind === 'size') card.size = checkedSize(said.size)
@@ -125,6 +125,7 @@ function applyPerson(board: BoardFile, change: PersonChange, removed: Removed): 
     case 'edit': {
       const card = cardOf(board, change.id)
       if (card.by !== 'person') throw new Refusal(`${card.id} is not the person's, and its words are not theirs to change here.`)
+      const before = JSON.stringify(card)
       if (change.picture !== undefined) {
         // A sketch drawn on again: the file is one torno kept (`board:addPicture`), and it is the only card whose picture is the person's to change.
         if (card.kind !== 'sketch') throw new Refusal(`${card.id} is not a doodle, and its picture is not changed here.`)
@@ -143,6 +144,8 @@ function applyPerson(board: BoardFile, change: PersonChange, removed: Removed): 
         if (caption === '') delete card.caption
         else card.caption = caption
       }
+      // Changed when it says something else: an edit that changes nothing is no change, and writes nothing.
+      if (JSON.stringify(card) !== before) card.at = at
       return
     }
     case 'remove': {
@@ -263,7 +266,7 @@ const shown = (board: BoardFile, id: unknown): Card => {
  * ever makes cards and arrows of its own, in a place main finds, and changes or removes only those: an id, an author,
  * a place and `hidden` are never its to say.
  */
-function applyAgent(board: BoardFile, change: AgentChange): Omit<AgentResult, 'board'> {
+function applyAgent(board: BoardFile, change: AgentChange, stamp: { at: string; turn?: CardTurn }): Omit<AgentResult, 'board'> {
   switch (change.op) {
     case 'add': {
       const said = change as Extract<AgentChange, { op: 'add' }>
@@ -296,7 +299,7 @@ function applyAgent(board: BoardFile, change: AgentChange): Omit<AgentResult, 'b
         spot = freeSpotBelow(board.cards, size, into!.frame)
         out.below = into!.frame.id
       }
-      const card: Card = { id: give(board), kind: hasPicture ? 'picture' : hasSize ? 'size' : 'text', ...spot, ...size, by: 'agent' }
+      const card: Card = { id: give(board), kind: hasPicture ? 'picture' : hasSize ? 'size' : 'text', ...spot, ...size, by: 'agent', ...(stamp.turn ? { turn: { ...stamp.turn } } : {}), at: stamp.at }
       if (typeof fact === 'object') card.size = fact
       else if (hasPicture) {
         card.picture = said.picture
@@ -319,6 +322,7 @@ function applyAgent(board: BoardFile, change: AgentChange): Omit<AgentResult, 'b
       const own = ownOf(board, change.id)
       if (!('card' in own)) throw new Refusal(`${change.id} is an arrow: take it down and draw it again.`)
       const { card } = own
+      const before = card.kind === 'text' ? card.text : card.kind === 'frame' ? card.name : card.caption
       if (card.kind === 'text') card.text = checkedText(change.text, MAX_TEXT_CHARS, 'text')
       else if (card.kind === 'frame') {
         const name = checkedText(change.text, MAX_NAME_CHARS, 'name').trim()
@@ -329,6 +333,14 @@ function applyAgent(board: BoardFile, change: AgentChange): Omit<AgentResult, 'b
         if (caption === '') delete card.caption
         else card.caption = caption
       } else throw new Refusal(`${card.id} shows ${card.kind}, and its words are not changed here.`)
+      const after = card.kind === 'text' ? card.text : card.kind === 'frame' ? card.name : card.caption
+      // Its words changed: what they were is kept, with the prompt and time they were written in, and the card is now of this prompt.
+      if (after !== before) {
+        card.was = [...(card.was ?? []), { text: before ?? '', ...(card.turn ? { turn: card.turn } : {}), ...(card.at ? { at: card.at } : {}) }].slice(-MAX_WAS)
+        if (stamp.turn) card.turn = { ...stamp.turn }
+        else delete card.turn
+        card.at = stamp.at
+      }
       return { id: card.id }
     }
     case 'remove': {
@@ -374,7 +386,11 @@ export class BoardStore {
   private epoch = 0
   private listeners: { [E in keyof BoardEvents]: Array<(e: BoardEvents[E]) => void> } = { changed: [], problem: [] }
 
-  constructor(private deps: { dirOf(objectId: string): string | undefined; /** What a card shows of the project besides the board (`liveFacts`), for `markAllTold`: none, and a card of the marks, Params or checks is then told as if there were nothing to show. */ live?(objectId: string): Promise<LiveFacts> }) {}
+  constructor(private deps: { dirOf(objectId: string): string | undefined; /** What a card shows of the project besides the board (`liveFacts`), for `markAllTold`: none, and a card of the marks, Params or checks is then told as if there were nothing to show. */ live?(objectId: string): Promise<LiveFacts>; /** The clock a card's `at` is read from: the system's when none is given. */ now?(): Date }) {}
+
+  private stamp(): string {
+    return (this.deps.now?.() ?? new Date()).toISOString()
+  }
 
   on<E extends keyof BoardEvents>(event: E, cb: (e: BoardEvents[E]) => void): void {
     this.listeners[event].push(cb)
@@ -517,7 +533,7 @@ export class BoardStore {
     return this.change(
       objectId,
       (board, removed) => {
-        applyPerson(board, change, removed)
+        applyPerson(board, change, removed, this.stamp())
         return board
       },
       true
@@ -575,10 +591,12 @@ export class BoardStore {
   /**
    * A change the agent asked of the board through its tools: it makes cards and arrows of its own and changes or
    * removes those, and nothing of the person's or of main's own (`applyAgent`). Resolves with the board, written, and
-   * what was done; or rejects with a `Refusal` and changes nothing.
+   * what was done; or rejects with a `Refusal` and changes nothing. `turn` is the prompt the session is answering, main's
+   * own (`Sessions.turnNow`): a card made or changed is stamped with it and the time.
    */
-  async agent(objectId: string, change: AgentChange): Promise<AgentResult> {
-    const { board, result } = await this.changeWith(objectId, (board) => ({ board, result: applyAgent(board, change) }), true)
+  async agent(objectId: string, change: AgentChange, turn?: CardTurn): Promise<AgentResult> {
+    const stamp = { at: this.stamp(), ...(turn ? { turn } : {}) }
+    const { board, result } = await this.changeWith(objectId, (board) => ({ board, result: applyAgent(board, change, stamp) }), true)
     return { board, ...result }
   }
 

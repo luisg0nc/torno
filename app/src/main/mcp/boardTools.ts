@@ -48,7 +48,8 @@ export async function boardTool(deps: ToolDeps, objectId: string, args: BoardArg
     only = [frame.id, ...board.cards.filter((c) => c.frame === frame.id).map((c) => c.id)]
   }
   const live = await deps.board.live(objectId).catch(() => ({ marks: new Map() }))
-  const told = boardText(board, live, { ...(only ? { only } : {}), limit: ANSWER_LIMIT, exists: await filesOf(obj.dir) })
+  const prompts = await deps.board.prompts?.(objectId).catch(() => undefined)
+  const told = boardText(board, live, { ...(only ? { only } : {}), limit: ANSWER_LIMIT, exists: await filesOf(obj.dir), ...(prompts ? { prompts } : {}) })
 
   const content: ToolResult['content'] = [{ type: 'text', text: told.text }]
   if (args.pictures !== true) {

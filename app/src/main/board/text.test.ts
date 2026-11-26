@@ -154,6 +154,17 @@ describe('the text of a board', () => {
     expect(text).toContain(`[doodle ${d.id}: the latch shape]`)
     expect(text).not.toMatch(/sketch/i)
   })
+  it('says the prompt a card of the agent’s was written in, when its number is known here (#336)', () => {
+    const mine = card({ kind: 'text', by: 'agent', text: 'Mount: an arm', turn: { prompt: 'u11', conversation: 'c1' } })
+    const elsewhere = card({ kind: 'text', by: 'agent', text: 'Face: a border', turn: { prompt: 'u99' } })
+    const theirs = card({ kind: 'text', text: 'Keep it below the paddles', turn: { prompt: 'u11' } })
+    const told = boardText(board([mine, elsewhere, theirs]), LIVE, { ...OPTS, prompts: new Map([['u11', 11]]) }).text
+    expect(told).toContain(`${mine.id} · text · by you, prompt 11\nMount: an arm`)
+    expect(told).toContain(`${elsewhere.id} · text · by you\nFace`)
+    expect(told).toContain(`${theirs.id} · text · by the person\nKeep`)
+    expect(boardText(board([mine]), LIVE, OPTS).text).toContain(`${mine.id} · text · by you\n`)
+  })
+
   it('says a picture by its caption', () => {
     const p = card({ kind: 'picture', picture: 'p-aaaaaaaaaaaa.png', caption: 'the old latch' })
     expect(boardText(board([p]), LIVE, OPTS).text).toContain(`[picture ${p.id}: the old latch]`)

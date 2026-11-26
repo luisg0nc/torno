@@ -80,6 +80,14 @@ describe('readBoardFile', () => {
     expect(read?.dropped).toBe(4)
   })
 
+  it('keeps when and in which prompt a card was written, and what it said before, each whole (#336)', () => {
+    const stamped = card('C1', { by: 'agent', turn: { prompt: 'u2', conversation: 'c1' }, at: '2026-11-25T14:11:00.000Z', was: [{ text: 'Mount: a flat blade', turn: { prompt: 'u1' }, at: '2026-11-25T14:02:00.000Z' }, { text: 'Mount: a tube' }] })
+    expect(readBoardFile({ next: 2, cards: [stamped], arrows: [] })?.file.cards[0]).toEqual(stamped)
+    const bad = readBoardFile({ next: 2, cards: [card('C1', { turn: { prompt: 7 }, at: 'yesterday', was: [{ text: 3 }, 'x', { text: 'kept', turn: 'u1', at: 'soon', extra: 1 }], from: 'agent' })], arrows: [] })
+    expect(bad?.file.cards[0]).toEqual({ ...card('C1'), was: [{ text: 'kept' }] })
+    expect(bad?.dropped).toBe(0)
+  })
+
   it('drops a field of the wrong shape and keeps the card', () => {
     const read = readBoardFile({ next: 2, cards: [card('C1', { text: 5, hidden: false, picture: '../x.png', camera: { position: [1] } })], arrows: [] })
     expect(read?.file.cards[0]).toEqual(card('C1', { text: undefined }))

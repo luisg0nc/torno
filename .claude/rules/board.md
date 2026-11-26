@@ -31,7 +31,16 @@ Paths as in the other rules.
   `S<n>`, `h<n>`, a view's name, `params`, `checks`), `layout`, `text`, `name`, `picture`, `caption`, `camera`,
   `hidden`, `copy` (a build card's copy of what it shows). An arrow has `id`, `from`, `to`, `label?`, `by`. Ids are
   `C<n>` from one count for cards and arrows, per project, given by main, never reused.
-  The ink-pad card is a **Doodle** in everything a person or Claude reads (the palette, the card's face, the key row, the board text,
+- **When and in which prompt (#336).** A card has `at` (ISO, made or last changed: `applyPerson` stamps an add and an edit that changes
+  something, `applyAgent` an add and an edit of its words), `turn` (`CardTurn`, `{ prompt, conversation? }`: a build's turn without its words,
+  which stay in the chat log that does not travel) on the agent's cards, from `Sessions.turnNow` (the turn under way once its
+  `UserPromptSubmit` was answered; none between turns) passed by `index.ts` to `BoardStore.agent(objectId, change, turn)`, and `was`
+  (`CardWas[]`, oldest first, the last `MAX_WAS`): what an agent's card said before each edit that changed its words, with that version's
+  `turn` and `at`. All three are main's: `applyPerson` builds a card from named fields, `applyAgent` takes none from `AgentChange`, and
+  `sanitiseCard` keeps only whole ones (`turnOf`, `timeOf`, `wasOf` in `file.ts`). The clock is `deps.now` (tests). `board` says an
+  agent's card's prompt after its author (`by you, prompt 11`, `promptOf` in `text.ts`) from `deps.board.prompts` (`listPrompts`, by
+  prompt id); a prompt whose log is not on this computer is not numbered.
+- The ink-pad card is a **Doodle** in everything a person or Claude reads (the palette, the card's face, the key row, the board text,
   the tool descriptions); its stored `kind` stays `sketch`, as its key id `board.sketch`, so that "sketch" can mean the 3D one.
 - A `size` card (`shared/size.ts`) holds `size: { what, value, unit, source, note? }`: `value` as typed, never parsed into the file
   (`parseSize` reads the numbers whenever they are told), `unit` `mm` or `°`, `source` one of `measured`, `from a manual or datasheet`,

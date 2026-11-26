@@ -66,6 +66,7 @@ import { exportsUnderWay, stopExports } from './export/save'
 import { readChoice } from './sessions/choice'
 import { claudeAdapter } from './sessions/claude'
 import { Sessions } from './sessions/manager'
+import { listPrompts } from './sessions/prompts'
 import { Attention } from './attention'
 import { StateFiles } from './statefile'
 import { newestPython, newestUsed, sourceFolders } from './show/cards'
@@ -439,8 +440,13 @@ const toolDeps: ToolDeps = {
   // The board: what `board` reads and `add_card` changes (the store is below, and is first asked after the app is up).
   board: {
     read: (objectId) => board.read(objectId),
-    agent: (objectId, change) => board.agent(objectId, change),
-    live: async (objectId) => liveFacts({ dir: findObject(objectId)?.dir, marks: await marks.list(objectId), scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) })
+    // Stamped with the prompt the session of the project is answering (#336): main's, never the tool's arguments.
+    agent: (objectId, change) => board.agent(objectId, change, sessions?.turnNow(objectId)),
+    live: async (objectId) => liveFacts({ dir: findObject(objectId)?.dir, marks: await marks.list(objectId), scene: lastScene(objectId)?.scene, overrides: heldOverrides, tracings: await tracingsOf(objectId) }),
+    prompts: async (objectId) => {
+      const obj = findObject(objectId)
+      return new Map((obj ? await (sessions ? sessions.prompts(obj) : listPrompts(obj.dir)) : []).map((row) => [row.id, row.number]))
+    }
   },
   ties: { tie: (objectId, cardId, markId, by, tolerance) => ties.tie(objectId, cardId, markId, by, tolerance), untie: (objectId, cardId, by) => ties.untie(objectId, cardId, by), reconcile: (objectId) => ties.reconcile(objectId) },
   scale: scalePicture,

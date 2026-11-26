@@ -2570,6 +2570,17 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     return (_id: string, revision: number | undefined): BuildVerdicts | undefined => (revision === undefined ? undefined : kept.get(revision))
   }
 
+  it('says the prompt a turn answers while it runs, without its words, and none between turns (#336)', async () => {
+    const { obj, post, sessions: s } = await begun({ grace: 200 })
+    const conversation = '0a1b2c3d-0000-4000-8000-000000000002'
+    expect(s.turnNow(obj.id)).toBeUndefined()
+    await post('UserPromptSubmit', { prompt: 'put the box on the arm', session_id: conversation })
+    expect(s.turnNow(obj.id)).toEqual({ conversation, prompt: `t-${conversation}-1` })
+    expect(s.turnNow('nowhere')).toBeUndefined()
+    await post('Stop', {})
+    expect(s.turnNow(obj.id)).toBeUndefined()
+  })
+
   it('says what caused a build: the person before the turn first edits, the agent after it, the person when no turn runs', async () => {
     const { obj, post, sessions: s } = await begun({ grace: 200 })
     const conversation = '0a1b2c3d-0000-4000-8000-000000000001'
