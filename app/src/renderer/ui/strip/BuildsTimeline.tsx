@@ -10,7 +10,8 @@ import { useThumb } from '../chat/useThumb'
 import { useElapsed } from '../useElapsed'
 import { setFailedAnchor } from './failedAnchor'
 import { NodePopover } from './NodePopover'
-import { groupCount, groupTitle, stripGroups, stripSays, type StripGroup, type StripNode } from './strip'
+import { chipCost, groupCount, groupTitle, stripGroups, stripSays, type StripGroup, type StripNode } from './strip'
+import { useProjectUsage } from '../../state/usage'
 import { useStripNodes } from './useStripNodes'
 
 const STAR = 'M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z'
@@ -136,6 +137,7 @@ export function BuildsTimeline() {
   const struck = useStruckNodes()
   const { nodes, entries, loaded } = useStripNodes()
   const groups = useMemo(() => stripGroups(nodes), [nodes])
+  const usage = useProjectUsage()
   const elapsed = useElapsed(build?.status === 'building' ? build.startedAt : undefined)
   const [picked, setPicked] = useState<{ node: StripNode; anchor: HTMLElement } | null>(null)
 
@@ -296,6 +298,10 @@ export function BuildsTimeline() {
                   <span className="tl-chip-label">{group.label}</span>
                   {groupCount(group) > 1 && <span className="num tl-chip-count">({groupCount(group)})</span>}
                   {group.state === 'running' && <span className="num tl-chip-count">{elapsed} s</span>}
+                  {(() => {
+                    const cost = chipCost(group, usage)
+                    return cost && <span className="num tl-chip-cost" data-large={cost.large ? '' : undefined} title={cost.large ? "What the prompt cost: a large turn, 3 times this project's usual one or more" : 'What the prompt cost'}>{cost.text}</span>
+                  })()}
                   {group.starred && <Star className="tl-chip-star" />}
                 </button>
               </span>

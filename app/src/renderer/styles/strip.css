@@ -118,6 +118,16 @@
   color: var(--muted);
 }
 
+/* What the prompt cost (#372), muted; a large one in the accent. */
+.tl-chip-cost {
+  color: var(--muted);
+}
+
+.tl-chip-cost[data-large] {
+  color: var(--accent);
+  font-weight: 500;
+}
+
 /* The person's own builds: their saves and their Parameters, a dot in their pencil's colour. */
 .tl-chip-dot {
   width: 6px;

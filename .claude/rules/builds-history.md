@@ -167,7 +167,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   projects or of a new project, not with the Brief or a tracing in its place. It is `--timeline-h` (34 px) across the foot of the view, above the status line, and
   `.viewport:has(> .timeline) > .viewport-pane` stands the view on it, so what sits at the foot of the view sits on the bar and the camera is fitted to what is
   left. The bar: the toggle (`.timeline-toggle`, `aria-expanded`, a chevron, `Builds`, how many are kept) and a chip for each group (`.tl-chip`, oldest at the
-  left, on a hairline; it scrolls sideways, by the wheel too, keeping the newest and the group on show in sight). The drawer (`.timeline-drawer`) rises from the
+  left, on a hairline; a prompt group's chip ends with its cost, `chipCost` (#372, rule `usage`); it scrolls sideways, by the wheel too, keeping the newest and the group on show in sight). The drawer (`.timeline-drawer`) rises from the
   bar over the view (it never resizes the view) by its rows' height, `inert` and hidden while folded. Open or shut is `state/timeline.ts`: the window's
   (`localStorage` `torno.timeline`, `open`/`shut`, as the dock's width is kept; the same for every project), toggled by the toggle and by `builds.toggle`
   (`Ctrl+Shift+H`, global, `useTimelineKey` in `App`, only with a project's view on screen). Which groups show every build (`expanded`, by `StripGroup.id`)
