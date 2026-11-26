@@ -125,6 +125,10 @@ Paths as in the other rules.
   and its thumb is copied into `pictures/`; removing the card leaves the star), a view must be among the saved views (the
   card keeps its layout), the Params and the checks are on a board once each. A local build with the card's id and
   another `sources` hash is not the same build.
+- **`brief.md` is the person's alone (#337).** Claude writes the brief as cards: the system prompt (`prompt.ts`), the torno-model skill
+  ("Writing down the brief") and `add_card`'s description say so, one card per topic beginning with its name, its own card of a topic changed
+  (`card`, `text`) rather than another added. `refusalOf` (`sessions/reach.ts`) refuses `Write`, `Edit`, `MultiEdit` of `<project>/brief.md`
+  (real paths) with `BRIEF_REFUSAL`, which names `add_card`; `opts.brief` lets the one turn of #341 through.
 - The board is never edited from outside `board.json`'s own owners: `brief.md` is shown read-only and opened in the person's
   editor (`board:open`, main's own path, never the window's).
 

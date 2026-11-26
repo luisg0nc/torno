@@ -3155,6 +3155,35 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(existsSync(join(obj.dir, '.torno', 'marks.json'))).toBe(false)
   })
 
+  it('refuses the stand-in\'s Edit and Write of brief.md, the person\'s own words, and points at add_card (#337)', async () => {
+    states = new Map()
+    own = recording(await startHttp())
+    const server = own
+    made = new Sessions({
+      configDir,
+      http: server,
+      adapter: claudeAdapter(`node ${FAKE}`),
+      viewFor: () => 'chat',
+      contextFor: () => ({ text: '', sentMarkIds: [] }),
+      systemPromptFor: () => '',
+      mcpUrlFor: (id) => server.url(`/mcp/${id}`)
+    })
+    others.push(made)
+    n += 1
+    const obj = object(`brief-${n}`)
+    writeFileSync(join(obj.dir, 'brief.md'), '# box\n\nA box.\n')
+    const messages: StreamMessage[] = []
+    made.on('stream', (m) => messages.push(m.message))
+    const { sessionId } = await made.start(obj, {})
+    made.prompt(sessionId, [{ type: 'text', text: ['edit brief.md "A box." "A box. Mount: a blade."', 'write brief.md mine now'].join('\n') }])
+    await expect.poll(() => messages.filter((m) => m.type === 'result').length, { timeout: 10_000 }).toBe(1)
+    expect(readFileSync(join(obj.dir, 'brief.md'), 'utf8')).toBe('# box\n\nA box.\n')
+    const results = messages.flatMap((m) => (m.type === 'user' ? (m.message as { content: { content?: string; is_error?: boolean }[] }).content : []))
+    const refused = results.filter((r) => r.is_error)
+    expect(refused).toHaveLength(2)
+    expect(refused.every((r) => String(r.content).includes('may not write brief.md') && String(r.content).includes('add_card'))).toBe(true)
+  })
+
   it('reads an Edit of the stand-in, and puts the build it started under the edit as data: how long a good one took, the last line of what a failed one said', async () => {
     states = new Map()
     own = recording(await startHttp())

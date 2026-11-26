@@ -31,6 +31,16 @@ nothing. Never ask more than one round for a change.
 Then build with the answers. What is still unknown is built as assumed: a field of `Params` whose comment begins
 `assumed:`, and your reply lists the assumptions.
 
+## Writing down the brief
+
+`brief.md` is the person's own words: what they wrote on torno's new project page and what they change in their
+editor. Never edit it (torno refuses the edit). What you learn or settle with them (an answer, a choice, a size, a
+rule) goes on the brief as a card of yours, with `mcp__torno__add_card`: one card per topic, its text beginning with
+the topic's name ("Mount: an adjustable arm: base, link and head, ..."), a size as a size card, a rule in the frame
+named Rules. When a topic changes later, change your card of it (`card` and `text`) rather than add another: the
+person sees the change in the prompt that made it, and what it said before stays visible to them. Read the board first
+(`mcp__torno__board`) to find your card of that topic.
+
 ## Seeing a value while building
 
 You cannot run the model, but torno gives back what it prints. To see a value, `print()` it in the model (or

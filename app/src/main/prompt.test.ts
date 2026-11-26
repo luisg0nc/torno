@@ -33,6 +33,16 @@ describe('the system prompt', () => {
     expect(SYSTEM_PROMPT).toContain(sentence)
   })
 
+  it('says brief.md is the person\'s, and that what Claude learns is a card of its own per topic, changed and not added again (#337)', () => {
+    const sentence = 'brief.md is the person\'s own words: never edit it. Write down what you learn or settle (an answer, a choice, a size, a rule) with mcp__torno__add_card, one card per topic that begins with its name ("Mount: an adjustable arm, ..."); when a topic changes, change your card of it rather than add another.'
+    expect(FULL_PROMPT).toContain(sentence)
+    expect(SYSTEM_PROMPT).toContain(sentence)
+    expect(TOOLS.add_card.description).toContain('brief.md is the person\'s own words, never yours to edit')
+    expect(TOOLS.add_card.description).toContain('one card per topic that begins with its name')
+    const skill = readFileSync(join(__dirname, '../../resources/agent-plugin/skills/torno-model/SKILL.md'), 'utf8').replace(/\s+/g, ' ')
+    for (const said of ['## Writing down the brief', '`brief.md` is the person\'s own words', 'one card per topic', 'change your card of it (`card` and `text`)']) expect(skill).toContain(said)
+  })
+
   it('names the tools as it is told to', () => {
     expect(systemPrompt((tool) => `torno.${tool}`)).toContain('torno.scene reports the build status')
     expect(systemPrompt((tool) => `torno.${tool}`)).not.toContain('mcp__torno__')
