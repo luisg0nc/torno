@@ -1347,3 +1347,33 @@
     transition: background-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
   }
 }
+
+/* Under a field of a card made the person's (#339): whose it is now, and the keys. */
+.brief-form-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.brief-form-note .grow {
+  flex: 1;
+}
+
+.brief-form-note kbd {
+  padding: 0 5px;
+  border: var(--divider);
+  border-radius: var(--radius-inline);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 10.5px;
+}
+
+.brief-cn[data-editing] .brief-form {
+  padding: 10px 12px 10px 14px;
+  background: var(--raise);
+}

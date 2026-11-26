@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { pressed } from '../../../shared/keys'
-import { MAX_SIZE_NOTE, MAX_SIZE_VALUE, MAX_SIZE_WHAT, PERSON_SOURCES, SIZE_UNITS, checkSize, type SizeFact, type SizeSource, type SizeUnit } from '../../../shared/size'
+import { AGENT_SOURCE, MAX_SIZE_NOTE, MAX_SIZE_VALUE, MAX_SIZE_WHAT, PERSON_SOURCES, SIZE_UNITS, checkSize, type SizeFact, type SizeSource, type SizeUnit } from '../../../shared/size'
 import { chosen, pointerChoice } from '../typing'
 
 // The form of a size, in the ledger: what it measures, the value as typed, the unit, where it came from and a note.
@@ -21,7 +21,7 @@ export function sizeOf(f: Fields): SizeFact | string {
   return checkSize({ what: f.what, value: f.value, unit: f.unit, source: f.source, ...(f.note === '' ? {} : { note: f.note }) }, 'person')
 }
 
-export function SizeForm({ was, onKeep, onCancel }: { was?: SizeFact; onKeep: (size: SizeFact) => void; onCancel: () => void }) {
+export function SizeForm({ was, onKeep, onCancel, note }: { was?: SizeFact; onKeep: (size: SizeFact) => void; onCancel: () => void; /** A line under the fields: whose the size is now (#339). */ note?: ReactNode }) {
   const [fields, setFields] = useState<Fields>(() => (was ? { what: was.what, value: was.value, unit: was.unit, source: was.source, note: was.note ?? '' } : FRESH))
   const [help, setHelp] = useState<string | null>(null)
   const first = useRef<HTMLInputElement>(null)
@@ -95,6 +95,12 @@ export function SizeForm({ was, onKeep, onCancel }: { was?: SizeFact; onKeep: (s
             chosen(e.currentTarget)
           }}
         >
+          {/* A size of Claude's made the person's keeps Claude's source until they say where it came from. */}
+          {was?.source === AGENT_SOURCE && (
+            <option value={AGENT_SOURCE} disabled>
+              {AGENT_SOURCE}: say where it came from
+            </option>
+          )}
           {PERSON_SOURCES.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -111,6 +117,7 @@ export function SizeForm({ was, onKeep, onCancel }: { was?: SizeFact; onKeep: (s
           {help}
         </p>
       )}
+      {note && <p className="brief-form-note">{note}</p>}
       <div className="brief-form-actions">
         <button type="button" className="button button-quiet" onClick={onCancel}>
           Cancel

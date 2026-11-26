@@ -97,6 +97,13 @@ Paths as in the other rules.
 - `id`, `by` and `hidden` are main's. They are never taken from the window or from a tool's arguments: a card the window adds is
   the person's whatever it says, and the agent's is the agent's. The page sends the text of notes and rules, sizes, and pictures (checked as images, at most 2000 px and 3.75 MB, as `checkedImage` does; the window
   scales a larger one down first, `prepareImage`). It sends no place, size, frame or arrow: a new card goes below the lowest card (`placeBelow`), and a rule goes in the frame named Rules, which `addRule` makes when there is none.
+- **Make it yours (#339).** `PersonChange` `{ op: 'adopt', id }`: a `text` or `size` card of the agent's becomes `by: 'person'` with
+  `from: { by: 'agent', turn?, at? }` (the turn and time it was written), `turn` taken off, `at` now; `was` stays. Anything else is refused.
+  `from` is main's and only on the person's cards (`sanitiseCard`); a size made the person's keeps `from Claude` as its source (the file reads
+  it with `checkSize(…, 'agent')` when `from` says so) until the person's edit, which must name one of their sources. `saysHash` counts `from`, so
+  the adoption is news once; `board` says `by the person (it was yours, prompt 13: theirs now, not yours to change)`. On the page, "Make it yours"
+  (`adoptCard`) points away and opens the card's form in place in the spine (`TextForm` / `SizeForm` with `note`; the size form shows
+  `from Claude` as a disabled choice that must be changed); the card keeps its node (`turnOfCard` reads `from.turn`) with the red edge.
 - A card is the person's, the agent's or torno's (`by`). **The agent never moves, edits, hides or removes a card of the
   person's or of torno's own**, whatever `add_card` is given; the answer names the owner and the file is untouched. It may
   put a card in a frame of the person's (that changes the new card, not the frame), and when the frame has no free spot the

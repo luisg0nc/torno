@@ -84,13 +84,22 @@ export function sanitiseCard(value: unknown): Card | null {
   if (at !== undefined) card.at = at
   const was = wasOf(value.was)
   if (was) card.was = was
+  // A card the person made theirs: it was the agent's (#339). Only on the person's.
+  if (card.by === 'person' && isRecord(value.from) && value.from.by === 'agent') {
+    const from = value.from
+    const fromTurn = turnOf(from.turn)
+    const fromAt = timeOf(from.at)
+    card.from = { by: 'agent', ...(fromTurn ? { turn: fromTurn } : {}), ...(fromAt !== undefined ? { at: fromAt } : {}) }
+  }
   const copy = value.copy
   if (isRecord(copy) && typeof copy.id === 'string' && typeof copy.line === 'string' && typeof copy.cause === 'string' && typeof copy.sources === 'string') {
     card.copy = { id: copy.id, line: copy.line, cause: copy.cause, sources: copy.sources }
   }
   // A size is kept only on a card of its kind, and a card of that kind without a whole one is not a card.
   if (card.kind === 'size') {
-    const size = checkSize(value.size, card.by === 'agent' ? 'agent' : 'person')
+    let size = checkSize(value.size, card.by === 'agent' ? 'agent' : 'person')
+    // A size of Claude's the person made theirs keeps Claude's source until they say where it came from.
+    if (typeof size === 'string' && card.from?.by === 'agent' && (value.size as { source?: unknown } | undefined)?.source === 'from Claude') size = checkSize(value.size, 'agent')
     if (typeof size === 'string') return null
     const tie = checkTie((value.size as { tie?: unknown } | undefined)?.tie)
     card.size = tie ? { ...size, tie } : size

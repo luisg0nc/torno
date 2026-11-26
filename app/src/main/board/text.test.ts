@@ -165,6 +165,12 @@ describe('the text of a board', () => {
     expect(boardText(board([mine]), LIVE, OPTS).text).toContain(`${mine.id} · text · by you\n`)
   })
 
+  it('says a card the person made theirs is theirs now, and was Claude’s, in which prompt (#339)', () => {
+    const adopted = card({ kind: 'text', by: 'person', text: 'Controls: 9 buttons', from: { by: 'agent', turn: { prompt: 'u13' } } })
+    expect(boardText(board([adopted]), LIVE, { ...OPTS, prompts: new Map([['u13', 13]]) }).text).toContain(`${adopted.id} · text · by the person (it was yours, prompt 13: theirs now, not yours to change)`)
+    expect(boardText(board([adopted]), LIVE, OPTS).text).toContain('by the person (it was yours: theirs now')
+  })
+
   it('says a picture by its caption', () => {
     const p = card({ kind: 'picture', picture: 'p-aaaaaaaaaaaa.png', caption: 'the old latch' })
     expect(boardText(board([p]), LIVE, OPTS).text).toContain(`[picture ${p.id}: the old latch]`)
@@ -281,6 +287,15 @@ describe('what is new', () => {
     expect(boardLine(board([a, b], [arrow]), both, LIVE).line).toContain('0 new')
     expect(boardLine(board([a, b], [{ ...arrow, label: 'bigger' }]), both, LIVE).line).toContain('1 new: C80 an arrow')
   })
+  it('tells a card of Claude’s the person made theirs as new, once (#339)', () => {
+    const mine = card({ kind: 'text', by: 'agent', text: 'Controls: 9 buttons' })
+    const told = boardLine(board([mine]), {}, LIVE).told
+    const adopted = { ...mine, by: 'person' as const, from: { by: 'agent' as const } }
+    const line = boardLine(board([adopted]), told, LIVE)
+    expect(line.counts).toEqual({ total: 1, new: 1 })
+    expect(boardLine(board([adopted]), line.told, LIVE).counts).toEqual({ total: 1, new: 0 })
+  })
+
   it('hashes what a card says, not where it is', () => {
     const t = text()
     expect(saysHash({ ...t, x: 5, y: 9, frame: 'C99' }, LIVE)).toBe(saysHash(t, LIVE))

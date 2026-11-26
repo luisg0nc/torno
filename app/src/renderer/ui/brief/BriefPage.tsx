@@ -10,7 +10,7 @@ import { actions, useStore } from '../../state/store'
 import { tyingActions } from '../../state/tying'
 import { ChecksBlock, MarksBlock } from './Held'
 import { HEIC_REASON, isHeic, prepareImage } from '../onboard/images'
-import { addNote, addPicture, addRule, addSize, editSize, editText, removeCard, restoreCard, tieSize, unhideCard } from './ops'
+import { addNote, addPicture, addRule, addSize, adoptCard, editSize, editText, removeCard, restoreCard, tieSize, unhideCard } from './ops'
 import { TiePanel } from './TiePanel'
 import { PictureView } from './PictureView'
 import { NoteRow, PictureTile, ReferenceLine, RuleRow, SizeRow } from './Rows'
@@ -85,6 +85,8 @@ export function BriefPage() {
   const [viewing, setViewing] = useState<{ url: string; label: string } | null>(null)
   const [removed, setRemoved] = useState<{ id: string; what: string } | null>(null)
   const [pointed, setPointed] = useState<string | null>(null)
+  /** The card made the person's a moment ago, while it is edited (#339). */
+  const [justMine, setJustMine] = useState<string | null>(null)
   const page = useRef<HTMLElement>(null)
   const files = useRef<HTMLInputElement>(null)
   const sections = useMemo(() => (board ? briefSections(board) : null), [board])
@@ -155,6 +157,7 @@ export function BriefPage() {
   const done = (): void => {
     setAdding(null)
     setEditing(null)
+    setJustMine(null)
   }
   const keepSize = (card: Card | null) => async (size: SizeFact): Promise<void> => {
     if (await (card ? editSize(id, card.id, size) : addSize(id, size))) done()
@@ -331,10 +334,33 @@ export function BriefPage() {
             pointed={pointed}
             onPoint={setPointed}
             lit={lit}
-            actsOf={(c) => ({ onRemove: () => void remove(c, c.kind === 'size' ? (c.size?.what ?? 'the size') : 'the note'), ...(c.by === 'person' ? { onEdit: () => setEditing(c.id) } : {}) })}
-            editingOf={(c) =>
-              editing !== c.id ? undefined : c.kind === 'size' ? <SizeForm was={c.size} onKeep={keepSize(c)} onCancel={done} /> : c.kind === 'text' ? <TextForm initial={c.text} label={c.frame === sections.rulesFrame ? 'Rule' : 'Note'} onKeep={keepText(c, false)} onCancel={done} /> : undefined
-            }
+            actsOf={(c) => ({
+              onRemove: () => void remove(c, c.kind === 'size' ? (c.size?.what ?? 'the size') : 'the note'),
+              ...(c.by === 'person' ? { onEdit: () => setEditing(c.id) } : {}),
+              // Make it yours (#339): the card becomes the person's and is edited where it stands.
+              ...(c.by === 'agent' && (c.kind === 'text' || c.kind === 'size')
+                ? {
+                    onAdopt: () =>
+                      void adoptCard(id, c.id).then((ok) => {
+                        if (!ok) return
+                        setPointed(null)
+                        setAdding(null)
+                        setEditing(c.id)
+                        setJustMine(c.id)
+                      })
+                  }
+                : {})
+            })}
+            editingOf={(c) => {
+              if (editing !== c.id) return undefined
+              const wrote = handOf(c, prompts).label.replace(/^Yours, from /, '')
+              const note = (
+                <>
+                  Yours now, so you can change it. Claude is told at the next prompt.{c.from && <> {justMine === c.id ? 'Made yours just now.' : ''} Claude wrote it in {numbered(wrote === 'Claude' ? 'an earlier prompt' : wrote)}.</>}
+                </>
+              )
+              return c.kind === 'size' ? <SizeForm was={c.size} onKeep={keepSize(c)} onCancel={done} note={note} /> : c.kind === 'text' ? <TextForm initial={c.text} label={c.frame === sections.rulesFrame ? 'Rule' : 'Note'} onKeep={keepText(c, false)} onCancel={done} note={note} /> : undefined
+            }}
             onOpenPicture={(url, label) => setViewing({ url, label })}
           />
         )}

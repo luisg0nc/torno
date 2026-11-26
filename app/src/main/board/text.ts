@@ -164,7 +164,8 @@ function contentOf(card: Card, live: LiveFacts): string {
 
 /** What the card says, not where it is: a change of it is news to the agent, a move or a resize or a frame is not. */
 export function saysHash(card: Card, live: LiveFacts): string {
-  return hash([card.kind, contentOf(card, live), card.picture ?? '', card.source ?? ''])
+  // A card the person made theirs (#339) is news once: Claude may no longer change it.
+  return hash([card.kind, contentOf(card, live), card.picture ?? '', card.source ?? '', ...(card.from ? ['from', card.from.by] : [])])
 }
 
 const arrowHash = (arrow: Arrow): string => hash([arrow.from, arrow.to, arrow.label ?? ''])
@@ -204,6 +205,10 @@ function pictureOf(card: Card): Omit<BoardPicture, 'card'> | undefined {
 
 /** The prompt a card of the agent's was written in, after its author: `, prompt 11`; nothing when it has none or its number is not known here. */
 function promptOf(card: Card, prompts: ReadonlyMap<string, number> | undefined): string {
+  if (card.by === 'person' && card.from?.by === 'agent') {
+    const was = card.from.turn && prompts?.get(card.from.turn.prompt)
+    return ` (it was yours${was ? `, prompt ${was}` : ''}: theirs now, not yours to change)`
+  }
   const number = card.turn && prompts?.get(card.turn.prompt)
   return card.by === 'agent' && number ? `, prompt ${number}` : ''
 }

@@ -133,6 +133,8 @@ export type PersonChange =
   | { op: 'unarrow'; id: string }
   /** Puts back cards and arrows main removed in this run, by id: what they were is main's to say, never the window's. */
   | { op: 'restore'; ids: string[] }
+  /** Makes a note, rule or size of the agent's the person's own (#339): main keeps who wrote it, in which prompt and when (`from`). */
+  | { op: 'adopt'; id: string }
 
 /**
  * What the agent's tools may ask of the board (`add_card`). It only ever adds cards of its own and changes or removes
