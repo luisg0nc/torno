@@ -3168,16 +3168,19 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     const messages: StreamMessage[] = []
     made.on('stream', (m) => messages.push(m.message))
     const { sessionId } = await made.start(obj, {})
-    // The watcher: a save of the file begins a build, which ends as the next of `outcomes` says.
-    const outcomes: BuildState[] = [{ ...ok(obj.id, 2), seconds: 1.5 }, { ...failed(obj.id, 2), error: { kind: 'exception', message: "name 'WAL' is not defined", traceback: 'Traceback (most recent call last):\n  File "part.py", line 1\nNameError: name \'WAL\' is not defined\n' } }]
-    let last = ''
+    // The watcher: a save of the file begins a build, which ends as `outcomes` says of the text saved. Only a whole
+    // text is a save: the stand-in writes from its own process, and a read between the truncate and the write finds
+    // the file empty or in part.
+    const outcomes = new Map<string, BuildState>([
+      ['W = 2\nH = 2\n', { ...ok(obj.id, 2), seconds: 1.5 }],
+      ['W = WAL\nH = 2\n', { ...failed(obj.id, 2), error: { kind: 'exception', message: "name 'WAL' is not defined", traceback: 'Traceback (most recent call last):\n  File "part.py", line 1\nNameError: name \'WAL\' is not defined\n' } }]
+    ])
     const timer = setInterval(() => {
-      const now = existsSync(join(obj.dir, 'part.py')) ? readFileSync(join(obj.dir, 'part.py'), 'utf8') : ''
-      if (now === last) return
-      last = now
-      if (now === 'W = 1\nH = 2\n') return
+      const text = readFileSync(join(obj.dir, 'part.py'), 'utf8')
+      const outcome = outcomes.get(text)
+      if (!outcome) return
+      outcomes.delete(text)
       land(building(obj.id, 1))
-      const outcome = outcomes.shift()!
       setTimeout(() => land(outcome), 100)
     }, 10)
     try {
