@@ -78,7 +78,10 @@ what is asked of the last build, and imports scans in a process of its own.
   one worker as it does for a trial (`Supervisor._shelf_request`: never in the supervisor, no live worker is let go, none is
   kept) and replies once `{id, ok: true, shelf: {parts: [...]}}`, with no blob; another read while one runs is `busy`, a build
   may run beside it, and the worker is `crash`ed or `timeout`ed like a build's. It writes nothing (`sys.dont_write_bytecode`).
-  Each part has `PART_SECONDS` (30 s, by `setitimer`) and fails alone. The rule for what is read is `shelf`.
+  Each part has `PART_SECONDS` (30 s, by `setitimer`) and fails alone. The worker's own deadline is a margin before the supervisor's kill (a tenth of the
+  time, at most `MARGIN_SECONDS` 5 s): no part is started with under `START_SECONDS` (0.5 s) left of it, the parts not reached have `error: "not read: the shelf
+  ran out of time"` and the answer is given with what was read. A part stuck inside one long call of the CAD kernel is not interrupted by the alarm and can
+  still cost the whole read (`timeout`; the store then keeps its last list). The rule for what is read is `shelf`.
 - **A worker is not trusted.** A frame from the building worker that is not a
   result (not JSON, or without its scene or error) is a `crash` of that build;
   the supervisor carries on. Frames are written with `allow_nan=False`: a scene

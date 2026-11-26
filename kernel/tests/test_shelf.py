@@ -2,6 +2,7 @@
 
 import shutil
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -169,8 +170,54 @@ def test_a_malformed_shelf_request_is_a_bad_request(fields):
         k.close()
 
 
+def slow_parts(root: Path, seconds: float, *ids: str) -> None:
+    """Parts that are good but take ``seconds`` to import: a sleep in the module, before a body."""
+    for id in ids:
+        folder = root / "common" / "parts" / id
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "part.py").write_text(
+            f'"""{id}\nA slow part."""\nimport time\nfrom dataclasses import dataclass\n\nfrom build123d import Box\n\n'
+            f"time.sleep({seconds})\n\n@dataclass\nclass Params:\n    w: float = 3.0  # assumed: a width\n\n"
+            "def body(p):\n    return Box(p.w, p.w, p.w)\n"
+        )
+
+
+def test_a_slow_shelf_keeps_the_parts_it_read_and_tells_the_ones_it_did_not_reach(shelved):
+    for gone in ("bad_part", "ec11"):
+        shutil.rmtree(shelved / "common" / "parts" / gone)
+    slow_parts(shelved, 0, "p1", "p3", "p4")
+    shelf.read(shelved)  # warm: the first drawing of a process is slow
+    slow_parts(shelved, 30, "p2")
+    # The supervisor would kill at 3.5 s; the worker's own deadline is a tenth of that before it.
+    parts = shelf.read(shelved, time.monotonic() + 3.5)["parts"]
+    assert [p["id"] for p in parts] == ["p1", "p2", "p3", "p4"]
+    assert "error" not in parts[0], parts
+    assert "to be imported and drawn and was stopped" in parts[1]["error"], parts
+    assert parts[2]["error"] == shelf.TOO_LATE and parts[3]["error"] == shelf.TOO_LATE
+    assert parts[3]["files"] == [] and parts[3]["params"] == []
+
+
+def test_the_op_answers_with_what_it_has_when_its_time_is_nearly_out(shelved):
+    for gone in ("bad_part", "ec11"):
+        shutil.rmtree(shelved / "common" / "parts" / gone)
+    slow_parts(shelved, 0, "p1", "p3")
+    slow_parts(shelved, 30, "p2")
+    k = Kernel()
+    try:
+        id = k.send("shelf", root=str(shelved), timeout=5)
+        reply, _ = k.recv(20)
+    finally:
+        k.close()
+    assert reply["id"] == id and reply["ok"], reply
+    errors = {p["id"]: p.get("error") for p in reply["shelf"]["parts"]}
+    assert errors["p1"] is None and errors["p3"] == shelf.TOO_LATE and "stopped" in errors["p2"], errors
+
+
 def test_a_second_read_while_one_runs_is_busy_and_a_slow_one_times_out(shelved):
-    (shelved / "common" / "parts" / "bad_part" / "part.py").write_text("import time\ntime.sleep(30)\n")
+    # A part stuck where the alarm cannot reach it (a long call of the CAD kernel, here the alarm held back) costs the whole read.
+    (shelved / "common" / "parts" / "bad_part" / "part.py").write_text(
+        "import signal, time\nsignal.pthread_sigmask(signal.SIG_BLOCK, [signal.SIGALRM])\ntime.sleep(30)\n"
+    )
     k = Kernel()
     try:
         first = k.send("shelf", root=str(shelved), timeout=2)

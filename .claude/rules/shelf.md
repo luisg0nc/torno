@@ -38,6 +38,8 @@ paths:
   - "app/src/renderer/ui/shelf/AddPart.tsx"
   - "app/src/renderer/ui/shelf/addAsk.ts"
   - "app/e2e/shelfadd.spec.ts"
+  - "app/src/renderer/ui/chat/sendGuard.ts"
+  - "app/src/renderer/ui/chat/sendGuard.test.ts"
 ---
 
 # The parts shelf: the kernel's read, main's store, the types
@@ -50,6 +52,9 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
   places), links and folders with no plain `part.py` are skipped; at most 60, sorted. Each part is imported alone under a module
   name of its own, with `Params()`, and fails alone: its `error` is the model's traceback from the first frame in `part.py`, and
   `name`, `what` and `params` stay as far as they were read. The name falls back to the id when the docstring is empty.
+- **A slow shelf gives what it read.** The worker's deadline is a margin before the supervisor's kill (a tenth of the time, at most 5 s) and no part is started with under 0.5 s left of it; a part
+  not reached has `error: "not read: the shelf ran out of time"` and only its id and files (an empty name and sizes). The store treats it as any part with an `error`. A part stuck inside one long call of the
+  CAD kernel is not interrupted by the per-part alarm and can still cost the whole read: the op is then a `timeout` and the store keeps the list it had (an empty one on the first open). Rule `kernel-supervisor`.
 - **The drawings are the B-rep's** (`section.section`, never a mesh): `body` and `keepout` have `bbox` (`extent.box`) and `side`,
   the section by the XZ plane through the middle of the bbox in Y (x is X, y is Z); `cutout` and `keepout` have `plan`, the section
   by XY at `z = -0.5`; `cutout.size` is `{d}` when the plan is one circle (twice the B-rep circle's radius, from `section`'s
@@ -126,7 +131,7 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
 - **The request** (`ui/shelf/placeRequest.ts` `connectPlacingRequest`, started in `connect`; text `placeRequest`): written when a mark is added. In a chat the sentence torno wrote (`said`) is replaced in the
   box by the longer one while the box still holds it exactly (`replaceInComposer`, `replaceRequest`), else the sentence of the new mark alone is inserted at the cursor and becomes `said` (`addToRequest`).
   `on the faces` when the marks' refs differ. With no session `askClaude(whole request)` each time (the last stands); with a terminal session nothing until placing ends, then
-  `insertIntoSession(whole request, { later })` once (not after a project switch). Never sent. The band's Ask Claude is `askNow`: stop, show the dock, focus the box.
+  `insertIntoSession(whole request, { later })` once (not after a project switch; `endRequest` in `state/placing.ts` decides). A session asked for at the first mark (there was none) has the request through `fixRequest`, and `said` names its marks: when placing ends in the terminal it became, nothing is typed again for them, a `fixRequest` still waiting is made the whole request, and marks made after it was typed are a sentence of their own. Never sent. The band's Ask Claude is `askNow`: stop, show the dock, focus the box.
 
 ## Claude asks before it shelves a part (#354)
 
@@ -155,9 +160,9 @@ The shelf is `common/parts/<id>/part.py` of the workspace, one folder a bought p
   typed (the page of a new project's `parseSize` is not used: a value is kept as typed, one line, at most 60 characters) and a source `ADD_SOURCES` (`datasheet`, `listing`, `measured`, `a guess` told as `assumed`); a blank row is left out and `sizeIssue` (one box of two empty) holds the button back
   (`canAsk`). Back and Esc (`field.leave`, from anywhere in the form but a list) call `shelfAdd.close()`, which writes nothing. The pictures are `URL.createObjectURL` of the dropped file, revoked when the form goes. A workspace left clears the form and the request (`onWorkspaceSet`).
 - **The request** is `addRequest` (pure): `Put the <what> on the shelf as <id>: <value> <what> (<source>), .... Its files are in common/parts/<id>/: <names>. Model it as the torno-model skill says.`; `part` when what is empty, no colon with no sizes.
-- **Where the copy is made** (`ui/shelf/addAsk.ts` `askToShelve`): in a chat the request goes through `askClaude` (never sent; no session: `fixRequest`, which holds it as a draft in the box of the session it starts) and `shelfPending` keeps `{ id, paths, text }`; the chat box's send (`Composer.send`) first
-  asks `shelfPending.beforeSend(text)`: nothing waiting, or the message no longer holds `common/parts/<id>/` (the request is forgotten), lets it go; else `window.torno.shelf.addFiles(id, paths)` is awaited (twice at once copies once) and a rejection or any refused file is the box's error line (`refusedLine`) and the
+- **Where the copy is made** (`ui/shelf/addAsk.ts` `askToShelve`): in a chat the request goes through `askClaude` (never sent; no session: `fixRequest`, which holds it as a draft in the box of the session it starts) and `shelfPending` keeps `{ id, paths, text }`; the chat box's send (`Composer.send`; one at a time, `ui/chat/sendGuard.ts`, so Enter twice sends once, and the box is read-only and its buttons held while it runs, so nothing typed meanwhile is lost to the emptied box) asks, as its last step before `chat.send` and after the attach-view check (a message those checks refuse copies nothing; the board and the tag are taken after it, so a refusal has nothing to give back),
+  `shelfPending.beforeSend(text)`: nothing waiting, or the message no longer holds `common/parts/<id>/` (the request is forgotten), lets it go; else `window.torno.shelf.addFiles(id, paths)` is awaited (twice at once copies once) and a rejection or any refused file is the box's error line (`refusedLine`) and the
   message is not sent, the text kept; what was refused stays pending (a second send copies only that). The answer to an ask card (`denyAndSend`) is not a send of this. In a terminal session (there is no box) `shelfPending.now` copies at the click and the request is typed after, never if it was refused; a session asked for that turns out to be a
-  terminal gets the copy as the request is typed into it (`SessionPane`, `fixRequest`). Never a copy before a send or a click.
+  terminal gets the copy as the request is typed into it (`SessionPane`, `fixRequest`). Never a copy before a send or a click. If `chat.send` itself then fails, the files stay copied and the request is forgotten (kept, a second send would be refused for the files that are there): the text is given back to the box, and sent again it names a folder that already holds them.
 - **Main** is `shelf/add.ts` `addFiles(root, id, paths)` (the writes are the fifth exception of `workspace-writes`, which says what it checks and writes). It answers `{ copied, refused: [{ name, why }] }` or rejects the whole request (a bad id or list, no workspace, a link or a file at a level of the way). `openRegular` of `objects/create.ts` is its one reader.
 - **The tests** are `main/shelf/add.test.ts` (a temp workspace), `state/shelfAdd.test.ts` and `e2e/shelfadd.spec.ts` (the drop is made with `File`s of a file input given real paths, since a `File` made in the page has no path for `webUtils`; the stand-in agent takes the sent message; the last test empties the shelf and holds `Shelf 0`, its text and a first drop).

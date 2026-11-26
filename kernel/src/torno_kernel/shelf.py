@@ -27,6 +27,9 @@ MOST_FILES = 100  # the other files of a part's folder that are listed
 MOST_POINTS = 400  # of one outline
 MOST_OUTLINES = 40  # of one drawing of a part
 PART_SECONDS = 30.0  # what one part has to be imported and drawn
+MARGIN_SECONDS = 5.0  # the most the worker's deadline is before the supervisor's kill (a tenth of the time, at most this)
+START_SECONDS = 0.5  # a part is not started with less than this left: it could not be read in it
+TOO_LATE = "not read: the shelf ran out of time"
 PLAN_Z = -0.5  # the plane of a plan, inside a panel
 _ID = re.compile(r"[a-z_][a-z0-9_]{0,47}")
 _made = itertools.count(1)
@@ -65,17 +68,29 @@ def part_ids(root: Path) -> list[str]:
 def read(root: Path, deadline: float | None = None) -> dict[str, Any]:
     """Every part of the shelf of ``root``, in order of their ids: ``{"parts": [...]}``.
 
-    ``deadline`` (``time.monotonic``) is when the whole op runs out: no part is started after it, and one that is
-    running has what is left of it, at most ``PART_SECONDS``.
+    ``deadline`` (``time.monotonic``) is when the supervisor kills the worker. The worker's own is a margin before it
+    (a tenth of the time it has, at most ``MARGIN_SECONDS``): no part is started with less than ``START_SECONDS`` left of
+    it, and a running one has what is left, at most ``PART_SECONDS``. The parts not reached are told ``TOO_LATE`` as their
+    ``error`` and the answer is given with what was read, so a slow shelf loses the parts it did not reach and no more.
+    A part stuck inside one long call of the CAD kernel is not interrupted by the alarm and can still cost the whole read.
     """
     root = root.resolve()
     sys.dont_write_bytecode = True  # a part is read, and the shelf writes nothing
     sys.path.insert(0, str(root))
+    own = None if deadline is None else deadline - min(MARGIN_SECONDS, 0.1 * max(0.0, deadline - time.monotonic()))
     parts = []
     for id in part_ids(root):
-        left = PART_SECONDS if deadline is None else max(1.0, min(PART_SECONDS, deadline - time.monotonic()))
-        parts.append(_alone(root, id, left))
+        left = PART_SECONDS if own is None else min(PART_SECONDS, own - time.monotonic())
+        if own is not None and left < START_SECONDS:
+            parts.append(_unread(root, id))
+        else:
+            parts.append(_alone(root, id, left))
     return {"parts": parts}
+
+
+def _unread(root: Path, id: str) -> dict[str, Any]:
+    """A part the shelf had no time for: its id, its files and the reason."""
+    return {"id": id, "name": id, "what": "", "params": [], "files": _files(root / "common" / "parts" / id), "error": TOO_LATE}
 
 
 @contextlib.contextmanager
