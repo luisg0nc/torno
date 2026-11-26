@@ -448,7 +448,7 @@ g:hover > .usage-days-col {
 
 .usage-ledger td.usage-ledger-n {
   width: 24px;
-  padding-left: 0;
+  padding-left: 6px;
   color: var(--muted);
   text-align: left;
 }
