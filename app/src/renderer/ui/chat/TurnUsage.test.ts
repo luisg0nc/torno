@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { TurnUsageLine } from './TurnUsage'
 
-const text = (html: string): string => html.replace(/<[^>]+>/g, '').replaceAll('&#x27;', "'")
+// The words of the markup: the text between its tags, joined (read out of it, never by stripping tags from it).
+const text = (html: string): string => [...html.matchAll(/>([^<]*)</g)].map((m) => m[1]).join('').replaceAll('&#x27;', "'")
 
 describe('TurnUsageLine', () => {
   it('says what the turn took under its end, the cost first', () => {
