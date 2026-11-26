@@ -4,6 +4,7 @@ import { openRoundNow, useReview } from '../../state/review'
 import { activePlane, useSketching } from '../../state/sketching'
 import { isLive } from '../../state/compare'
 import { useStore } from '../../state/store'
+import { usePlacing } from '../../state/placing'
 import { useTracings } from '../../state/tracings'
 import { usePreview } from '../../state/exportPreview'
 import { useHistory } from '../useHistory'
@@ -43,10 +44,11 @@ export function useBand(): BandKind | null {
   const exportOpen = useStore((s) => s.exportOf !== null)
   const facePick = useTracings((s) => s.facing)
   const lining = useTracings((s) => s.lining !== null)
+  const placing = usePlacing((s) => s.placing !== null)
   if (!onPage) return null
-  if (shown === 'tracing') return bandOf({ exportOpen, roundOpen: false, lineup: lining, facePick: false, comparing: false, sketching: false, failedOnShow: false })
+  if (shown === 'tracing') return bandOf({ exportOpen, roundOpen: false, lineup: lining, facePick: false, placing: false, comparing: false, sketching: false, failedOnShow: false })
   if (!inModel(shown)) return null
-  return bandOf({ exportOpen, roundOpen, lineup: false, facePick, comparing, sketching, failedOnShow })
+  return bandOf({ exportOpen, roundOpen, lineup: false, facePick, placing, comparing, sketching, failedOnShow })
 }
 
 /** The id of the kept build that is on show (`h40`), or null when none of the kept ones is. */

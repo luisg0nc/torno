@@ -37,7 +37,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   the tail as `readLog` does, parsing only the lines that say `"kind":"user"`: 50 logs of 2,000 lines take about 85 ms, so there is no index
   file, RF4), and a terminal's prompts from the history entries' `turn` (the ids `t-<conversation>-<n>`, once each, at the time of their first
   build: a terminal keeps no log, so only a prompt that built is known), oldest first and numbered from 1 across the project, at most the newest
-  2,000. `chat:conversation` reads one conversation's log (`readLog`) for the chat's "Earlier conversations". Both only read, for an object of the open
+  2,000. `chat:usage` (`sessions/usage.ts` `listUsage`, #370) gives each row of `listPrompts` what its turns took: every line of each log is
+  read (`readLog`, an item written again counted once, where it first stood), each `turn` goes to the last `sent` prompt before it, and its
+  `usage` (the CLI's numbers, `usageOf`: the counts, `requests` and `costUsd`, not the running total nor the models) and the pictures and builds
+  of its items (`usageFacts` of `shared/usage.ts`: pictures by the tool that brought them, `you` for the person's; builds that ran, from the build on
+  show at the prompt to the last that worked) are summed over the prompt's turns. Tokens with no `costUsd` are the first turn of a resumed
+  conversation (`resumed`): its cost is not known and is never worked out from `sessionCostUsd`. A terminal's prompt is a row with `terminal`
+  and nothing counted. `median` is the median cost of the rows whose cost is known (`medianCost`). `chat:conversation` reads one conversation's log (`readLog`) for the chat's "Earlier conversations". Both only read, for an object of the open
   workspace. Switching `view` ends the session and resumes the
   conversation in the other kind (`session.json` is the same).
 - **What a turn changed in the model** (`sessions/snapshots.ts`, `shared/changes.ts`, `chat:changes`). When a
@@ -73,7 +79,16 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `r3 ok after 1 failed build`: the first revision is the build on show when the prompt was sent), the marks it resolved
   and added (`resolve_mark`'s `id`; `add_mark`'s from its answer), and the dimensions whose verdict at the end is another
   than at the start (the first `was` and the last `now` of the digests, `verdictChanges`' own). What it pulled from torno
-  is a line of its own. At the right of the first line a row of buttons for the turn (`TurnActions`): "See changes" (only when an edit
+  is a line of its own. Above it, what the turn took (#368, `TurnUsage.tsx` `TurnUsageLine`, the rule `usageLine` of `shared/usage.ts`,
+  pure): the cost first, in ink, through `dollars`, then the calls (`requests`) and the three kinds of token through `tokens` of `shared/format.ts`
+  (`cacheRead` "read again", `input + cacheCreation` "new to it", `output` "written"), from the turn item's `usage` alone; with no `costUsd`
+  (the first turn after a resume) "Cost not known for this turn." and the tokens, and `RESUMED_NOTE` under it; nothing for no `usage` or one of
+  all zeros. The cost's title says `PLAN_NOTE` (on a Claude plan the dollars are what the tokens would cost). A large turn (#369) has
+  `WhyLarge` under it: `largeTimes(cost, number, median)` (at least `LARGE_TIMES` 3 × the project's `median` of `chat:usage`, read by
+  `state/usage.ts`, asked again when a `turn` item comes; never for a prompt numbered `LARGE_AFTER` 3 or less; the number is the row's whose
+  `turns` hold this turn, else `joined.number`) and `whyLarge` (the calls and `cacheRead / requests`, the pictures by source from the
+  account's `facts`, `usageFacts` of the turn's items, the builds `rFrom to rTo`): facts only, the cost never split. "Open in Usage" opens
+  the row's conversation on the Usage page with the prompt lit. At the right of the first line a row of buttons for the turn (`TurnActions`): "See changes" (only when an edit
   changed a `.py`, a quiet button with its icon), which opens `ChangesSheet` over the view's area (`main.viewport`, `[data-region="viewport"]`: not the card, not the dock; a dialog, `chat.close`
   puts it away, Tab goes round within it, the focus goes back to the button; `TurnEnd` holds whether it is open and lights its turn with
   `data-open`, an accent bar and wash): the top half is the view (its canvas is drawn in that half only), with the parts' tags

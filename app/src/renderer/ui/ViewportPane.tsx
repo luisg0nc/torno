@@ -21,6 +21,8 @@ import { isStrokeRef, litSet, setsStore } from '../state/sets'
 import { screenShows, setViewHost, viewHost } from '../state/drawing'
 import { connectThumbs } from '../state/thumbs'
 import { pointerMoved } from '../state/step'
+import { connectPlacing, placingStore } from '../state/placing'
+import { shelfStore } from '../state/shelf'
 import { endReplace, setTool, toolStore, type ToolName } from '../state/tools'
 import { tyingActions, tyingStore } from '../state/tying'
 import { alignTool, connectAlign } from '../tools/alignTool'
@@ -31,6 +33,7 @@ import { editSketch, leaveSketch, setSketchEnv, sketchStore } from '../state/ske
 import { measureTool } from '../tools/measureTool'
 import { commitMark, replaceMark } from '../tools/pickMarks'
 import { pinTool } from '../tools/pinTool'
+import { placedShapes, placeTool } from '../tools/placeTool'
 import { connectRegion, regionTool } from '../tools/regionTool'
 import { sectionTool } from '../tools/sectionTool'
 import { selectTool } from '../tools/selectTool'
@@ -48,6 +51,9 @@ import { goToRow } from './BuildStatus'
 import { hoverMark } from './markHover'
 import { RegionBar } from './RegionBar'
 import { ScanReadSheet } from './ScanReadSheet'
+import { PlaceBar, PlaceTag } from './place/PlaceBar'
+import { connectPlacingRequest } from './shelf/placeRequest'
+import { acceptShelfDrops } from './shelfDrops'
 import { NotePopover } from './NotePopover'
 import { importScan, scanDropped } from './scanDrop'
 import { SectionTag } from './SectionTag'
@@ -279,7 +285,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
 
   // The one pointer subscription: every event goes to the chips of the marks first (`markChips`), then to the tool
   // in use, and to none while the parts are stale (`routePointer`). Tools made by later tasks are added here.
-  const tools: Partial<Record<ToolName, Tool>> = { select: selectTool(), pin: pinTool(), arrow: arrowTool(), draw: sketchTool(), shape: shapeTool(), section: sectionTool(), measure: measureTool(), align: alignTool(), region: regionTool() }
+  const tools: Partial<Record<ToolName, Tool>> = { select: selectTool(), pin: pinTool(), arrow: arrowTool(), draw: sketchTool(), shape: shapeTool(), section: sectionTool(), measure: measureTool(), align: alignTool(), region: regionTool(), place: placeTool() }
   let tool = tools[toolStore.getState().tool]
   // A chip in the view points at its mark, and a click on one opens it, whatever tool is in hand.
   const chips = markChips({
@@ -357,6 +363,17 @@ function connect(viewport: Viewport, readout: Readout): () => void {
       actions.setSection(newCut(viewport.sectionBox(), viewport.getCamera()))
     }
   })
+  // A shelf part being placed: the cutouts of the marks made so far stay on the faces; the ghost at the pointer is the tool's, or a drag's.
+  const offPlacing = placingStore.subscribe((s, prev) => {
+    if (s.placing === prev.placing && !(prev.dragging !== null && s.dragging === null)) return
+    const part = s.placing ? shelfStore.getState().parts.find((p) => p.id === s.placing!.part) : undefined
+    viewport.showPlacing(s.placing ? { ghost: null, placed: placedShapes(part) } : null)
+  })
+  const offPlacingEnd = connectPlacing()
+  const offPlacingRequest = connectPlacingRequest()
+  // A row of the Shelf tab dragged onto a face of the model is placed there (Files dropped on the view are `acceptDrops`').
+  const pane = viewport.canvas.closest<HTMLElement>('.viewport-pane')
+  const offShelfDrops = pane ? acceptShelfDrops(pane, { viewport, context, readout }) : () => {}
   viewport.onPointer((e) => {
     if (!store.getState().scene || chips.route(e)) return
     if (tool) routePointer(tool, e, context())
@@ -656,6 +673,7 @@ function connect(viewport: Viewport, readout: Readout): () => void {
         return viewport.pickScan(box.left + fx * box.width, box.top + fy * box.height)
       },
       askedBox: () => viewport.askedBoxShown(),
+      placing: () => viewport.placingShown(),
       projectScan: (id, local) => {
         const scan = viewport.scanState().find((s) => s.id === id)
         if (!scan) throw new Error(`no scan ${id}`)
@@ -722,6 +740,11 @@ function connect(viewport: Viewport, readout: Readout): () => void {
     viewport.canvas.removeEventListener('pointerdown', endGhosts, true)
     offTracings3D()
     offTool()
+    offPlacing()
+    offPlacingEnd()
+    offPlacingRequest()
+    offShelfDrops()
+    viewport.showPlacing(null)
     offScene()
     offStore()
     offShape()
@@ -866,6 +889,8 @@ export function ViewportPane() {
           <ExplodeTag viewport={viewport} />
           <AlignBar />
           <RegionBar />
+          <PlaceBar />
+          <PlaceTag />
           <ScanReadSheet viewport={viewport} />
           <Hint />
           <ToolHint />

@@ -44,7 +44,7 @@ const ALIASES: Partial<Record<Context, string[]>> = {
 /** The imperative verbs a row of the table begins with, or follows an `or`, an `and` or a `then` with. A key does what the row says, so a verb takes its `s`. */
 const VERBS = new Set([
   'add', 'align', 'allow', 'build', 'cancel', 'choose', 'clear', 'click', 'close', 'complete', 'copy', 'cut', 'draw', 'drag', 'end', 'export', 'filter', 'fit', 'fix', 'give', 'go', 'hide', 'hold', 'keep', 'leave', 'let',
-  'measure', 'move', 'name', 'nudge', 'open', 'paint', 'pan', 'paste', 'place', 'put', 'rebuild', 'reload', 'remove', 'review', 'rotate', 'rub', 'send', 'show', 'size', 'start', 'step', 'stop', 'straighten', 'take',
+  'measure', 'move', 'name', 'nudge', 'open', 'paint', 'pan', 'paste', 'place', 'put', 'rebuild', 'reload', 'remove', 'rename', 'review', 'rotate', 'rub', 'send', 'show', 'size', 'start', 'step', 'stop', 'straighten', 'take',
   'turn', 'type', 'undo', 'zoom'
 ])
 

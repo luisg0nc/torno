@@ -26,7 +26,7 @@ export interface Tool {
 }
 
 /** What a tool may do to the viewport. */
-export type ToolViewport = Pick<Viewport, 'setHover' | 'setNavigation' | 'setDraft' | 'lockedView' | 'pick' | 'bounds' | 'pickScan' | 'scanPatch'> & Partial<Pick<Viewport, 'getSection' | 'setSection' | 'sectionBox' | 'onSectionHandle' | 'onSectionRuleHandle' | 'sectionRuleAt' | 'sectionHandleOnScreen' | 'canvas' | 'pointerAt' | 'project' | 'partBoxes' | 'scanTree' | 'paintScan' | 'showBrush' | 'snapIndex' | 'visibleAt' | 'setSketch' | 'setSketchSheet' | 'sketchCorner' | 'onSketchHandle' | 'cubeAt' | 'xrayOn'>>
+export type ToolViewport = Pick<Viewport, 'setHover' | 'setNavigation' | 'setDraft' | 'lockedView' | 'pick' | 'bounds' | 'pickScan' | 'scanPatch'> & Partial<Pick<Viewport, 'getSection' | 'setSection' | 'sectionBox' | 'onSectionHandle' | 'onSectionRuleHandle' | 'sectionRuleAt' | 'sectionHandleOnScreen' | 'canvas' | 'pointerAt' | 'project' | 'partBoxes' | 'scanTree' | 'paintScan' | 'showBrush' | 'snapIndex' | 'visibleAt' | 'setSketch' | 'setSketchSheet' | 'sketchCorner' | 'onSketchHandle' | 'cubeAt' | 'xrayOn' | 'showPlacing'>>
 
 /**
  * What a tool works with, as it is when the event arrives: the object on show,

@@ -7,6 +7,8 @@ import { type Question, answerFor, describeInput, questionsOf } from './ask'
 import { Diff } from './Diff'
 import { Markdown } from './markdown'
 import { Takeover, WaitsBelow } from './AskTakeover'
+import { ShelfOffer } from './ShelfOffer'
+import { type ShelfOffer as Offer, answersIn, shelfOffer } from './offerLines'
 import { isEditable } from './typing'
 import { useChatPlace } from './place'
 
@@ -165,29 +167,36 @@ function Plan({ item, answering, answer }: { item: Ask } & Answering) {
 }
 
 /** One question: a list of rows, each a key, a label and its description small and muted beneath, and a row of its own for anything else. */
-function QuestionView({ question, picked, other, onPick, onOther, disabled, keyed, onAdvance }: { question: Question; picked: string[]; other: string; onPick: (label: string) => void; onOther: (text: string) => void; disabled: boolean; keyed: boolean; onAdvance: () => void }) {
+function QuestionView({ question, offer, picked, other, onPick, onOther, disabled, keyed, onAdvance }: { question: Question; offer: Offer | null; picked: string[]; other: string; onPick: (label: string) => void; onOther: (text: string) => void; disabled: boolean; keyed: boolean; onAdvance: () => void }) {
   return (
-    <fieldset className="chat-ask-question" disabled={disabled}>
+    <fieldset className="chat-ask-question" disabled={disabled} data-offer={offer ? 'shelf' : undefined}>
       <legend>
-        <span className="chat-ask-text">{numbered(question.question)}</span>
+        <span className="chat-ask-text">{numbered(offer ? offer.title : question.question)}</span>
       </legend>
-      <div className="chat-ask-options" role="group" aria-label={question.question}>
-        {question.options.map((option, n) => (
-          <button key={option.label} type="button" className="chat-ask-option" data-multi={question.multi ? '' : undefined} aria-pressed={picked.includes(option.label)} aria-keyshortcuts={keyed && n < KEYED ? String(n + 1) : undefined} onClick={() => onPick(option.label)}>
-            <span className="ask-key num" aria-hidden="true">
-              {keyed && n < KEYED ? n + 1 : ''}
-            </span>
-            <span className="chat-ask-words">
-              <span className="chat-ask-label">{numbered(option.label)}</span>
-              {option.description !== '' && <span className="chat-ask-desc">{numbered(option.description)}</span>}
-            </span>
-          </button>
-        ))}
+      {offer && <ShelfOffer offer={offer} />}
+      <div className="chat-ask-options" role="group" aria-label={offer ? offer.title : question.question} data-offer={offer ? 'shelf' : undefined}>
+        {question.options.map((option, n) =>
+          offer ? (
+            <button key={option.label} type="button" className={`button${n === 0 ? ' button-primary' : ''}`} title={option.description !== '' ? option.description : undefined} aria-pressed={picked.includes(option.label)} aria-keyshortcuts={keyed && n < KEYED ? String(n + 1) : undefined} onClick={() => onPick(option.label)}>
+              {numbered(option.label)}
+            </button>
+          ) : (
+            <button key={option.label} type="button" className="chat-ask-option" data-multi={question.multi ? '' : undefined} aria-pressed={picked.includes(option.label)} aria-keyshortcuts={keyed && n < KEYED ? String(n + 1) : undefined} onClick={() => onPick(option.label)}>
+              <span className="ask-key num" aria-hidden="true">
+                {keyed && n < KEYED ? n + 1 : ''}
+              </span>
+              <span className="chat-ask-words">
+                <span className="chat-ask-label">{numbered(option.label)}</span>
+                {option.description !== '' && <span className="chat-ask-desc">{numbered(option.description)}</span>}
+              </span>
+            </button>
+          )
+        )}
         <input
           type="text"
           className="chat-ask-other"
           aria-label={`Other answer to ${question.question}`}
-          placeholder="Other"
+          placeholder={offer ? 'or answer in your words' : 'Other'}
           value={other}
           onChange={(e) => onOther(e.target.value)}
           onKeyDown={(e) => {
@@ -211,6 +220,8 @@ const KEYED = 9
 
 function Questions({ item, answering, answer, keyed: onKey }: { item: Ask } & Answering & { keyed: MutableRefObject<((n: number) => void) | null> }) {
   const questions = questionsOf(item.input)
+  /** The questions that offer a part to the shelf (#354): drawn as a table with buttons for answers. */
+  const offers = questions.map(shelfOffer)
   const [picks, setPicks] = useState<string[][]>(() => questions.map(() => []))
   const [others, setOthers] = useState<string[]>(() => questions.map(() => ''))
   const open = item.state === 'open'
@@ -224,6 +235,8 @@ function Questions({ item, answering, answer, keyed: onKey }: { item: Ask } & An
     setOthers(set(others, at, ''))
     // A single choice is the answer to it: the next question comes, unless it is the only one.
     if (!questions[at].multi && summary) setStep(at + 1)
+    // The offer of a shelf part is answered by its buttons: a choice is the answer, as there is no Submit to press.
+    else if (!questions[at].multi && offers[at] !== null) answer({ allow: true, updatedInput: { answers: { [questions[at].question]: label } } })
   }
   function write(at: number, text: string): void {
     setOthers(set(others, at, text))
@@ -301,7 +314,7 @@ function Questions({ item, answering, answer, keyed: onKey }: { item: Ask } & An
               ))}
             </ul>
           ) : (
-            <QuestionView key={at} question={questions[at]} picked={picks[at] ?? []} other={others[at] ?? ''} onPick={(label) => pick(at, label)} onOther={(t) => write(at, t)} disabled={answering} keyed onAdvance={() => (summary ? go(at + 1) : submit())} />
+            <QuestionView key={at} question={questions[at]} offer={offers[at]} picked={picks[at] ?? []} other={others[at] ?? ''} onPick={(label) => pick(at, label)} onOther={(t) => write(at, t)} disabled={answering} keyed onAdvance={() => (summary ? go(at + 1) : submit())} />
           )}
           <div className="chat-ask-actions">
             {summary && (
@@ -314,19 +327,39 @@ function Questions({ item, answering, answer, keyed: onKey }: { item: Ask } & An
                 {answers[at] === undefined ? 'Skip' : 'Next'}
               </button>
             )}
-            {(!summary || onSummary) && (
+            {(!summary || onSummary) && (offers[0] === null || summary || (others[0] ?? '').trim() !== '') && (
               <button type="button" className="button button-primary" disabled={!complete || answering} onClick={submit}>
                 {summary ? 'Send answers' : 'Submit'}
               </button>
             )}
           </div>
         </>
+      ) : offers.every((o) => o !== null) && item.state !== 'denied' ? (
+        <Held offers={offers as Offer[]} answers={answersIn(questions.map((q) => q.question), item.answer ?? '')} item={item} />
       ) : (
         <>
           {item.answer && <pre className="chat-ask-answers selectable">{numbered(item.answer)}</pre>}
           <Outcome item={item} said={{ allowed: 'Answered', denied: 'Declined' }} />
         </>
       )}
+    </>
+  )
+}
+
+/** Offers of the shelf once done: each as the open card drew it (title and table) and, beneath, what was answered, in the line a card says it with; no raw text. */
+function Held({ offers, answers, item }: { offers: Offer[]; answers: Array<string | undefined>; item: Ask }) {
+  return (
+    <>
+      {offers.map((offer, n) => (
+        <div key={n} className="chat-ask-held" data-offer="shelf">
+          <p className="chat-ask-text selectable">{numbered(offer.title)}</p>
+          <ShelfOffer offer={offer} />
+          {item.state === 'allowed' && answers[n] !== undefined && (
+            <p className="chat-ask-outcome selectable">Answered: {numbered(answers[n] as string)}</p>
+          )}
+        </div>
+      ))}
+      {(item.state === 'ended' || answers.every((a) => a === undefined)) && <Outcome item={item} said={{ allowed: 'Answered', denied: 'Declined' }} />}
     </>
   )
 }

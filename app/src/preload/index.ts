@@ -58,6 +58,7 @@ const bridge: TornoBridge = {
   object: {
     open: (id) => invoke('object:open', id),
     rebuild: (id) => invoke('object:rebuild', id),
+    renamePart: (id, from, to) => invoke('object:renamePart', id, from, to),
     setParam: (id, name, value) => invoke('object:setParam', id, name, value),
     resetParams: (id, name) => invoke('object:resetParams', id, name),
     drives: (id, name) => invoke('object:drives', id, name),
@@ -123,6 +124,12 @@ const bridge: TornoBridge = {
     onProblem: (cb) => subscribe('sets:problem', cb),
     problem: (objectId) => invokePlain('sets:problem', objectId),
     dismissProblem: (objectId) => invokePlain('sets:dismissProblem', objectId)
+  },
+  shelf: {
+    list: () => invokePlain('shelf:list'),
+    measured: (id, name, value) => invokePlain('shelf:measured', id, name, value),
+    addFiles: (id, paths) => invokePlain('shelf:addFiles', id, paths),
+    onChanged: (cb) => subscribe('shelf:changed', cb)
   },
   tracings: {
     list: (objectId) => invokePlain('tracings:list', objectId),
@@ -255,6 +262,7 @@ const bridge: TornoBridge = {
     history: (sessionId) => invokePlain('chat:history', sessionId),
     lastConversation: (objectId) => invokePlain('chat:lastConversation', objectId),
     prompts: (objectId) => invokePlain('chat:prompts', objectId),
+    usage: (objectId) => invokePlain('chat:usage', objectId),
     conversation: (objectId, conversationId) => invokePlain('chat:conversation', objectId, conversationId),
     reference: (sessionId, file) => invokePlain('chat:reference', sessionId, file),
     changes: (sessionId, turnId) => invokePlain('chat:changes', sessionId, turnId),

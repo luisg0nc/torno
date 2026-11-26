@@ -1,8 +1,10 @@
+import type { RenameResult } from './rename'
 import type { AskAnswer, OpenAsk } from './ask'
 import type { BoardAttach, BoardFile, BoardOpen, PersonChange, PinWhat } from './board'
 import type { BuildState } from './build'
 import type { DrivesAnswer } from './drives'
 import type { TurnChanges } from './changes'
+import type { ProjectUsage } from './usage'
 import type { AgentChoice, ChatAnswer, ChatHistory, ChatCommand, ChatItem, ChatMeta, ChatModel, Effort, Mode, PromptRow } from './chat'
 import type { GitState } from './git'
 import type { GoBackPlan, GoBackResult, HistoryGhost, HistoryList } from './history'
@@ -22,6 +24,7 @@ import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { NamedSet, NewSet, SetEdit } from './sets'
+import type { ShelfAddResult, ShelfChecked, ShelfPart } from './shelf'
 import type { LineupPair } from './lineup'
 import type { LayerColour, LayerShape, PlaneSnap, Tracing, TracingCut, TracingPictureRequest, TracingPictureResult, TracingsFile } from './tracings'
 import type { MainAxis } from './planes'
@@ -275,6 +278,13 @@ export interface TornoBridge {
     open(id: string): Promise<BuildState>            // starts watching and building
     rebuild(id: string): Promise<void>
     /**
+     * Renames the part `from` of the model to `to` (#359): main writes the new name where the model names the part, builds
+     * again, has the marks, named sets, tracings and scans that name it follow, and tells Claude with the next prompt.
+     * Resolves with `refused` and a sentence when it cannot (Claude is working, a build runs, a name it will not take, a
+     * name the model does not write plainly).
+     */
+    renamePart(id: string, from: string, to: string): Promise<RenameResult>
+    /**
      * Try `value` for a field of the model's `Params` in place of the file's default (kept in `.torno/params.json`;
      * the model is never written) and build again. Rejects, saying why, for a field the model does not offer.
      */
@@ -405,6 +415,30 @@ export interface TornoBridge {
     /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
     problem(objectId: string): Promise<string | null>
     dismissProblem(objectId: string): Promise<void>
+  }
+  /**
+   * The parts shelf of the open workspace: `common/parts/<id>/part.py`, each part as the kernel reads and draws it, with the sizes the
+   * person checked (`.torno/checked.json`). The window never writes a part; the one thing it asks main to write is that a size was measured.
+   */
+  shelf: {
+    /** The parts, sorted by id, as of the last read; empty when the workspace has none or none is open. */
+    list(): Promise<ShelfPart[]>
+    /** The shelf, whole, each time a read of it differs from the one before (a part added, saved or removed, a check written, the workspace left). */
+    onChanged(cb: (parts: ShelfPart[]) => void): () => void
+    /**
+     * The person measured a size of a part on the real part: main checks the part (on the shelf), the size (one of its numbers) and the value (more
+     * than 0, under 10,000 mm), then writes the value and today's date into `common/parts/<id>/.torno/checked.json`, merged with what is there.
+     * Answers with what it wrote; rejects with a plain reason (nothing written) for a bad name or value, or a link or file in `.torno`'s place.
+     */
+    measured(id: string, name: string, value: number): Promise<ShelfChecked>
+    /**
+     * Adding a part by hand (#355): copies the files the person dropped on the Shelf tab (their paths, `objects.pathOf`) into `common/parts/<id>/`, when they send the
+     * request that names them. Main checks the id (a part id), at most 8 paths, and each file (a plain file, no link, of a PDF, picture or STEP kind, within the cap of a
+     * new project's reference of that kind); makes `common/`, `common/parts/` and the part's folder when missing, never through a link; copies each file whole or not at
+     * all and never over a file of that name (any case). Answers with the names copied and each file left out with its reason; rejects (nothing written) for a bad id,
+     * list or folder. It writes no `part.py` and nothing under `.torno`.
+     */
+    addFiles(id: string, paths: string[]): Promise<ShelfAddResult>
   }
   /**
    * The tracings of a project (`<project>/.torno/tracings.json`): the model laid flat in one plane at true scale. Main is their
@@ -696,6 +730,8 @@ export interface TornoBridge {
     lastConversation(objectId: string): Promise<{ items: ChatItem[]; at: string | null } | null>
     /** Every prompt of the object's conversations that was sent, oldest first, numbered from 1 across all of them (a terminal's from the history): what "Prompts only" lists. Read from `.torno/chat/`. */
     prompts(objectId: string): Promise<PromptRow[]>
+    /** Every prompt of `prompts` with what its turns took (the CLI's numbers kept on each turn of the log, and the pictures and builds of its items), and the median cost of a prompt: what the Usage page and "large" read. A terminal's prompts are there, not recorded. Read only. */
+    usage(objectId: string): Promise<ProjectUsage>
     /** The items of one earlier conversation of the object, from its log (its last 500), for reading above the current one; none for a conversation with no log. Read only. */
     conversation(objectId: string, conversationId: string): Promise<ChatItem[]>
     /** The bytes of a picture of the person's in the session's object, `reference/photo-1.jpg` (`ChatImage.file`), read again by main: none for a file that is not a plain file of a name torno gives there, or for a session that is not of the open workspace. Also for a session that has ended. */

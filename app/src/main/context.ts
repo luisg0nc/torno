@@ -21,6 +21,8 @@ import { alignmentSaid, shownText } from './scans/said'
 import { type BuildVerdicts, verdictChanges } from './verdicts'
 import { BRIEF_LIMIT } from './board/text'
 import { TRACINGS_LIMIT, type TracingsLine } from './tracings/told'
+import type { ShelfPart } from '../shared/shelf'
+import { SHELF_LIMIT, shelfLine } from './shelf/told'
 
 /** The most the agent is given with a prompt, in characters. */
 export const CONTEXT_LIMIT = 6000
@@ -117,6 +119,8 @@ export interface ContextDeps {
   references?(objectId: string): string[]
   /** The printer and material the project is made for: told to a new conversation (`profileLine`). None when it has none. */
   profile?(objectId: string): Profile | undefined
+  /** The parts on the workspace's shelf (`common/parts/`), as main last read them: told to a new conversation (`shelfLine`), the onboarding prompt's too. None when there is no shelf. */
+  shelf?(): ShelfPart[]
   /** The sketch of the project that is open for editing in the window (`openSketch`): it is not told until the person is done. None when none is. */
   sketching?(objectId: string): string | null
   now?(): number
@@ -215,14 +219,17 @@ export interface PromptContext {
  * A new conversation (`newConversation`: the first prompt of a session not resumed, or `fresh`) is also told, in a last line, the files of the object's `reference/` (`referencesLine`),
  * to read when they matter. It says nothing of whether they are attached: the first prompt of a new object attaches them.
  * That first prompt (`onboarding`) names them itself, so its context has no such line (#324).
+ * The same conversation is told what is on the parts shelf (`opts`' `deps.shelf`, `shelfLine`, at most SHELF_LIMIT characters), after the references and before the files' line,
+ * the onboarding prompt's too (a new project should know it); like the references it is left out whole when it does not fit beside the rest.
  *
  * The first prompt of a session, resumed or not, is given the instruction files Claude Code reads for the object
  * (`opts.instructions`, found by `main/instructions.ts`: paths and sizes, never their text) and which wins for seeing
  * the build (`instructionsLine`), in the very last line. Its room is kept before the status is fitted and any mark is listed, and it outranks
  * the references. None of it is told with the answer to an edit.
  *
- * What a Go back left for the agent (`opts.notice`, `takeGoBackNotice`, a sentence of main's) is the first line, ahead of the
- * rest and in addition to CONTEXT_LIMIT (it is short: `goback.ts` keeps it so): nothing is left out for it.
+ * What a Go back or a rename of a part left for the agent (`opts.notice`, `takeGoBackNotice` and `takeRenameNotice`, sentences of
+ * main's) is the first line, ahead of the rest and in addition to CONTEXT_LIMIT (it is short: `goback.ts` and `rename.ts` keep it so):
+ * nothing is left out for it.
  *
  * A tool of torno's is named as the agent's client names it to its model
  * (`opts.toolName`; as Claude Code does when nothing says).
@@ -450,7 +457,12 @@ function contextText(deps: ContextDeps, objectId: string, everyMark: readonly Ma
   const printed = opts.buildOnly ? printedBlock(deps, objectId, toolName, CONTEXT_LIMIT - joined.length - 1) : ''
   // The files Claude Code reads are the very last line; the references go before it, should they fit beside it.
   const tail = instructed ? 1 + instructed.length : 0
-  const text = printed ? `${joined}\n${printed}` : `${joined}${referred && joined.length + 1 + referred.length + tail <= CONTEXT_LIMIT ? `\n${referred}` : ''}${instructed ? `\n${instructed}` : ''}`
+  const withReferences = `${joined}${referred && joined.length + 1 + referred.length + tail <= CONTEXT_LIMIT ? `\n${referred}` : ''}`
+  // The shelf's block (#349) is told to a new conversation, the onboarding prompt's too (a new project should know it), after the
+  // references and before the files' line, and only when it fits whole beside them: it is no mark, and takes the room that is left.
+  const shelved = (opts.fresh || opts.newConversation) && !opts.buildOnly ? cutEnd(shelfLine(deps.shelf?.() ?? []), SHELF_LIMIT) : ''
+  const withShelf = `${withReferences}${shelved && withReferences.length + 1 + shelved.length + tail <= CONTEXT_LIMIT ? `\n${shelved}` : ''}`
+  const text = printed ? `${joined}\n${printed}` : `${withShelf}${instructed ? `\n${instructed}` : ''}`
   if (text.length <= CONTEXT_LIMIT) return { text, sentMarkIds: listedDrafts.map((m) => m.id), ...(said ? { sketching: said } : {}), ...(reviewed && sending ? { review: sending.id } : {}), ...(held.length > 0 ? { held: held.join(',') } : {}), ...(digest ? { digest } : {}), ...(instructed ? { instructions: opts.instructions?.length ?? 0 } : {}), ...(boarded && opts.boardTold ? { boardTold: opts.boardTold } : {}), ...(boarded && opts.boardCounts ? { board: opts.boardCounts } : {}), ...(moving ? { briefMove: true as const } : {}), ...(tracked && opts.tracingsLine ? { tracingsTold: opts.tracingsLine.told } : {}) }
   // Every part above keeps to the room it has; this holds for what none of them foresaw. What is cut is
   // the end, and no mark whose line may be among it is said to have been told.

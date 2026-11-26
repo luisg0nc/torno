@@ -3,6 +3,7 @@ import type { Vec3 } from '../../shared/marks'
 import { type AlignPoint, drawAlignPoints } from './alignPoints'
 import { type AskedBox, drawAskedBox } from './askedBox'
 import { type BrushRing, drawBrushRing } from './brushRing'
+import { drawPlaceGhost, type PlaceShape } from './placeGhost'
 import type { MarkLayer } from './marks/MarkLayer'
 import type { Placed } from './marks/labels'
 import { markPoints } from './marks/markObjects'
@@ -45,6 +46,8 @@ export class OverlayPass {
   readonly canvas: HTMLCanvasElement | null
   alignPoints: AlignPoint[] = []
   brush: BrushRing | null = null
+  /** A shelf part being placed (#353): the ghost at the pointer and the ones placed in this go; none drawn in a picture. */
+  placing: { ghost: PlaceShape | null; placed: readonly PlaceShape[] } | null = null
   /** The track Explode stands beside the parts, where it is and how far apart they are; null when none is up. Drawn whether the parts are apart or not. */
   explodeTrack: { plan: TrackPlan; amount: number; disabled: boolean } | null = null
   /** The box a scan would have in the unit pointed at, while its read question is asked: dashed, in no picture. */
@@ -113,6 +116,7 @@ export class OverlayPass {
     drawAlignPoints(ctx, this.alignPoints, host.camera(), size, { accent: style.accent, paper: style.paper })
     drawBrushRing(ctx, this.brush, host.camera(), size, { mark: style.user, paper: style.paper })
     drawAskedBox(ctx, this.asked, host.camera(), size, { accent: style.accent, paper: style.paper })
+    if (this.placing) drawPlaceGhost(ctx, this.placing.ghost, this.placing.placed, host.camera(), size, { accent: style.accent, paper: style.paper })
   }
 
   /** The section's rule on the ground, with its handle (`drawSectionRule`). */

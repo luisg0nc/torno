@@ -58,7 +58,7 @@ export function useStep<T>(pick: (s: StepState) => T): T {
 
 /** Whether a tool is one of the scan's and the object is known to have no scan (`scans` is the count, null until main has said). */
 export function scanless(tool: ToolName, scans: number | null): boolean {
-  return scans === 0 && SCAN_TOOLS.includes(tool)
+  return scans === 0 && tool !== 'place' && SCAN_TOOLS.includes(tool)
 }
 
 /**
@@ -66,6 +66,8 @@ export function scanless(tool: ToolName, scans: number | null): boolean {
  * to move a mark, waits for the part it goes to.
  */
 export function stepFor(tool: ToolName, stage: StepState['stage'], replacing: string | null, scans: number | null): string | null {
+  // Placing a shelf part says what it waits for in its band.
+  if (tool === 'place') return null
   if (scanless(tool, scans)) return `${TOOL_KEYS.find((t) => t.name === tool)!.label}: ${NO_SCAN_YET.toLowerCase()}`
   if (tool === 'pin' && replacing !== null) return `Pin: click the part where ${replacing} should be`
   return stepOf(tool, tool === 'measure' ? stage : 'first')

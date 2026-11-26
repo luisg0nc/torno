@@ -43,10 +43,10 @@ const sheet = (): Locator => page.locator('.brief-page')
 const sizeRows = (): Locator => page.locator('.brief-row[data-card]:not(.brief-rule)')
 const size = (what: string, value: string, source: SizeSource = 'measured'): SizeFact => ({ what, value, unit: 'mm', source })
 
-test('a project opens on the model, with the switch Model, Brief and + at the top left and no brief drawn', async () => {
+test('a project opens on the model, with the switch Model, Brief, Usage and + at the top left and no brief drawn', async () => {
   await openListed(page, 'bracket')
   await expect.poll(async () => (await state()).scene?.parts.length ?? 0, { timeout: 20_000 }).toBeGreaterThan(0)
-  await expect(page.locator('.pboard-switch button')).toHaveText(['Model', 'Brief', '+'])
+  await expect(page.locator('.pboard-switch button')).toHaveText(['Model', 'Brief', 'Usage', '+'])
   await expect(switchButton('Model')).toHaveAttribute('aria-pressed', 'true')
   await expect(sheet()).toHaveCount(0)
   expect(await page.evaluate(() => window.__tornoTest!.paused())).toBe(false)

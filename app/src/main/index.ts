@@ -20,7 +20,7 @@ import { copyExample, exampleSource, removeExample, sweepExamples } from './exam
 import { type Config, configOf, listed, recentWith, recentWithout } from './recent'
 import { startHttp } from './http'
 import { buildContextFor, contextFor, tellsInstructions } from './context'
-import { takeGoBackNotice } from './goback'
+import { takeNotices } from './notices'
 import { listReferences } from './sessions/reference'
 import { buildIdentity, buildStartedAt, buildState, closeWorkspace, findObject, historyOf, historySceneOf, keepDimensions, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc, trialObject, tracingDoors } from './ipc'
 import { forgetSketchesWith, openSketch } from './sketches/ipc'
@@ -77,6 +77,9 @@ import { HOOK_DEADLINE_MS, InstructionList } from './instructions'
 import { Trust } from './trust'
 import { KnownModels } from './sessions/models'
 import { UserProfiles, projectProfile } from './profile'
+import { watchFolder } from './builds'
+import { ShelfStore } from './shelf/store'
+import { keepChecked, watchTop } from './shelf/watch'
 
 // Environment switches:
 //   TORNO_TEST=1            the window is created hidden and never shown (tests, headless checks)
@@ -346,6 +349,9 @@ const marks: MarkStore = new MarkStore({ dirOf: (id) => findObject(id)?.dir, mes
 /** The named sets of the objects of the open workspace, in `.torno/sets.json`. A stroke a set names is checked against the marks. */
 const sets: SetStore = new SetStore({ dirOf: (id) => findObject(id)?.dir, scene: (id) => lastScene(id), marks: (objectId) => marks.list(objectId) })
 
+/** The parts shelf (`common/parts/`) of the open workspace: read by the kernel when it opens and when a file there changes; told to a new conversation (`shelfLine`) and to the window. */
+const shelf = new ShelfStore({ watch: (dir, onChange) => watchFolder(dir, onChange, 50, keepChecked), watchTop, log: (message) => console.error(message) })
+
 // A `.torno` that is a link or a file is written to by no one (`ownTorno`). The person is told once for each
 // object, where what is wrong with its marks is said: nothing of that object is kept until it is a real folder.
 // A folder under it that is a link (`views`, `exports`, `scans`, `agent`) is told of the same way, by itself:
@@ -534,7 +540,7 @@ const toolDeps: ToolDeps = {
     return proposing(obj.dir, req.name, () => theWindow().then((win) => requestSaveView(win, req)), (e) => e instanceof NoAnswer)
   }
 }
-const promptDeps = { ...toolDeps, references: referencesOf, sketching: openSketch }
+const promptDeps = { ...toolDeps, references: referencesOf, shelf: () => shelf.list(), sketching: openSketch }
 
 /** The instruction files Claude Code reads for an object (the person's home, and the organisation's file, are the machine's): found for the session pane and for the first prompt of a session. */
 const instructionFiles = new InstructionList()
@@ -721,7 +727,8 @@ void app.whenReady().then(async () => {
       const instructions = folder === undefined ? undefined : await instructionFiles.look(folder, HOOK_DEADLINE_MS)
       // What a Go back left for the agent is told with this prompt and no other: the file is removed once the answer has left (`delivered`), not as it is read.
       const dir = findObject(id)?.dir
-      const notice = dir === undefined ? null : await takeGoBackNotice(dir).catch(() => null)
+      // And what a rename of a part left (`main/rename.ts`), the same way (`takeNotices`).
+      const notice = dir === undefined ? null : await takeNotices(dir).catch(() => null)
       // What is on the board, and what of it is new to the agent: one line. A board that cannot be read is no reason to tell nothing of the build.
       const all = await marks.list(id).catch(() => [])
       // The onboarding prompt says the brief in its own words (and `markAllTold` kept its hash): it is not told it again.
@@ -809,6 +816,7 @@ void app.whenReady().then(async () => {
     asks,
     marks,
     sets,
+    shelf,
     tracings,
     board,
     ties,

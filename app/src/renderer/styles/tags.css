@@ -483,3 +483,26 @@
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* ---- The tag a part dropped from the shelf leaves (ui/place/PlaceBar.tsx): which part is on the face and what it cuts and keeps clear ---- */
+
+.tag[data-tag='place'] {
+  max-width: 260px;
+  pointer-events: none;
+}
+
+.place-tag {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px var(--space-2);
+}
+
+.place-tag-head {
+  font-weight: 600;
+}
+
+.place-tag-says {
+  color: var(--muted);
+  font-size: var(--text-small);
+}

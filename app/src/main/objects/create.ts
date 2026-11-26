@@ -123,7 +123,7 @@ const line = (what: string, note: string): string => (note === '' ? `- ${what}` 
  * is too big are refused before any of it is read. The file is opened without following a link and looked at
  * through the open handle, so that what was checked is what is read. The caller closes the handle.
  */
-async function openRegular(path: unknown, cap: number, what: string, types: readonly string[]): Promise<{ handle: FileHandle; size: number; ext: string; path: string }> {
+export async function openRegular(path: unknown, cap: number, what: string, types: readonly string[]): Promise<{ handle: FileHandle; size: number; ext: string; path: string }> {
   if (typeof path !== 'string' || !isAbsolute(path)) throw new Error(`A ${what} is given by the path of a file; this is not one.`)
   const ext = extname(path).toLowerCase()
   if (!types.includes(ext)) throw new Error(`${path} is not a ${types.join(', ')} file.`)

@@ -3,6 +3,7 @@ import { createStore } from 'zustand/vanilla'
 import { type ChatCommand, type ChatHistory, type ChatItem, type ChatMeta, type ChatModel, MAX_ITEMS } from '../../shared/chat'
 import { prepareImage } from '../ui/onboard/images'
 import { noteTool } from './agent'
+import { usageActions } from './usage'
 
 // The transcripts of the chat sessions, in a store of their own: they are updated by what main tells, an item at
 // a time, and nothing here is per frame. Main keeps the conversation; this is only what the window has drawn from
@@ -188,6 +189,8 @@ export function connectChat(): () => void {
     // Seen as it happens: the build the agent's refs were read from is the one on show now.
     if (m.item.kind === 'tool') noteTool(m.item.toolUseId, m.item.name)
     tell(m.sessionId, { item: m.item, seq: m.seq })
+    // A turn ended: what the project spent is read again (main waits for its line to land).
+    if (m.item.kind === 'turn') usageActions.refresh()
   })
   const offMeta = window.torno.chat.onMeta((m) => tell(m.sessionId, { meta: m.meta, seq: m.seq }))
   const offCapabilities = window.torno.chat.onCapabilities((m) => tell(m.sessionId, { commands: m.commands, models: m.models, seq: m.seq }))

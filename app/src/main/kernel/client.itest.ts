@@ -46,6 +46,19 @@ describe('the real kernel', () => {
     expect(versions.python).toMatch(/^3\./)
   })
 
+  it('reads the parts shelf of the workspace: each part drawn, and nothing written', async () => {
+    const result = await kernel.shelf!(root)
+    if (!result.ok) throw new Error(`${result.error.kind}: ${result.error.message}`)
+    expect(result.parts.map((p) => p.id)).toEqual(['ec11'])
+    const [ec11] = result.parts
+    expect(ec11.name).toBe('EC11 rotary encoder')
+    expect(ec11.params.find((p) => p.name === 'hole_d')).toMatchObject({ default: 7.2, doc: expect.stringMatching(/^derived:/) })
+    expect(ec11.cutout?.size).toEqual({ d: expect.closeTo(7.2, 9) })
+    expect(ec11.body?.bbox.max[2]).toBe(15)
+    expect(ec11.keepout?.plan.length).toBe(1)
+    expect(ec11.error).toBeUndefined()
+  })
+
   it('refuses a query before any build', async () => {
     await expect(kernel.query(join(root, 'bracket'), 'describe', { ref: 'assembly:base' })).rejects.toMatchObject({ kind: 'no_build' })
   })

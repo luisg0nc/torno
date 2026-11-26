@@ -1,0 +1,511 @@
+/* What Claude Code spent (#357): the paragraph of why a turn was large, under its end and in the Usage page's ledger, and the
+   Usage page itself in the view's place. Chart colours by emphasis (the dataviz rule): the context read again is the story, so it
+   is the accent; what was new to the context is the accent's wash; what Claude wrote is the field edge's grey. Every segment is
+   labelled, and "not known" is hatched, never a colour. */
+
+:root {
+  --usage-read: var(--accent);
+  --usage-new: color-mix(in srgb, var(--accent) 38%, var(--panel));
+  --usage-out: var(--field-edge);
+  --usage-hatch: repeating-linear-gradient(135deg, var(--field-edge) 0 1.5px, transparent 1.5px 5px);
+}
+
+/* Why a turn was large: facts on the surface, an accent edge at the left. */
+.usage-why {
+  max-width: 60ch;
+  margin: var(--space-2) 0 2px;
+  padding: 9px 12px 10px;
+  border-radius: var(--radius-float);
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--ink);
+  font-size: var(--text-row);
+  line-height: 1.5;
+}
+
+.usage-why p {
+  margin: 0;
+}
+
+.usage-why p + p {
+  margin-top: 4px;
+}
+
+.usage-why-head {
+  font-weight: 600;
+}
+
+.usage-why .usage-why-open {
+  margin-top: var(--space-2);
+}
+
+/* ---------- the Usage page, in the view's place (#371) ---------- */
+.usage-page {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: calc(var(--switch-h) + var(--space-5)) 28px 72px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-size);
+  line-height: var(--text-leading);
+  scrollbar-width: thin;
+  scrollbar-color: var(--field-edge) transparent;
+  container: usage / inline-size;
+}
+
+.usage-page > * {
+  max-width: 860px;
+}
+
+.usage-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.usage-head > div:first-child {
+  min-width: 0;
+}
+
+.usage-head h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.usage-conv-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.usage-sub {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: var(--text-row);
+}
+
+.usage-range {
+  flex: none;
+  margin-left: auto;
+}
+
+/* The one large thing on the page: the range said as a sentence. */
+.usage-lead {
+  max-width: 30ch;
+  margin: 18px 0 0;
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.28;
+  text-wrap: balance;
+}
+
+.usage-lead .num {
+  font-size: 0.8em;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+}
+
+.usage-lead small {
+  display: block;
+  max-width: 62ch;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.45;
+}
+
+.usage-lead-small {
+  max-width: 36ch;
+  font-size: 21px;
+}
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 28px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
+}
+
+@container (width < 640px) {
+  .usage-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.usage-section {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+}
+
+.usage-h {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.usage-h > span {
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 400;
+}
+
+.usage-note {
+  max-width: 60ch;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.usage-plan {
+  margin-top: var(--space-4);
+}
+
+.usage-muted {
+  color: var(--muted);
+}
+
+/* The cost a day: columns of the accent, values in ink, the axis's words muted. */
+.usage-days {
+  display: block;
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+}
+
+.usage-days text {
+  font: 400 10px var(--font-mono);
+  letter-spacing: -0.03em;
+}
+
+.usage-days-lab {
+  fill: var(--muted);
+}
+
+.usage-days-val {
+  fill: var(--ink);
+}
+
+.usage-days .usage-days-wd {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.usage-days-col {
+  fill: var(--usage-read);
+}
+
+.usage-days-hit {
+  fill: transparent;
+}
+
+g:hover > .usage-days-col {
+  fill: color-mix(in srgb, var(--usage-read) 82%, var(--ink));
+}
+
+.usage-days-base {
+  stroke: var(--field-edge);
+  stroke-width: 1;
+}
+
+.usage-days-unknown {
+  fill: none;
+  stroke: var(--field-edge);
+  stroke-dasharray: 2 2;
+}
+
+/* Where the tokens went: one bar of the three kinds, 2 px of surface between them, each labelled in the legend. */
+.usage-kinds {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  margin: 2px 0 var(--space-2);
+}
+
+.usage-kinds i {
+  display: block;
+  min-width: 2px;
+  height: 100%;
+}
+
+.usage-kinds i:first-child {
+  border-radius: var(--radius-inline) 0 0 var(--radius-inline);
+}
+
+.usage-kinds i:last-child {
+  border-radius: 0 var(--radius-inline) var(--radius-inline) 0;
+}
+
+.usage-kinds i:only-child {
+  border-radius: var(--radius-inline);
+}
+
+[data-kind='read'] {
+  background: var(--usage-read);
+}
+
+[data-kind='new'] {
+  background: var(--usage-new);
+}
+
+[data-kind='out'] {
+  background: var(--usage-out);
+}
+
+.usage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.usage-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.usage-legend > span > i {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: var(--radius-inline);
+}
+
+.usage-legend .num {
+  color: var(--ink);
+}
+
+/* The tables: words at the left, numbers at the right, hairlines between rows. */
+.usage-table,
+.usage-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-row);
+}
+
+.usage-table th,
+.usage-ledger th {
+  padding: 0 0 5px 10px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.usage-table th:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+
+.usage-table td {
+  padding: 5px 0 5px 10px;
+  border-top: 1px solid var(--hairline);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.usage-table td:first-child {
+  padding-left: 0;
+  text-align: left;
+  white-space: normal;
+}
+
+.usage-table td.num,
+.usage-table td .num,
+.usage-ledger td.num,
+.usage-ledger td .num {
+  margin: 0;
+}
+
+.usage-convs td[colspan] {
+  text-align: right;
+}
+
+.usage-conv {
+  display: block;
+  max-width: 280px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.usage-conv-name {
+  display: block;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-conv:hover .usage-conv-name {
+  color: var(--accent);
+}
+
+.usage-conv:focus-visible {
+  border-radius: var(--radius-inline);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.usage-conv-when {
+  display: block;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.usage-spark {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+  vertical-align: -3px;
+}
+
+.usage-spark i {
+  width: 4px;
+  min-height: 1px;
+  border-radius: var(--radius-inline) var(--radius-inline) 0 0;
+  background: var(--usage-read);
+}
+
+.usage-spark i[data-unknown] {
+  height: 6px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--field-edge);
+}
+
+/* A conversation: the crumbs back, and its prompts as a ledger. */
+.usage-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: var(--text-row);
+}
+
+.usage-back {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.usage-back::before {
+  content: '‹ ';
+}
+
+.usage-crumb-name {
+  overflow: hidden;
+  max-width: 40ch;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-ledger {
+  margin-top: 16px;
+}
+
+.usage-ledger th:nth-child(-n + 2) {
+  text-align: left;
+}
+
+.usage-ledger td {
+  padding: 6px 0 6px 10px;
+  border-top: 1px solid var(--hairline);
+  text-align: right;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.usage-ledger td.usage-ledger-n {
+  width: 24px;
+  padding-left: 6px;
+  color: var(--muted);
+  text-align: left;
+}
+
+.usage-ledger td.usage-ledger-text {
+  max-width: 260px;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+}
+
+.usage-ledger-bar {
+  width: 120px;
+  padding-top: 11px;
+}
+
+.usage-ledger-bar > div {
+  height: 8px;
+  border-radius: 0 var(--radius-inline) var(--radius-inline) 0;
+  background: var(--usage-read);
+}
+
+.usage-ledger-bar > div[data-unknown] {
+  width: 40%;
+  background: var(--usage-hatch);
+  box-shadow: inset 0 0 0 1px var(--field-edge);
+}
+
+.usage-ledger tr[data-hot] td,
+.usage-ledger tr[data-lit] td,
+.usage-ledger-why td {
+  background: var(--accent-wash);
+}
+
+.usage-ledger tr[data-hot] td.usage-ledger-n,
+.usage-ledger tr[data-lit] td.usage-ledger-n {
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--accent);
+}
+
+.usage-ledger-why td {
+  padding: 0 0 10px 34px;
+  border-top: 0;
+  text-align: left;
+  white-space: normal;
+}
+
+.usage-ledger-why .usage-why {
+  max-width: none;
+  margin: 0;
+  background: var(--raise);
+}
+
+.usage-ledger-sep td {
+  padding: 10px 0 4px;
+  border-top: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: left;
+}

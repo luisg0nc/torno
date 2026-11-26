@@ -108,11 +108,15 @@ describe('the width of the card', () => {
 })
 
 describe('the tabs of the bench', () => {
-  it('shows Parameters alone for a one-part model, Parts alone with no Params, both otherwise', () => {
-    expect(benchTabs(1, 22)).toEqual(['params'])
-    expect(benchTabs(4, 0)).toEqual(['parts'])
-    expect(benchTabs(1, 0)).toEqual(['parts'])
-    expect(benchTabs(4, 22)).toEqual(['params', 'parts'])
+  it('has Parameters, Parts, or both, then Shelf last whatever the shelf holds', () => {
+    expect(benchTabs(1, 22)).toEqual(['params', 'shelf'])
+    expect(benchTabs(4, 0)).toEqual(['parts', 'shelf'])
+    expect(benchTabs(1, 0)).toEqual(['parts', 'shelf'])
+    expect(benchTabs(4, 22)).toEqual(['params', 'parts', 'shelf'])
+  })
+  it('draws Shelf when it was kept and there is a shelf, else the first tab', () => {
+    expect(tabShown('shelf', ['params', 'shelf'])).toBe('shelf')
+    expect(tabShown('shelf', ['params'])).toBe('params')
   })
   it('draws the tab kept if the project has it, else Parameters', () => {
     expect(tabShown('parts', ['params', 'parts'])).toBe('parts')
@@ -121,7 +125,7 @@ describe('the tabs of the bench', () => {
     expect(tabShown('params', ['parts'])).toBe('parts')
   })
   it('reads what was kept for each project and nothing else', () => {
-    expect(readBench(JSON.stringify({ hollow: 'parts', gear: 'params', odd: 'marks' }))).toEqual({ hollow: 'parts', gear: 'params' })
+    expect(readBench(JSON.stringify({ hollow: 'parts', gear: 'params', bench: 'shelf', odd: 'marks' }))).toEqual({ hollow: 'parts', gear: 'params', bench: 'shelf' })
     expect(readBench('nonsense')).toEqual({})
     expect(readBench(null)).toEqual({})
     expect(readBench('[1]')).toEqual({})

@@ -13,6 +13,7 @@ import { sectionOf, snappedSection, type Camera, type SectionPlane, type ViewNam
 import { type SavedView, MAX_VIEWS, TOO_MANY_VIEWS, cleanViewName, findView, ownViews, proposalToDrop, viewNameRefusal } from '../../shared/views'
 import { sameCamera, viewOnScreen } from './savedViews'
 import type { LayerSettings, SceneFile } from '../../shared/scenefile'
+import { renamedRef } from '../../shared/rename'
 import type { WorkspaceInfo } from '../../shared/workspace'
 import { type BenchKept, type BenchTab, type ColumnPrefs, readBench, storedBench, writeBench, keptWidth, readColumn, storedColumn, windowStorage, writeColumn } from './column'
 import type { CompareMode, CompareState } from './compare'
@@ -65,6 +66,8 @@ export interface TornoState {
   column: ColumnPrefs
   /** The open tab of the bench, for each project (`torno.bench`). */
   benchTab: BenchKept
+  /** The part of the shelf chosen on the Shelf tab (its id): its row is lit, and its page is a tab of the switch (`ui/shelf/PartPage.tsx`, shown when `shown` is `part`). Of the open project. */
+  shelfOpen: string | null
   /** The last good scene of the open object, and the revision it is. */
   scene: Scene | null
   /** The scene that was on show before `scene` landed, of the same object; null for the first build of an object. What the status line says a build changed is held against it. */
@@ -196,7 +199,7 @@ const NO_SCANS: ScanInfo[] = []
 const NOT_CLIPPED: readonly string[] = []
 const NO_VIEWS: SavedView[] = []
 const NO_SELECTION = { selection: NOTHING_SELECTED, picked: NOTHING_PICKED }
-const NO_OBJECT = { objectId: null, build: null, errorOpen: false, compare: null, fixRequest: null, promptsOpen: false, promptShown: null, scene: null, before: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, folded: [], tracingsShown: [], activeView: null, marks: [], marksProblem: null, marksOnPart: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, hoveredMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
+const NO_OBJECT = { objectId: null, build: null, errorOpen: false, compare: null, fixRequest: null, promptsOpen: false, promptShown: null, shelfOpen: null, scene: null, before: null, revision: 0, layout: '', layers: {}, section: null, explode: {}, views: NO_VIEWS, folded: [], tracingsShown: [], activeView: null, marks: [], marksProblem: null, marksOnPart: null, scans: NO_SCANS, scansKnown: true, scanViews: {}, scansClipped: NOT_CLIPPED, importing: null, scansRefused: null, scanAsking: null, scansProblem: null, activeMark: null, hoveredMark: null, noting: null, shownByAgent: null, ...NO_SELECTION }
 
 export const store = createStore<TornoState>(() => ({
   workspace: null,
@@ -327,6 +330,24 @@ export const actions = {
     // The person's own choice from here on, whatever the agent had shown.
     const { layout: _theirsAgain, ...shownByAgent } = s.shownByAgent ?? { visible: {} }
     store.setState({ ...layoutChange(s, layout), edits: s.edits + 1, shownByAgent: s.shownByAgent && shownByAgent })
+  },
+
+  /**
+   * The part `from` is now `to` (a rename by hand, `state/rename.ts`): what the window keeps by the part's name follows it (its
+   * layer settings, the saved views that hide it, the selection, the agent's show, the marks listed by part), as one edit, so
+   * that the scene file is saved with the new name before the build of it lands.
+   */
+  partRenamed(from: string, to: string): void {
+    const s = store.getState()
+    const moved = <T>(by: Record<string, T>): Record<string, T> => (Object.hasOwn(by, from) && !Object.hasOwn(by, to) ? Object.fromEntries(Object.entries(by).map(([name, v]) => [name === from ? to : name, v])) : by)
+    store.setState({
+      layers: moved(s.layers),
+      views: s.views.map((view) => (view.hidden.includes(from) ? { ...view, hidden: view.hidden.map((name) => (name === from ? to : name)) } : view)),
+      selection: s.selection.map((ref) => renamedRef(ref, from, to)),
+      shownByAgent: s.shownByAgent && { ...s.shownByAgent, visible: moved(s.shownByAgent.visible) },
+      marksOnPart: s.marksOnPart === from ? to : s.marksOnPart,
+      edits: s.edits + 1
+    })
   },
 
   /** Change some settings of one part; the others keep their values. */
@@ -761,6 +782,11 @@ export const actions = {
     const next = { ...benchTab, [objectId]: tab }
     store.setState({ benchTab: next })
     writeBench(windowStorage(), next)
+  },
+
+  /** A row of the Shelf tab was chosen (or none: null). */
+  openShelfPart(id: string | null): void {
+    if (store.getState().shelfOpen !== id) store.setState({ shelfOpen: id })
   },
 
   /** The width the person gave the card, once it is let go (at least the narrow default); the window keeps it. */

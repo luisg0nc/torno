@@ -7,7 +7,10 @@ import { connectBoard, useBoard } from './state/board'
 import { connectTracings } from './state/tracings'
 import { connectReview } from './state/review'
 import { connectSets, setActions } from './state/sets'
-import { actions, sceneFileOf, store, useStore } from './state/store'
+import { connectShelf } from './state/shelf'
+import { shelfAdd } from './state/shelfAdd'
+import { shelfFind } from './state/shelfFind'
+import { actions, onWorkspaceSet, sceneFileOf, store, useStore } from './state/store'
 import { BuildStatus } from './ui/BuildStatus'
 import { closingWhy, isExporting, leavingWhy, unkept, type Reason } from './closing'
 import { unsentSessions } from './ui/chat/Composer'
@@ -27,6 +30,8 @@ import { ViewportPane } from './ui/ViewportPane'
 import { BoardSwitch, useBoardSwapKey } from './ui/brief/BoardSwitch'
 import { BriefPage } from './ui/brief/BriefPage'
 import { FacePickBar } from './ui/tracings/NewTracing'
+import { PartPage } from './ui/shelf/PartPage'
+import { UsagePage } from './ui/usage/UsagePage'
 import { TracingView } from './ui/tracings/TracingView'
 import { KeySheet, useKeysKey } from './ui/KeySheet'
 import { PartPicker, usePickerKey } from './ui/PartPicker'
@@ -190,6 +195,10 @@ function useMain(): void {
     const offSetsProblem = window.torno.sets.onProblem(setActions.problemTold)
     // The named sets of the open project, read from main and followed.
     const offSets = connectSets()
+    // The parts shelf of the workspace, read from main and followed.
+    const offShelf = connectShelf()
+    const offShelfFind = onWorkspaceSet(shelfFind.clear)
+    const offShelfAdd = onWorkspaceSet(shelfAdd.clear)
 
     // Layer and layout changes are written to <object>/.torno/scene.json, once they stop coming.
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -226,6 +235,9 @@ function useMain(): void {
       offTracings()
       offReview()
       offSets()
+      offShelf()
+      offShelfFind()
+      offShelfAdd()
       offSetsProblem()
       offMarks()
       offMarksProblem()
@@ -388,6 +400,8 @@ export function App() {
   const briefOf = useBoard((s) => (s.shown === 'brief' ? s.objectId : null))
   // So does a tracing, on the same page.
   const tracingOf = useBoard((s) => (s.shown === 'tracing' ? s.objectId : null))
+  const partOf = useBoard((s) => (s.shown === 'part' ? s.objectId : null))
+  const usageOf = useBoard((s) => (s.shown === 'usage' ? s.objectId : null))
   // While the edge is dragged the width goes straight to the CSS variable, so
   // React renders once at the end rather than on every pointer move.
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null)
@@ -414,8 +428,10 @@ export function App() {
     if (!d) return
     drag.current = null
     shell.current!.toggleAttribute('data-resizing', false)
-    // A press that moved nothing keeps what there was (the default stays the default of the window).
+    // A drag that ends where it began keeps what there was. With nothing kept, the width the drag wrote comes off (React has none of
+    // its own to put over it), so the default stays the default of the window.
     if (d.width !== d.startWidth) keepDock(d.width)
+    else if (kept === null) shell.current!.style.removeProperty('--dock-w')
     // Dragged with the pointer, the edge is done with: the next letter is the view's, not the session pane's.
     giveKeysBack(e.currentTarget)
   }
@@ -568,6 +584,8 @@ export function App() {
         <BuildsTimeline />
         {page === 'object' && briefOf !== null && <BriefPage key={briefOf} />}
         {page === 'object' && tracingOf !== null && <TracingView key={tracingOf} />}
+        {page === 'object' && partOf !== null && <PartPage key={partOf} />}
+        {page === 'object' && usageOf !== null && <UsagePage key={usageOf} />}
         {/* Over the model: a tracing on a face waits for the face. */}
         <FacePickBar />
         {page === 'objects' && <ShowPage onOpen={openObject} onExample={() => leave(EXAMPLE)} notes={projectNotes} />}

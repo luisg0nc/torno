@@ -58,7 +58,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   as main sends the scene, unchanged), read only; torno never writes the model. A model with none (or a kernel that does
   not read them) has no section. A row (`paramRow` in `ui/paramRows.ts`, pure) is a ledger line of 27 px
   (`.param-line`, `styles/card-params.css`): the name in the monospace face, one source word (`ParamRow.word`: `sourceWord` of
-  `shared/params.ts` shortened, `ref photo-1.jpg` is `photo-1`, `person` is `you`, `derived` is `model`, `no source` for a size whose comment says none,
+  `shared/params.ts` shortened, `ref photo-1.jpg` is `photo-1`, `person` is `you`, `derived` is `model`, `listing`, `measured`, `ISO 15` (any `ISO <n>`, `DIN <n>`, `EN <n>` is source `standard`), `no source` for a size whose comment says none,
   nothing for a flag or text), and the value in a field of its own (`.param-field`), said once: a number field, a checkbox
   with its word or a select for an `editable` field; plain `.param-value` for one that is not; `= value` (`data-worked`, no field) for a
   default that is not a literal. Numbers go through `shared/format.ts` (four digits at most, a list or a dict by its items, a bool as

@@ -1,30 +1,35 @@
 import { useStore as useZustand } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import type { BoardAttach, BoardFile } from '../../shared/board'
+import { isPartId } from '../../shared/shelf'
 import { resetPictures } from './boardPictures'
 import { windowStorage } from './column'
-import { onWorkspaceSet, store } from './store'
+import { actions, onWorkspaceSet, store } from './store'
 
 /** The window's storage; none where there is no window (a test under node). */
 const storageNow = (): Storage | null => (typeof window === 'undefined' ? null : windowStorage())
 
-// The brief of the open project in the window: what main last said of its board file, which of the four (the model, the
-// brief, the scans or a tracing) the main area shows, and the one card a ref in the chat lit. The window keeps the choice per project in its own storage
+// The brief of the open project in the window: what main last said of its board file, which of the five (the model, the
+// brief, the scans, a tracing or a part of the shelf) the main area shows, and the one card a ref in the chat lit. The window keeps the choice per project in its own storage
 // (never in the workspace), and a project opens on the model until its board has a card of the person's or the agent's.
 
-export type Shown = 'model' | 'brief' | 'scans' | 'tracing'
+/** `usage`: the Usage page (#371), shown from the switch or a turn's "Open in Usage"; `Ctrl+Tab` does not go to it, and goes on from it to the model. */
+export type Shown = 'model' | 'brief' | 'scans' | 'tracing' | 'part' | 'usage'
 
-/** Which views of the switch beyond the model and the brief the project has: Scans when it has a scan, Tracing when it has a tracing. */
+/** Which views of the switch beyond the model and the brief the project has: Scans when it has a scan, Tracing when it has a tracing, the part when one of the shelf is open. */
 export interface HasViews {
   scans: boolean
   tracing: boolean
+  part?: boolean
 }
 
-/** What `Ctrl+Tab` shows after `shown`: the model, the brief, the scans, a tracing, the model again; a view the project has none of is passed over. */
+/** What `Ctrl+Tab` shows after `shown`: the model, the brief, the scans, a tracing, the open part, the model again; a view the project has none of is passed over. */
 export function swapped(shown: Shown, has: HasViews): Shown {
+  const part = has.part === true
   if (shown === 'model') return 'brief'
-  if (shown === 'brief') return has.scans ? 'scans' : has.tracing ? 'tracing' : 'model'
-  if (shown === 'scans') return has.tracing ? 'tracing' : 'model'
+  if (shown === 'brief') return has.scans ? 'scans' : has.tracing ? 'tracing' : part ? 'part' : 'model'
+  if (shown === 'scans') return has.tracing ? 'tracing' : part ? 'part' : 'model'
+  if (shown === 'tracing') return part ? 'part' : 'model'
   return 'model'
 }
 
@@ -57,6 +62,8 @@ export interface BoardState {
 }
 
 export const SHOWN_KEY = 'torno.board.shown'
+/** The part of the shelf each project had open (its id), kept beside the choice: a window opened again has the page, not only the switch. */
+export const PART_KEY = 'torno.board.part'
 
 type Reader = Pick<Storage, 'getItem'> | null
 type Writer = Pick<Storage, 'getItem' | 'setItem'> | null
@@ -75,12 +82,35 @@ export function shownRead(storage: Reader, objectId: string): Shown | null {
   const kept = Object.hasOwn(readAll(storage), objectId) ? readAll(storage)[objectId] : null
   // 'board' is what the window kept before the brief took the board's place.
   if (kept === 'board') return 'brief'
-  return kept === 'brief' || kept === 'model' || kept === 'scans' || kept === 'tracing' ? kept : null
+  return kept === 'brief' || kept === 'model' || kept === 'scans' || kept === 'tracing' || kept === 'part' || kept === 'usage' ? kept : null
 }
 
 export function shownWrite(storage: Writer, objectId: string, shown: Shown): void {
   try {
     storage?.setItem(SHOWN_KEY, JSON.stringify({ ...readAll(storage), [objectId]: shown }))
+  } catch {
+    // A storage that refuses: the window goes on as it is.
+  }
+}
+
+/** The part of the shelf the project had open when the window last had it, or null. */
+export function partRead(storage: Reader, objectId: string): string | null {
+  try {
+    const kept: unknown = JSON.parse(storage?.getItem(PART_KEY) ?? 'null')
+    const id = typeof kept === 'object' && kept !== null && !Array.isArray(kept) && Object.hasOwn(kept, objectId) ? (kept as Record<string, unknown>)[objectId] : null
+    return typeof id === 'string' && isPartId(id) ? id : null
+  } catch {
+    return null
+  }
+}
+
+export function partWrite(storage: Writer, objectId: string, id: string | null): void {
+  try {
+    const kept: unknown = JSON.parse(storage?.getItem(PART_KEY) ?? 'null')
+    const all = typeof kept === 'object' && kept !== null && !Array.isArray(kept) ? { ...(kept as Record<string, unknown>) } : {}
+    if (id === null) delete all[objectId]
+    else all[objectId] = id
+    storage?.setItem(PART_KEY, JSON.stringify(all))
   } catch {
     // A storage that refuses: the window goes on as it is.
   }
@@ -141,7 +171,11 @@ export const boardActions = {
     resetPictures(objectId)
     if (objectId === null) return boardStore.setState(NONE, true)
     const kept = shownRead(storage, objectId)
-    boardStore.setState({ ...NONE, objectId, shown: kept ?? 'model', chosen: kept !== null }, true)
+    // The part the project had open has its tab again (`shelfOpen` is the open project's, and was let go with the last); a page of a part
+    // with no part to show is the model.
+    const part = partRead(storage, objectId)
+    if (part !== null) actions.openShelfPart(part)
+    boardStore.setState({ ...NONE, objectId, shown: kept === 'part' && part === null ? 'model' : (kept ?? 'model'), chosen: kept !== null }, true)
   },
 
   /** Main's board of a project; one of a project that is not the open one is let go. */
@@ -170,6 +204,22 @@ export const boardActions = {
     const { objectId } = boardStore.getState()
     boardStore.setState({ shown: which, chosen: true })
     if (objectId !== null) shownWrite(storageNow(), objectId, which)
+  },
+
+  /** A part of the shelf is opened: its row is the one lit, its page is shown, and the window keeps which it was. */
+  openPart(id: string, storage: Writer = storageNow()): void {
+    const { objectId } = boardStore.getState()
+    actions.openShelfPart(id)
+    boardActions.show('part')
+    if (objectId !== null) partWrite(storage, objectId, id)
+  },
+
+  /** The part's page is closed (its `×`, or the part left the shelf): its tab goes, and the model is shown if its page was. */
+  closePart(storage: Writer = storageNow()): void {
+    const { objectId, shown } = boardStore.getState()
+    actions.openShelfPart(null)
+    if (shown === 'part') boardActions.show('model')
+    if (objectId !== null) partWrite(storage, objectId, null)
   },
 
   /** The next view, as `Ctrl+Tab` goes: Scans and Tracing are passed over when the project has none. */

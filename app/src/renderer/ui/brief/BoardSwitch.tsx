@@ -10,7 +10,7 @@ import { useBand } from '../view/Band'
 import { PopMenu, useDismiss } from '../view/PopMenu'
 
 /**
- * The key that goes round the model, the brief, the scans and a tracing (the last two when the project has one). Heard anywhere outside a field and the terminal, with a project open on
+ * The key that goes round the model, the brief, the scans, a tracing and the open part of the shelf (those when the project has one). Heard anywhere outside a field and the terminal, with a project open on
  * its own page (not over the page of projects, nor of a new one).
  */
 export function useBoardSwapKey(): void {
@@ -22,24 +22,25 @@ export function useBoardSwapKey(): void {
       if (s.page !== 'object' || s.objectId === null || !s.workspace) return
       e.preventDefault()
       e.stopPropagation()
-      if (!e.repeat) boardActions.swap({ scans: store.getState().scans.length > 0, tracing: hasTracing() })
+      if (!e.repeat) boardActions.swap({ scans: store.getState().scans.length > 0, tracing: hasTracing(), part: store.getState().shelfOpen !== null })
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 }
 
-const NAMES = { model: 'Model', brief: 'Brief', scans: 'Scans', tracing: 'Tracing' } as const
+const NAMES = { model: 'Model', brief: 'Brief', usage: 'Usage', scans: 'Scans', tracing: 'Tracing' } as const
 
 /**
- * The switch at the top left of the main area: Model and Brief, and Scans and Tracing when the project has a scan or a tracing (or while
- * that view is the one shown), with the key that goes round them. At its end a `+` makes the first of either: Import scan…, New tracing….
+ * The switch at the top left of the main area: Model, Brief and Usage (#371), and Scans and Tracing when the project has a scan or a tracing (or while
+ * that view is the one shown), then the part of the shelf that is open as its id in mono with a `×` that closes it, with the key that goes round them. At its end a `+` makes the first of either: Import scan…, New tracing….
  * It steps aside while a band holds its place (`ui/view/Band.tsx`).
  */
 export function BoardSwitch() {
   const shown = useBoard((s) => s.shown)
   const open = useStore((s) => s.page === 'object' && s.objectId !== null)
   const objectId = useStore((s) => s.objectId)
+  const part = useStore((s) => s.shelfOpen)
   // A scans file that could not be read, or an import that was refused, has its word in the panel, so the tab is there for it too.
   const hasScans = useStore((s) => s.scans.length > 0 || s.scansProblem !== null || s.scansRefused !== null)
   const importing = useStore((s) => s.importing !== null)
@@ -49,7 +50,7 @@ export function BoardSwitch() {
   const box = useRef<HTMLDivElement>(null)
   useDismiss(menu, box, () => setMenu(false))
   if (!open || band !== null) return null
-  const views = (['model', 'brief', 'scans', 'tracing'] as const).filter((which) => which === 'model' || which === 'brief' || shown === which || (which === 'scans' ? hasScans : hasTracings))
+  const views = (['model', 'brief', 'usage', 'scans', 'tracing'] as const).filter((which) => which === 'model' || which === 'brief' || which === 'usage' || shown === which || (which === 'scans' ? hasScans : hasTracings))
   return (
     <div className="pboard-switch" role="group" aria-label="Show">
       {views.map((which) => (
@@ -57,6 +58,18 @@ export function BoardSwitch() {
           {NAMES[which]}
         </button>
       ))}
+      {part !== null && (
+        <span className="pboard-part" data-on={shown === 'part' ? '' : undefined}>
+          <button type="button" className="pboard-part-button" aria-pressed={shown === 'part'} title={`The part ${part} of the shelf`} onClick={() => boardActions.show('part')}>
+            <span className="pboard-part-id">{part}</span>
+          </button>
+          <button type="button" className="pboard-part-close" aria-label={`Close ${part}`} title="Close the part" onClick={() => boardActions.closePart()}>
+            <svg viewBox="0 0 10 10" aria-hidden="true">
+              <path d="M2 2l6 6M8 2l-6 6" />
+            </svg>
+          </button>
+        </span>
+      )}
       <div className="pboard-add-box" ref={box}>
         <button type="button" className="pboard-switch-button pboard-add" aria-label="Add a scan or a tracing" aria-haspopup="menu" aria-expanded={menu} title="Import a scan, or make a tracing" onClick={() => setMenu((was) => !was)}>
           +

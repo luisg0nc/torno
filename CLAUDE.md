@@ -43,9 +43,12 @@ While iterating run the focused test; run all four suites before a commit. `app/
 
 ## Global invariants
 
-- Never write inside a user workspace except under `<object>/.torno/`. Four exceptions: making a new object (its folder, with its photos, doodles, STEP files and PDFs copied into `reference/`
-  and its board, `.torno/board/board.json`), an export the person saves, "Keep this as a folder" on the example (each one new folder or file, whole or not there), and Go
-  back, which writes and removes `.py` files of its own project's folder after the person confirms (`goback`).
+- Never write inside a user workspace except under `<object>/.torno/`; a shelf part's folder `common/parts/<id>/` counts as a project for torno's own files (its `.torno/`, the checked dates).
+  Six exceptions: making a new object (its folder, with its photos, doodles, STEP files and PDFs copied into `reference/`
+  and its board, `.torno/board/board.json`), an export the person saves, "Keep this as a folder" on the example (each one new folder or file, whole or not there), Go
+  back, which writes and removes `.py` files of its own project's folder after the person confirms (`goback`), when the person sends an "add a part" request from the Shelf tab (in a terminal, when they press the button),
+  the files they dropped (at most 8: pictures, PDFs, STEP), copied into `common/parts/<id>/`, whose folders it makes when missing (plain files, size-capped, whole or not there, never over a file of that name in any case or through a link; `shelf`),
+  and renaming a part by hand, which writes the new name where the kernel found the old one in `.py` files of its own project's folder (`rename-part`).
   The kernel never writes a file. Never run `uv sync` there: always `uv run --no-sync`, and only when
   `<workspace>/.venv` exists (`workspace-writes`).
 - The kernel supervisor only imports. It never loads a model, builds, tessellates or answers a query. Workers never fork.
@@ -56,7 +59,7 @@ While iterating run the focused test; run all four suites before a commit. `app/
   is never in an argument, a file or a log. The second door is one Unix socket, never a TCP port (`agent-launch-and-tokens`).
 - Images for the agent: long edge at most 2000 px, default 1280 (`export-saving` for the person's own picture).
 - Main is the only writer of `.torno/marks.json`, `scans.json`, `sets.json`, `tracings.json` and `params.json`; ids `M<n>`, `S<n>`, `N<n>`, `T<n>` and a sketch's stroke ids `k<n>` are main's,
-  never reused (`marks-store`, `scans-store`, `sets`, `tracings`, `params`). torno never writes the model but through Go back (`goback`).
+  never reused (`marks-store`, `scans-store`, `sets`, `tracings`, `params`). torno never writes the model but through Go back (`goback`) and a rename of a part by hand (`rename-part`).
 - Lengths are millimetres, angles degrees, areas mm², volumes mm³, masses
   grams. Numbers shown go through `shared/format.ts` (four significant
   digits at most); numbers stored and returned as data are in full.
@@ -104,11 +107,12 @@ heading names the folder its text came from. Paths are as written there: from `a
   (Params, groups, tags, checks, references, `uses`), `kernel-measures`, `kernel-features`, `kernel-scans`.
 - Tests: `e2e-hidden-window` (every Electron launch), `e2e-stand-in-agent` (the stand-in, the specs, the evals).
 - Marks and the model: `marks-store`, `dimensions`, `marks-window`, `keys`, `params`, `checks-and-profile`,
-  `left-column` (layers, groups, references), `sets` (named sets), `tracings` (the store, the photo and its line-up, the outline, the view), `builds-history`, `board`, `goback`, `exactness-app`.
+  `left-column` (layers, groups, references), `sets` (named sets), `tracings` (the store, the photo and its line-up, the outline, the view), `builds-history`, `board`, `goback`, `rename-part`, `exactness-app`.
 - The view: `section`, `explode`, `saved-views`, `viewport-overlay`, `leaders`, `styles-themes`.
 - The agent: `mcp-tools`, `mcp-read-tools`, `build-digest`, `stop-hook`, `agent-prompt`, `instruction-files`, `asks`,
   `agent-launch-and-tokens`, `sessions`, `chat-transcript`, `chat-log-and-undo`, `session-pane`, `chat-pane`,
-  `chat-cards-and-refs`, `drawing-on-view`.
+  `chat-cards-and-refs`, `drawing-on-view`, `usage` (what Claude Code spent: the turn's line, the Usage page, the timeline's costs).
 - Scans: `scans-store`, `scans-regions`, `scans-window`. Screens: `first-screen`, `readiness`, `page-of-objects`,
   `new-object-create`, `new-object-onboard`, `new-object-page`.
+- The parts shelf: `shelf` (`common/parts/`: the kernel's op, the store, the types).
 - Files and shipping: `workspace-writes`, `export-page`, `export-saving`, `launcher-and-packaging`.

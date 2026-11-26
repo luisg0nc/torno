@@ -10,6 +10,8 @@ import sys
 import tokenize
 import traceback as tb_module
 import weakref
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType, TracebackType
 from typing import Any
@@ -82,13 +84,15 @@ def load_model(
         _OVERRIDDEN[module] = applied
         if report is not None:
             report["applied"], report["dropped"] = applied, dropped
-        scene = _collect_scene(module)
-        scene = _references(module, scene) if scene else scene
-        groups = _groups(module, scene) if scene else []
-        checks = _checks(module, scene, groups) if scene else []
-        if not isinstance(scene, Layouts):
-            scene = Layouts(scene)
-        scene.tags = _tags(module, scene) if scene else {}
+        # Every call of the model's own code that follows, its makers and checks, is counted of the shelf parts it imported.
+        with _counting_shelf(path.parent.parent, report):
+            scene = _collect_scene(module)
+            scene = _references(module, scene) if scene else scene
+            groups = _groups(module, scene) if scene else []
+            checks = _checks(module, scene, groups) if scene else []
+            if not isinstance(scene, Layouts):
+                scene = Layouts(scene)
+            scene.tags = _tags(module, scene) if scene else {}
     except LoadError:
         raise
     except Exception as e:
@@ -109,6 +113,85 @@ def _params(module: ModuleType) -> Any:
     made = module.Params()
     applied = _OVERRIDDEN.get(module)
     return dataclasses.replace(made, **applied) if applied else made
+
+
+_SHELF_FOLDER = ("common", "parts")
+
+
+def _shelf_part_id(root: Path, file: str) -> str | None:
+    """``ec11`` for ``<root>/common/parts/ec11/part.py``, None for any other file."""
+    try:
+        parts = Path(file).resolve().relative_to(root).parts
+    except (OSError, ValueError):
+        return None
+    if len(parts) == 4 and parts[:2] == _SHELF_FOLDER and parts[3] == "part.py":
+        return parts[2]
+    return None
+
+
+def shelf_uses(root: Path, uses: list[str]) -> dict[str, int | None]:
+    """The parts of the shelf the model used, from its ``uses`` (paths relative to ``root``): id → None, to be given the
+    count of calls (``_counting_shelf``) where there is one."""
+    found = {}
+    for file in uses:
+        id = _shelf_part_id(root, str(root / file))
+        if id is not None:
+            found[id] = None
+    return found
+
+
+@contextmanager
+def _counting_shelf(root: Path, report: dict[str, Any] | None) -> Iterator[None]:
+    """Count, into ``report["shelf_calls"]`` (id → calls), the calls of each shelf part's ``cutout``, else its ``body``,
+    made while the block runs, of the parts the model has imported by now.
+
+    ``sys.monitoring`` (Python 3.12) watches the start of those functions' code and no other, so a build that uses no
+    part of the shelf runs with none of it, and a model on 3.11, or one whose part is imported later in a maker, gets
+    no count (``report`` then has none for that part). The tool and every event are given back when the block ends.
+    """
+    watched: dict[Any, str] = {}  # code object → part id
+    monitoring = getattr(sys, "monitoring", None)
+    if report is not None and monitoring is not None:
+        for module in list(sys.modules.values()):
+            file = getattr(module, "__file__", None)
+            id = _shelf_part_id(root, file) if isinstance(file, str) else None
+            function = getattr(module, "cutout", None) or getattr(module, "body", None)
+            code = getattr(function, "__code__", None)
+            if id is not None and code is not None:
+                watched[code] = id
+    if not watched:
+        yield
+        return
+    tool = next((t for t in (3, 4) if _took_tool(monitoring, t)), None)
+    if tool is None:
+        yield
+        return
+    counts: dict[str, int] = {id: 0 for id in watched.values()}
+
+    def started(code: Any, offset: int) -> None:
+        counts[watched[code]] += 1
+
+    event = monitoring.events.PY_START
+    try:
+        monitoring.register_callback(tool, event, started)
+        for code in watched:
+            monitoring.set_local_events(tool, code, event)
+        yield
+    finally:
+        for code in watched:
+            monitoring.set_local_events(tool, code, 0)
+        monitoring.register_callback(tool, event, None)
+        monitoring.free_tool_id(tool)
+        assert report is not None
+        report["shelf_calls"] = counts
+
+
+def _took_tool(monitoring: Any, tool: int) -> bool:
+    try:
+        monitoring.use_tool_id(tool, "torno-shelf")
+    except ValueError:
+        return False
+    return True
 
 
 _NOT_USES = {".venv", "venv", "site-packages", "__pycache__", ".torno", "node_modules", ".git"}

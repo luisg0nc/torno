@@ -11,6 +11,8 @@ import type { BuildIdentity } from '../../shared/git'
 import type { BuildTurn } from '../../shared/history'
 import type { PromptRow } from '../../shared/chat'
 import { listPrompts } from './prompts'
+import { listUsage } from './usage'
+import type { ProjectUsage } from '../../shared/usage'
 import { modelsOf } from './models'
 import { type BuildState, errorLine, failedAfter } from '../../shared/build'
 import type { BoardAttach, BoardSent } from '../../shared/board'
@@ -1057,17 +1059,17 @@ export class Sessions {
   }
 
   /**
-   * Why a Go back must wait: the object's session is working or waiting for the person, or has prompts the CLI has not
+   * Why a Go back or a rename (`then`, the words of what waits) must wait: the object's session is working or waiting for the person, or has prompts the CLI has not
    * taken up. Null when it may go ahead (no session, or an idle one).
    */
-  busyWith(objectId: string): string | null {
+  busyWith(objectId: string, then = 'go back'): string | null {
     const s = this.of(objectId)
     if (!s) return null
-    if (s.status === 'working' || s.status === 'needs_input' || (s.chat?.transcript.untakenCount() ?? 0) > 0) return 'Claude is working on this project. Wait for it to finish, or stop it, then go back.'
+    if (s.status === 'working' || s.status === 'needs_input' || (s.chat?.transcript.untakenCount() ?? 0) > 0) return `Claude is working on this project. Wait for it to finish, or stop it, then ${then}.`
     return null
   }
 
-  /** Says in the chat of the object's session, at once, what a Go back did and what the agent will be told with its next prompt. A quiet line; none when no chat is open. */
+  /** Says in the chat of the object's session, at once, what a Go back or a rename of a part did and what the agent will be told with its next prompt. A quiet line; none when no chat is open. */
   noteGoBack(objectId: string, text: string): void {
     this.of(objectId)?.chat?.transcript.note(text, 'quiet')
   }
@@ -1303,6 +1305,13 @@ export class Sessions {
     const writing = [...this.sessions.values()].filter((s) => s.object.id === obj.id).map((s) => s.logging)
     await Promise.all(writing)
     return listPrompts(obj.dir)
+  }
+
+  /** What each prompt of an object took (`listUsage`), read once the chat logs being written have landed, as `prompts` is. */
+  async usage(obj: { id: string; dir: string }): Promise<ProjectUsage> {
+    const writing = [...this.sessions.values()].filter((s) => s.object.id === obj.id).map((s) => s.logging)
+    await Promise.all(writing)
+    return listUsage(obj.dir)
   }
 
   private of(objectId: string): Session | undefined {

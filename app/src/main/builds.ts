@@ -25,15 +25,17 @@ export type OnChange = (paths: string[]) => void
  * the last one, with the paths that changed. Ignores dotfiles and the folders
  * named `out`, `.torno`, `__pycache__`, `cache`, `build`, `dist`,
  * `node_modules`, `.venv` and `.git`, at any depth. The folder need not exist
- * yet. Returns a function that stops the watch.
+ * yet. `keep` names the paths that are watched all the same, though they lie in a folder that is ignored (the shelf watches a part's
+ * `.torno/checked.json`; a project's builds pass none). Returns a function that stops the watch.
  */
-export function watchFolder(dir: string, onChange: OnChange, debounceMs: number = DEBOUNCE_MS): () => void {
+export function watchFolder(dir: string, onChange: OnChange, debounceMs: number = DEBOUNCE_MS, keep?: (path: string) => boolean): () => void {
   let timer: NodeJS.Timeout | undefined
   let changed = new Set<string>()
   const realDir = realPathOrNearest(dir)
   // Paths come as the watcher knows them: by the real path on macOS when `dir` is reached through a link
   // (`/var` is `/private/var`), so they are taken from whichever of the two the path lies under.
   const isIgnored = (path: string): boolean => {
+    if (keep?.(path)) return false
     let from = relative(dir, path)
     if (from.startsWith('..')) from = relative(realDir, path)
     return from.split(sep).some((part) => IGNORED_FOLDERS.has(part) || (part.startsWith('.') && part !== '..'))

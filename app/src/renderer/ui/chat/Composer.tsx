@@ -7,8 +7,10 @@ import { useChat } from '../../state/chat'
 import { drawingActions, useDrawing } from '../../state/drawing'
 import { picture } from '../../state/agent'
 import { onboarding } from '../../state/onboard'
+import { replaceRequest } from '../../state/placing'
 import { roundsViewOf, useReview } from '../../state/review'
 import { setTagActions } from '../../state/setTag'
+import { shelfPending } from '../../state/shelfAdd'
 import { store, useStore } from '../../state/store'
 import { numbered } from '../numbered'
 import { giveKeysBack } from '../typing'
@@ -18,6 +20,7 @@ import { RefChip } from './RefChip'
 import { ReviewChip, goingNext } from './ReviewChip'
 import { type Suggestion, suggest } from './suggest'
 import { SetTagChip, useSetTagAttached } from './SetTagChip'
+import { sendGuard } from './sendGuard'
 import { Suggestions } from './Suggestions'
 import { TasksBar } from './Tasks'
 import { WaitingNotes } from './WaitingNotes'
@@ -36,6 +39,7 @@ export function unsentSessions(sessionIds: Iterable<string>): string[] {
 /** The drafts of the prompts not sent, and the board over the view, are let go when the workspace they were made in is closed. */
 export function clearDrafts(): void {
   drafts.clear()
+  shelfPending.clear()
   drawingActions.clear()
 }
 
@@ -45,13 +49,22 @@ export function holdDraft(sessionId: string, text: string): void {
 }
 
 /** The composer in the pane now, for what is inserted from outside (the selection's "Insert"). */
-let current: { insert(text: string): void } | null = null
+let current: { insert(text: string): void; replace(was: string, next: string): boolean } | null = null
 
 /** Puts text at the cursor of the composer of the chat shown, and gives it the keys. False when there is none. */
 export function insertIntoComposer(text: string): boolean {
   if (!current) return false
   current.insert(text)
   return true
+}
+
+/**
+ * Makes the words torno put in the box (`was`) other words, where they are, if the box still holds them as they were (`replaceRequest`): the
+ * request of a placing grows with each mark. False when there is no chat box, or the person has changed them: the caller adds the new words.
+ * The cursor and the keys are left where they are.
+ */
+export function replaceInComposer(was: string, next: string): boolean {
+  return current?.replace(was, next) ?? false
 }
 
 /** The most marks named in the line above the box; the rest are counted. */
@@ -192,6 +205,13 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
 
   useEffect(() => {
     current = {
+      replace(was, next) {
+        const made = replaceRequest(latest.current, was, next)
+        if (made === null) return false
+        latest.current = made
+        setText(made)
+        return true
+      },
       insert(inserted) {
         const box = field.current
         const value = latest.current
@@ -271,9 +291,31 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
     if (attachedUrl.current !== null) URL.revokeObjectURL(attachedUrl.current)
   }, [])
 
+  // One send at a time: Enter twice during a long copy of a part's files must not send twice. The box is read-only while it runs, so what is typed
+  // meanwhile is not lost to the `setText('')` that follows (the person's words are never taken by a copy).
+  const guard = useRef(sendGuard()).current
+  const [sending, setSending] = useState(false)
+
   async function send(): Promise<void> {
     const prompt = text.trim()
-    if (prompt === '' || !live) return
+    if (prompt === '' || !live || guard.busy()) return
+    // Only a message that copies a part's files waits before it goes, and only then is the box held: any other send runs as it always did, with no
+    // pause in which a letter typed straight after Enter could be refused by a read-only box.
+    if (!shelfPending.holds(prompt)) {
+      await sendNow(prompt)
+      return
+    }
+    await guard.run(async () => {
+      setSending(true)
+      try {
+        await sendNow(prompt)
+      } finally {
+        setSending(false)
+      }
+    })
+  }
+
+  async function sendNow(prompt: string): Promise<void> {
     // The picture shown for "Attach view" is the one that goes; one still coming is waited for.
     const withView = attach ? shown.current : null
     let viewPng: Uint8Array | undefined
@@ -293,9 +335,17 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
         return
       }
     }
-    // So is the part of the board the person attached; the same.
+    // A part added by hand from the Shelf tab: its files are copied into `common/parts/<id>/` as the last thing before the message that names them goes (#355),
+    // so no file is copied for a message the checks above refuse. A refusal holds the message back, whole, for the person to change and send again.
+    // Nothing is taken from the board or the tag before it, so a refusal has nothing to give back.
+    const refused = shelfPending.get() === null ? null : await shelfPending.beforeSend(prompt)
+    if (refused !== null) {
+      setProblem(refused)
+      return
+    }
+    // What goes with the prompt is taken as the last step, with no wait after it: the part of the board the person attached,
     const board = boardActions.takeAttached()
-    // And the request for a tag, which the person asked for with "Make it a tag": its words go after theirs.
+    // and the request for a tag, which the person asked for with "Make it a tag": its words go after theirs.
     const tag = setTagActions.take()
     setText('')
     unattach()
@@ -321,7 +371,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
   /** The text as the answer to the card that waits: it refuses with it as the reason, and the agent goes on with it. */
   function denyAndSend(): void {
     const message = text.trim()
-    if (message === '' || !live || !openAsk) return
+    if (message === '' || !live || !openAsk || guard.busy()) return
     setText('')
     setProblem(null)
     onSent()
@@ -401,6 +451,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
           rows={2}
           value={text}
           disabled={!live}
+          readOnly={sending}
           aria-label="Message to Claude Code"
           placeholder={live ? (openAsk ? 'Answer the card above, or say what to do instead' : reviewAttached ? 'The review goes as its own prompt. Add words to it here.' : working ? 'Claude Code is working: this goes next' : 'Message Claude Code') : 'The session has ended'}
           aria-controls={offered.length > 0 ? 'chat-commands' : undefined}
@@ -488,7 +539,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
             <button
               type="button"
               className="button button-primary"
-              disabled={!live || text.trim() === ''}
+              disabled={!live || sending || text.trim() === ''}
               title={`Refuse what the card asks, with this as what to do instead (${hint('chat.send')})`}
               onClick={denyAndSend}
             >
@@ -498,7 +549,7 @@ export function Composer({ sessionId, live, working, onSent }: { sessionId: stri
           <button
             type="button"
             className={openAsk ? 'button' : 'button button-primary'}
-            disabled={!live || text.trim() === ''}
+            disabled={!live || sending || text.trim() === ''}
             title={openAsk ? 'Leave the card as it is and queue this for after it' : `Send (${hint('chat.send')})`}
             onClick={() => void send()}
           >
