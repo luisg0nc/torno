@@ -407,6 +407,18 @@ before it researches one, says which of its sizes are assumed, and before it wri
 `Put it on the shelf` and `Not this one`); it writes the folder only when you say yes, and copies into it the datasheet or photo the
 sizes came from.
 
+What torno reads of the shelf. When a workspace opens, and again 400 ms after the last save under `common/parts/`, the kernel reads
+the shelf in a worker of its own, as it builds a project, and imports each part alone: a part that fails to import or to draw is that
+part's error, and the others are read as they are. For each part it takes the name and what it is from the docstring, the sizes of
+`Params` with their units and where each comes from, the other files of the folder, and, drawn with the sizes `Params` has by default,
+the part's body (its box and its section from the side), its cutout (the section from the side and from above, and the size of the
+hole: a diameter when it is one circle, else its width and height) and its keep-out. The drawings are the B-rep's cross-sections in
+millimetres, at most 400 points an outline, never a mesh. Alongside, torno reads each part's `.torno/checked.json`, the sizes you
+have checked on the part with the day (it is read only here). It writes nothing to the shelf: no file of a part is made or changed by
+reading it. A project's build says which parts of the shelf it used (`shelf` in its scene, beside `uses`): for each, how many times
+the model called the part's `cutout` (its `body` when it has none) while it built. Python before 3.12 cannot count, and a part
+imported only inside a maker is not seen coming: such a part is told used with no count.
+
 **Builds.** Saving a file in the project's folder (dotfiles, `out/`, `cache/`,
 `.torno/` and `__pycache__/` are ignored, as are `build/`, `dist/`,
 `node_modules/`, `.venv/` and `.git/`) or in the workspace's `common/` starts

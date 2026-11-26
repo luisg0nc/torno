@@ -22,6 +22,7 @@ import type { StrokeUnder } from './drawing'
 import type { Ready } from './ready'
 import type { Round, RoundAsk, RoundsView } from './reviews'
 import type { NamedSet, NewSet, SetEdit } from './sets'
+import type { ShelfPart } from './shelf'
 import type { LineupPair } from './lineup'
 import type { LayerColour, LayerShape, PlaneSnap, Tracing, TracingCut, TracingPictureRequest, TracingPictureResult, TracingsFile } from './tracings'
 import type { MainAxis } from './planes'
@@ -405,6 +406,16 @@ export interface TornoBridge {
     /** What `onProblem` last said of a project, for a window that was not listening then; null when nothing, or once dismissed. */
     problem(objectId: string): Promise<string | null>
     dismissProblem(objectId: string): Promise<void>
+  }
+  /**
+   * The parts shelf of the open workspace: `common/parts/<id>/part.py`, each part as the kernel reads and draws it, with the sizes the
+   * person checked (`.torno/checked.json`). Read-only here: the window never writes a part.
+   */
+  shelf: {
+    /** The parts, sorted by id, as of the last read; empty when the workspace has none or none is open. */
+    list(): Promise<ShelfPart[]>
+    /** The shelf, whole, each time a read of it differs from the one before (a part added, saved or removed, a check written, the workspace left). */
+    onChanged(cb: (parts: ShelfPart[]) => void): () => void
   }
   /**
    * The tracings of a project (`<project>/.torno/tracings.json`): the model laid flat in one plane at true scale. Main is their

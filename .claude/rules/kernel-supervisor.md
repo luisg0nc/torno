@@ -73,6 +73,12 @@ what is asked of the last build, and imports scans in a process of its own.
   A build past it is killed and answered with `error.kind: "timeout"`. A
   worker that crashes is answered with `crash`, one that is superseded with
   `cancelled`. The supervisor never blocks on a write.
+- **The shelf is read in a worker of its own** (op `shelf`, `{id, op: "shelf", root, timeout?}`; `shelf.py`). `root` is a
+  string, `timeout` a positive, finite number (120 s unless it says, a day at most), else `bad_request`. The supervisor forks
+  one worker as it does for a trial (`Supervisor._shelf_request`: never in the supervisor, no live worker is let go, none is
+  kept) and replies once `{id, ok: true, shelf: {parts: [...]}}`, with no blob; another read while one runs is `busy`, a build
+  may run beside it, and the worker is `crash`ed or `timeout`ed like a build's. It writes nothing (`sys.dont_write_bytecode`).
+  Each part has `PART_SECONDS` (30 s, by `setitimer`) and fails alone. The rule for what is read is `shelf`.
 - **A worker is not trusted.** A frame from the building worker that is not a
   result (not JSON, or without its scene or error) is a `crash` of that build;
   the supervisor carries on. Frames are written with `allow_nan=False`: a scene

@@ -51,6 +51,7 @@ import { reviewHandlers } from './reviews/ipc'
 import { setHandlers } from './sets/ipc'
 import { followSets, refindAll } from './sets/refind'
 import type { SetStore } from './sets/store'
+import type { ShelfStore } from './shelf/store'
 import { Outlines } from './tracings/outline'
 import { tracingHandlers } from './tracings/ipc'
 import { readPhoto as readTracingPhoto } from './tracings/photos'
@@ -110,7 +111,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:span, marks:offset, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
-//           marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem,
+//           shelf:list, marks:dismissProblem, sets:list, sets:make, sets:edit, sets:remove, sets:restore, sets:accept, sets:dismiss, sets:problem (also sent to the renderer), sets:dismissProblem,
 //           tracings:list, tracings:make, tracings:edit, tracings:remove, tracings:restore, tracings:layer, tracings:outline, tracings:problem (also sent to the renderer), tracings:dismissProblem, tracings:photo, tracings:lineUp, tracings:look, tracings:straightened, tracings:photoBytes, tracings:removePhoto, notes:make, notes:edit, notes:picture, geometry:describe, geometry:measure,
 //           asks:list, scans:list, scans:pick, scans:import, scans:convert, scans:rename, scans:remove, scans:align, scans:mesh,
 //           scans:problem (also sent to the renderer), scans:dismissProblem, scans:reimport, scans:undoAlign, scans:alignHolds,
@@ -121,7 +122,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //   to the renderer: object:build, object:scene, view:look, view:show, view:highlight, view:drawSection, view:tracingPicture, view:saveView (sent by src/main/look.ts),
 //           session:data, session:status, chat:item, chat:meta, chat:capabilities, workspace:requested, window:closeAsked and window:maximized (sent by src/main/index.ts,
 //           which hears the answer, window:closeAnswer, and the window's own controls: window:minimize, window:toggleMaximize, window:close and window:drawsControls, a sendSync),
-//           board:changed, board:problem, ready:changed, marks:changed, marks:problem, sets:changed, sets:problem, tracings:changed, tracings:outline, tracings:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
+//           board:changed, board:problem, ready:changed, marks:changed, marks:problem, sets:changed, sets:problem, shelf:changed, tracings:changed, tracings:outline, tracings:problem, scans:changed, scans:progress, scans:problem, show:changed, asks:changed (sent by src/main/index.ts), history:changed
 
 /** The longest prompt the window may send. */
 const MAX_PROMPT_CHARS = 200_000
@@ -173,6 +174,9 @@ let marks: MarkStore | null = null
 
 /** The named sets of the objects of the open workspace, once `registerIpc` has been given them. */
 let sets: SetStore | null = null
+
+/** The parts shelf of the open workspace, once `registerIpc` has been given it: read when a workspace opens, let go when it closes. */
+let shelf: ShelfStore | null = null
 
 /** The tracings of the objects of the open workspace, once `registerIpc` has been given them. */
 let tracings: TracingStore | null = null
@@ -334,6 +338,8 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
         })
       })
   })
+  // The parts shelf is read in a worker of this kernel, now and whenever `common/parts/` changes.
+  shelf?.open(info.root, kernel)
   const ws: OpenWorkspace = { info, scan: scanOrder(), kernel, builds, opened: new Set(), shown: null, started: new Map(), builtFrom: new Map(), buildLog: new BuildLog(), history: new History(), meshes: new RecentMeshes() }
   // The window is told when an object's history changed (a build kept, a picture or a star added).
   ws.history.onChange((dir) => {
@@ -551,6 +557,7 @@ export async function closeWorkspace(): Promise<void> {
   // The next workspace may have an object of the same name, or this folder may change while it is closed.
   marks?.forget()
   sets?.forget()
+  shelf?.close()
   tracings?.forget()
   forgetOpenSketches()
   // And its scans: an import that is still running is stopped by whoever runs it, who is told next.
@@ -710,6 +717,8 @@ export function registerIpc(
     marks?: MarkStore
     /** The named sets of the projects: the window reads and changes them through here, and is told when one changes. */
     sets?: SetStore
+    /** The parts shelf: the window reads it through here and is told when it changes. */
+    shelf?: ShelfStore
     /** The tracings of the projects: the window reads and changes them through here, and is told when one changes. */
     tracings?: TracingStore
     /** The boards of the projects: the window reads and changes them through here, and is told when one changes. */
@@ -804,6 +813,11 @@ export function registerIpc(
     if (!sets) throw new Error('named sets are not available')
     return sets
   }
+
+  // The parts shelf: the window reads it and is told of every change.
+  shelf = opts.shelf ?? null
+  shelf?.on('changed', (parts) => broadcast('shelf:changed', parts))
+  handle('shelf:list', () => shelf?.list() ?? [])
 
   // The tracings of a project: the window makes and changes the person's, and is told of every change, whoever made it.
   tracings = opts.tracings ?? null

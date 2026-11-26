@@ -113,4 +113,5 @@ heading names the folder its text came from. Paths are as written there: from `a
   `chat-cards-and-refs`, `drawing-on-view`.
 - Scans: `scans-store`, `scans-regions`, `scans-window`. Screens: `first-screen`, `readiness`, `page-of-objects`,
   `new-object-create`, `new-object-onboard`, `new-object-page`.
+- The parts shelf: `shelf` (`common/parts/`: the kernel's op, the store, the types).
 - Files and shipping: `workspace-writes`, `export-page`, `export-saving`, `launcher-and-packaging`.

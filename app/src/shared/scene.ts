@@ -124,6 +124,13 @@ export interface Scene {
    * Absent from a kernel that does not say.
    */
   uses?: string[]
+  /**
+   * The parts of the shelf (`common/parts/<id>/part.py`) the model used, by id: how many times its code called the
+   * part's `cutout`, else its `body`, while it ran. `null` when that could not be counted (Python before 3.12 has no
+   * `sys.monitoring`; a part imported inside a maker is not watched): the part is used all the same. Absent when it
+   * used none, and from a kernel that does not say; `uses` then says what files it read.
+   */
+  shelf?: Record<string, number | null>
 }
 
 /**

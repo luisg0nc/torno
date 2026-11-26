@@ -67,6 +67,12 @@ export interface ShelfPart {
   error?: string
 }
 
+/** What the kernel's `shelf` op says of one part: a `ShelfPart` without what main adds, its `file` and the `checked` sizes. */
+export type KernelShelfPart = Omit<ShelfPart, 'file' | 'checked'>
+
+/** The folder of the shelf, from the workspace. */
+export const SHELF_DIR = 'common/parts'
+
 /** The most parts the shelf lists. */
 export const MOST_PARTS = 60
 

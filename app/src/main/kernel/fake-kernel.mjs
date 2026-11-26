@@ -1,5 +1,7 @@
 // A stand-in for the Python kernel, for client.test.ts. It speaks the same
 // frames and does what the request's model or query name tells it to.
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 const mode = process.argv[2]
 
 function send(header, blob = Buffer.alloc(0)) {
@@ -63,6 +65,18 @@ function handle(request) {
     else if (request.name === 'hang') return
     else if (request.name === 'file') send({ id, ok: true, result: { dir: request.dir, bytes: 3 } }, Buffer.from('abc'))
     else send({ id, ok: true, result: { dir: request.dir, name: request.name, args: request.args, pid: process.pid } })
+  } else if (op === 'shelf') {
+    // The folders of <root>/common/parts that hold a part.py, as bare parts: no sizes, no drawings (the real kernel's answer is tested in kernel/tests/test_shelf.py).
+    // A root that ends in `hang` is never answered, one that ends in `boom` fails.
+    if (request.root.endsWith('hang')) return
+    if (request.root.endsWith('boom')) return fail(id, 'exception', 'boom')
+    const parts = []
+    try {
+      for (const name of readdirSync(join(request.root, 'common', 'parts')).sort()) {
+        if (existsSync(join(request.root, 'common', 'parts', name, 'part.py'))) parts.push({ id: name, name, what: '', params: [], files: [] })
+      }
+    } catch {}
+    send({ id, ok: true, shelf: { parts } })
   } else if (op === 'cancel') {
     if (building !== null) fail(building, 'cancelled', 'cancelled by request')
     building = null

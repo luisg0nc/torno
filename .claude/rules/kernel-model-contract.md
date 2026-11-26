@@ -3,9 +3,11 @@ paths:
   - "kernel/src/torno_kernel/loader.py"
   - "kernel/src/torno_kernel/modelchecks.py"
   - "kernel/src/torno_kernel/worker.py"
+  - "kernel/src/torno_kernel/shelf.py"
   - "kernel/src/torno_kernel/tess.py"
   - "kernel/tests/test_loader.py"
   - "kernel/tests/test_params.py"
+  - "kernel/tests/test_shelf.py"
   - "kernel/tests/test_modelchecks.py"
   - "kernel/tests/test_references.py"
   - "kernel/tests/test_bd_warehouse.py"
@@ -111,6 +113,17 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   model's) that it imported from outside its own folder, `common/` included, as paths from the workspace with `/`.
   `.venv`, `site-packages` and models loaded as models are not among them. Main watches those files and rebuilds on
   a save; a cycle between two projects is shown on both and never refused here. Only a good build reports it.
+- **The scene says which parts of the shelf the model used (`shelf`).** Of the files in `uses`, those that are
+  `common/parts/<id>/part.py` are the shelf's (`loader.shelf_uses`); the scene's `shelf` is `{<id>: <count>}`, the count of
+  calls of the part's `cutout`, else its `body`, while the model's own code ran after its import (`loader._counting_shelf`:
+  `sys.monitoring` on those functions' code objects only, `PY_START`, tool id 3 or 4, all given back after the load). The
+  parts watched are those the model has imported by then; a part first imported inside a maker, a build on Python 3.11
+  (no `sys.monitoring`) and a part whose function has no code (a wrapped one) have `null`: used, not counted. A model that
+  uses no part of the shelf has no `shelf` and nothing is monitored. The count never fails a build.
+- **A part of the shelf has a contract** (`common/parts/<id>/part.py`, read by `shelf.py`, see the rule `shelf`): the module
+  docstring (its first line the name, the rest what it is), a dataclass `Params` whose sizes each say their source in their
+  comment, `body(p)` (required), `cutout(p)` and `keepout(p)` (optional) returning a build123d shape with a solid; the panel it
+  mounts in is XY with its front face at `z = 0`, the side seen is `+Z`.
 - **The build123d skill's API reference is made from the pinned build123d.** `app/resources/agent-plugin/skills/build123d/reference/api-<version>.txt`
   lists every name `build123d` exports (and the bases of those classes) with its signature and the first line of its
   docstring. `scripts/build123d_api.py` writes it (`cd kernel && uv run --no-sync python scripts/build123d_api.py`,
