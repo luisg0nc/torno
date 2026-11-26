@@ -9,7 +9,7 @@ import { ChatIdle, PromptNumbers } from '../chat/turnContext'
 import { Popover } from '../Popover'
 import { useMenu } from '../useMenu'
 import { NODE_ACT_WORDS, goBackTarget, nodeMenu, type NodeAct } from './nodeMenu'
-import type { StripNode } from './strip'
+import { groupTitle, stripGroups, type StripNode } from './strip'
 import { useStripNodes } from './useStripNodes'
 
 /** The sentence that stands from a node: what Go back could not do. */
@@ -38,6 +38,8 @@ function BuiltMenu({ node, anchor, onClose }: { node: StripNode; anchor: HTMLEle
   const target = goBackTarget(history, node.id)
   const joined: JoinedTurn | undefined = target === null ? undefined : { promptId: target, number: numbering.get(target) ?? 0, entries: history.filter((e: HistoryEntry) => e.turn?.prompt === target) }
   const acts = nodeMenu(node, { canReview: node.onShow && buildOk && !opened, goBackTo: target })
+  // What made it, in words (the prompt's own, the values the person set), and how it stands: the label of its group never says these.
+  const [words0 = node.by, facts0 = ''] = groupTitle(stripGroups([node])[0]!, entries).split('\n')
 
   const { shown, setShown, button, menu, onKeyDown } = useMenu(0, true)
   button.current = anchor as HTMLButtonElement
@@ -98,7 +100,11 @@ function BuiltMenu({ node, anchor, onClose }: { node: StripNode; anchor: HTMLEle
   return (
     <>
       {phase === 'menu' && shown && (
-        <Popover anchor={anchor} width={210} role="presentation" className="node-menu" onClose={() => setShown(false)}>
+        <Popover anchor={anchor} width={260} side="above" role="presentation" className="node-menu" onClose={() => setShown(false)}>
+          <div className="node-menu-head">
+            <p className="node-menu-words">{words0}</p>
+            <p className="node-menu-facts">{facts0}</p>
+          </div>
           <div ref={menu} className="node-menu-list" role="menu" aria-label={`Build ${node.id}`} onKeyDown={onKeyDown}>
             {acts.map((act) => (
               <button key={act} type="button" role="menuitem" className="menu-item" disabled={off(act) !== undefined} title={title(act)} onClick={() => done(act)}>
@@ -114,14 +120,14 @@ function BuiltMenu({ node, anchor, onClose }: { node: StripNode; anchor: HTMLEle
 }
 
 /**
- * What a click on a node of the builds strip opens (spec 2026-11-18, section 2): the menu of a build that drew, or the error of
+ * What a click on a build of the builds timeline opens (spec 2026-11-18, section 2): the menu of a build that drew, or the error of
  * a build that failed and is not the latest one (the latest one's is the status line's too, `BuildErrorSheet` in `BuildStatus`,
- * and the strip toggles it). Go back asks as the turn's own does (`useGoBack`), from the node.
+ * and the timeline toggles it). Go back asks as the turn's own does (`useGoBack`), from the node.
  */
 export function NodePopover({ node, anchor, onClose }: { node: StripNode; anchor: HTMLElement; onClose: () => void }) {
   const { entries, numbering } = useStripNodes()
   const name = useStore((s) => s.workspace?.objects.find((o) => o.id === s.objectId)?.name ?? s.objectId ?? '')
-  // Not while Claude works: `useGoBack` reads that, and the numbers of the prompts it names, from the chat's context, and the strip is not in the chat.
+  // Not while Claude works: `useGoBack` reads that, and the numbers of the prompts it names, from the chat's context, and the timeline is not in the chat.
   const working = useStore((s) => {
     const status = runningSession(s)?.status
     return status === 'working' || status === 'needs_input'

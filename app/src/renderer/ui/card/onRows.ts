@@ -1,4 +1,4 @@
-/** What the "On hN" block is made of: the rows that wait on the person, in the order they block. */
+/** What the On block ("Latest build · prompt 5") is made of: the rows that wait on the person, in the order they block. */
 export interface OnCheck {
   /** A dimension's id or a model check's name. */
   id: string
@@ -42,10 +42,13 @@ export type OnRow =
 /** The most rows the block lists before "N more". */
 export const ON_ROWS_SHOWN = 4
 
-/** The build's verdict in a line: `2 fail, 5 pass`. A zero is left out. */
+/** The build's verdict in a line: `27 checks pass`, `2 checks fail, 5 pass`. A zero is left out. */
 export function verdictSaid(fail: number, pass: number): string {
   if (fail === 0 && pass === 0) return 'nothing checked yet'
-  return [fail > 0 && `${fail} ${fail === 1 ? 'fails' : 'fail'}`, pass > 0 && `${pass} pass`].filter(Boolean).join(', ')
+  const failed = `${fail} ${fail === 1 ? 'check fails' : 'checks fail'}`
+  if (pass === 0) return failed
+  if (fail === 0) return `${pass} ${pass === 1 ? 'check passes' : 'checks pass'}`
+  return `${failed}, ${pass} pass`
 }
 
 /** The block: its verdict line and its rows, at most `ON_ROWS_SHOWN` unless `opened`; `more` is how many the closed block leaves out. */

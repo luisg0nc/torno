@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { HistoryEntry } from '../../../shared/history'
+import type { BuildCause, HistoryEntry } from '../../../shared/history'
 import { openRoundNow, useReview } from '../../state/review'
 import { runningSession, useStore } from '../../state/store'
 import { numbersOf } from '../chat/historyJoin'
@@ -23,8 +23,12 @@ export function useStripNodes(): { nodes: StripNode[]; entries: ReadonlyMap<stri
     const status = build?.status ?? 'idle'
     // The build that runs for a prompt of Claude Code's is the last prompt's; with no session at work it is nobody's to say.
     const prompt = working && rows && rows.length > 0 ? rows[rows.length - 1]!.number : undefined
-    return { status, onShow, ...(status === 'failed' && onShow !== null ? { failedAfter: onShow } : {}), ...(reviewing !== undefined ? { reviewing } : {}), ...(prompt !== undefined ? { prompt } : {}) }
-  }, [build?.status, build?.revision, history, reviewing, working, rows])
+    // What started it, as main will say when it keeps it: the prompt's while Claude Code works, the person's Parameters, a going back, a save
+    // of theirs; nobody's to say for an opening or a Rebuild, which are kept only when the sources changed meanwhile.
+    const reason = build?.reason
+    const cause: BuildCause | undefined = status !== 'building' && status !== 'failed' ? undefined : prompt !== undefined ? 'agent' : reason === 'params' || reason === 'goback' ? reason : reason === 'watch' ? 'person' : undefined
+    return { status, onShow, ...(status === 'failed' && onShow !== null ? { failedAfter: onShow } : {}), ...(reviewing !== undefined ? { reviewing } : {}), ...(prompt !== undefined ? { prompt } : {}), ...(cause !== undefined ? { cause } : {}) }
+  }, [build?.status, build?.revision, build?.reason, history, reviewing, working, rows])
   const numbering = useMemo(() => numbersOf(rows ?? [], []), [rows])
   const nodes = useMemo(() => stripNodes(history?.entries ?? [], live, numbering), [history, live, numbering])
   const entries = useMemo(() => new Map((history?.entries ?? []).map((e) => [e.id, e])), [history])

@@ -415,22 +415,32 @@ prompts with a starred build, **Hide gone back** leaves out the ones you went ba
 The chat shows the conversation you are in; **Earlier conversations** above it reads the others of the project, one under another. Where the agent is Claude Code's own terminal there is no chat to read: Prompts only
 is a pane over the session, its rows from the history's own labels of each build (a prompt that built nothing is not in it), and a row is compared but not opened; each row that built something has **Go back to before this prompt** (a terminal cannot be asked to undo, so with no copy of that build kept the click says so).
 
-**The builds strip.** On top of the session pane, in the chat, in the terminal and with no session, it is shut until you want it: one line says the build on show and how many are kept, and a click on it opens the strip (a click again shuts it). It opens by itself when a build fails, and stays open while you compare a build or Go back asks. Open, it holds the builds the history keeps, oldest at
-the left and the newest at the right. Its head line says "Builds of *name*", how many are kept, and what a pick does now ("Pick one to compare, star or go
-back", "A build is running", "h40 is still on show", "Your review is of h41", "Exporting the build on show, h41"). A node is the picture kept with the build, its
-id, and a muted line: the prompt it was made for (`prompt 14`), `you saved` in your own colour for a save of yours in your editor, `on show` in the accent for the
-build the view draws, or `reviewing` for the build an open round is of; a starred build has a star at the corner of its picture. A build that failed is a hatched node
-that says `failed`, over "after h40"; the build that runs is an outlined node with its seconds, over "building". Under the nodes of the prompts you can see in the
-chat a bracket says which ones ("prompt 14, in sight below") and follows the chat as you scroll it. The strip scrolls sideways, with the wheel too, and keeps the
-build on show in sight; a build that lands slides in. When the session pane is under 640 px high the strip folds to its head line and a row of ticks. A build that
-runs while none has landed, a project with no build kept yet and a history of dozens are drawn the same way.
+**The builds timeline.** A slim bar across the foot of the 3D view, above the status line. Folded, it is one line: **Builds** with how many are kept,
+then one chip for each group of builds, oldest at the left and the newest at the right. The builds of one prompt are one group, `Prompt 4`, with how many it
+made (`Prompt 4 (3)`); the builds you made from the Parameters between two prompts are one group too, `Manual edit`; your saves in your own editor in a row are
+`Saved by you`, a Go back is `Went back`, and builds kept before torno said what made them are `Earlier`. A chip and a group of your own builds have a dot in your colour. The
+words of the prompt and the values you set are not in the label: hover a chip for them ("Prompt 4: make the box 96 mm wide", then "3 builds, h7 to h9, h9 on
+show"). The group of the build on show is ringed in the accent; a group whose last build failed is in red; the group of the build that runs is outlined, with its
+seconds; a starred group has a star.
 
-A click on a node opens its menu, standing from the node: **Compare with live** (draws that build over the one on show, as **Compare** on a turn does; it reads
+A click on **Builds** (or `Ctrl+Shift+H`) opens the drawer upward over the view, and folds it back the same way; the view keeps its size. Whether it is open is
+kept by the window, not by the project: it stays as you left it when you open another project or start torno again. The drawer's head says "Builds of *name*",
+how many are kept, and what a pick does now ("Pick one to compare, star or go back", "A build is running", "h40 is still on show", "Your review is of h41",
+"Exporting the build on show, h41"). Each group has its label over its builds. A group of several builds is a pile: the picture of its last build on the
+edges of the others, with its id and `on show` when one of them is; a click on the pile or on its label shows every build of the group, side by side under a
+bracket, and a click on the label again folds them back. A click on a chip of the bar opens the drawer at that group, with all of its builds. A build is the
+picture kept with it, its id, and `on show` in the accent for the build the view draws, or `reviewing` for the build an open round is of; a starred build has a
+star at the corner of its picture. A build that failed is hatched and says `failed`, over "after h40"; the build that runs is outlined with its seconds, over
+"building". The drawer and the bar scroll sideways, with the wheel too, and keep the build on show in sight; a build that lands slides in. A build that runs while
+none has landed, a project with no build kept yet and a history of dozens are drawn the same way. The bar is there while the model is on screen, whatever the
+session pane shows; with the Brief, a tracing or the page of projects in its place it is not.
+
+A click on a build opens its menu, standing from it: the prompt's words or the values you set, then **Compare with live** (draws that build over the one on show, as **Compare** on a turn does; it reads
 **Stop comparing** while it is on, and the build on show has nothing to compare with), **Star** or **Unstar**, **Review this build** (on the build
-on show, while no round is open) and **Go back to here**. A double click on a node compares it. **Go back to here** is the same Go back as the one on a turn: it goes
+on show, while no round is open) and **Go back to here**. A double click on a build compares it. **Go back to here** is the same Go back as the one on a turn: it goes
 back to before the prompt that came after that build (so the newest build, and one that your own save follows, do not offer it), asks first with the files it
-would write and delete and the prompts it undoes, and while it asks the builds and the prompts it would undo are drawn struck through and muted, in the strip and in
-the conversation. A failed build's node opens its error instead: see "Build failed" below.
+would write and delete and the prompts it undoes, and while it asks the builds and the prompts it would undo are drawn struck through and muted, in the timeline and in
+the conversation. A failed build opens its error instead: see "Build failed" below.
 
 In the status line the last eight builds are a row of ticks after the project's name: the build on show taller and in the accent, a failed one in red, your own saves
 in your colour, a running build outlined. The line says how the build on show went: "h41 built in 51 s".
@@ -480,7 +490,7 @@ by their place in the operand, from 0 (`tool F5`), and their numbers are in the 
 distance is OpenCascade's and is told with `≈`; a count of points of one lying inside the other is of points sampled
 on its vertices and the middles of its edges, so it can say that none was found, never that none is there.
 
-**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the **On h18** block (see Marks). Under it **Parameters** and **Parts** are two tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone. Scans and Tracings are not in the column: they are tabs of the view's switch, shown when the project has a scan or a tracing, with their panels in the column in place of the two tabs while the view is shown (see Scans and Tracings). Checks and Marks are not in the column: they are blocks of the Brief page (see The brief). Drag the right edge of the card to make itDrag the right edge of the card to make it
+**The window.** On the left is the route card, 296 px wide. There is no rail of icons: Projects is the crumb of the title bar ("All projects `W`" in its menu), Keys is the `?` button at the right of the status line, and the print profile is a chip there too. At its head stands the block of the build on show, "Latest build · prompt 5" (see Marks). Under it **Parameters** and **Parts** are two tabs that fill the rest of the column: the tab says how many it holds, and a dot on Parameters says you are trying a value. The tab you leave open is kept for each project, by the window (Left and Right move between the tabs when one is in focus). A model with one part shows Parameters alone, and a model with no Params shows Parts alone. Scans and Tracings are not in the column: they are tabs of the view's switch, shown when the project has a scan or a tracing, with their panels in the column in place of the two tabs while the view is shown (see Scans and Tracings). Checks and Marks are not in the column: they are blocks of the Brief page (see The brief). Drag the right edge of the card to make itDrag the right edge of the card to make it
 wider (`Left` and `Right` with it in focus), double click it for the default width (296 px, and 264 in a window
 narrower than 1360 px); the card is never narrower than that, and leaves the view at least 420 px beside
 the session pane. The session pane is 420 px wide (384 in a narrow window), and its left edge is dragged the same way. How wide the card is, and how wide the session pane is, are kept by the window, not in the folder. The card is there only while a project is open: on the page of projects, while a new
@@ -581,9 +591,9 @@ as ghosts: their old edges in the muted colour, where they stood, and their new 
 themselves, fading once, or at once on any key or click. The parts that did not change are not touched. There is
 no ghost while a section is on or the parts are drawn apart, nor in a picture for Claude Code.
 
-"Build failed" opens the error, as a card from the failed node of the builds strip
-(from the status line when the session pane is away), and so does a click on that
-node: "The build after h40 failed", what happened in words ("Python error in the
+"Build failed" opens the error, as a card from the failed build in the builds timeline
+(its chip in the bar, or its build in the open drawer; from the status line when the view is not on screen), and so does a click on that
+chip or build: "The build after h40 failed", what happened in words ("Python error in the
 model", "The build took too long (timeout)", "The build process stopped
 (crash)"), and the end of the error. "Whole error" opens the message, why a fillet or a
 chamfer failed, the traceback and what the model printed in the card. It says who is told: Claude Code is told this with your next
@@ -732,7 +742,7 @@ under "Last conversation, 2 days ago", with "Continue" (the default) and "New co
 buttons "New session" and "Resume" start one with no prompt and leave what you wrote in its box, unsent. If
 the folder has Claude Code settings of its own, the question is asked first and your prompt waits in the box. The empty
 pane has no "Attach view" or "Draw on view": those are of a session. ``Ctrl+` `` moves between the session and
-the viewport; `F6` and `Shift+F6` go round the parts of the window, `Ctrl+Shift+L` shows or hides the left column (the bench; while it is hidden the status line keeps the dimensions that fail and says how many values are tried, and a click on that brings the column back), and `Ctrl+Shift+D` shows or hides the session pane (it does nothing on the page of a new project, where the pane is hidden and its button in the title bar is off). In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
+the viewport; `F6` and `Shift+F6` go round the parts of the window, `Ctrl+Shift+L` shows or hides the left column (the bench; while it is hidden the status line keeps the dimensions that fail and says how many values are tried, and a click on that brings the column back), and `Ctrl+Shift+D` shows or hides the session pane (it does nothing on the page of a new project, where the pane is hidden and its button in the title bar is off), and `Ctrl+Shift+H` opens or folds the builds timeline at the foot of the view. In a terminal `Shift+Enter` is a new line, `Ctrl+Shift+C` and
 `Ctrl+Shift+V` copy and paste.
 
 A session writes only in its own project's folder and in the workspace's `common/`. If it tries `Write`, `Edit` or
@@ -874,7 +884,7 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   without its text. The button is there when the agent's edit tools changed a
   `.py` file; the sheet then lists every file that differs, a change made by a
   command (`sed`, a script) too.
-- **The builds of a turn.** The builds a prompt made are on the builds strip on top of the session pane (see Projects and builds), no
+- **The builds of a turn.** The builds a prompt made are one group of the builds timeline at the foot of the view (see Projects and builds), no
   longer under the turn's account. The turn ends with "Done in 58 s" and what it did, and at its right the buttons of the turn: **See changes**,
   **Compare** (draws the last build over the one the prompt began from, as "Compare" below does; it reads "Comparing" while it is on and puts it
   away again), and the dots, a menu with **Go back to before this prompt**, **Star** (keeps the last build: a starred build is never let go;
@@ -1436,8 +1446,11 @@ the camera stays still).
 - At the head of the Marks block of the Brief page, outside its scroll, are **Review this build** and a row for each review round (see
   [Reviews](#reviews)). A draft of a round that has not gone says `in review, not sent`, and its row offers
   **Take out of R1**. Your own rows have a small menu (`±`, `−` or `+`) to say plain, do not want or want of that mark at any time.
-- What waits on you is in the **On h18** block, at the top of the card, named for the build on show (the build's number, as the strip
-  names it). Its first line is the build's verdict (`2 fail, 5 pass`: the model's checks and your dimensions together). Under it
+- What waits on you is in the block at the top of the card, named for the build on show in the builds timeline's words: "Latest build ·
+  prompt 5" (or "· manual edit", "· saved by you", "· went back"); its id, `h30`, is in the title only. While a compare draws an
+  older build in the latest one's place (Before, or a prompt compared after newer builds landed) the head says "Prompt 3 · older
+  build" with **Back to latest**, which ends the compare. Then the build's verdict (`27 checks pass`, `2 checks fail, 5 pass`: the
+  model's checks and your dimensions together; left out while an older build is named, since it is the latest build's). Under it
   are rows of one line each, in the order they block, that act where they stand: Claude's open question (**in the chat** opens the
   dock), each check that fails with the value read (a click goes to its row), the brief's sizes that nothing checks, in one row
   (**Brief** opens the Brief page), the marks Claude resolved and you have not judged (**OK** says you have seen it, **Reopen**
@@ -2039,7 +2052,7 @@ Claude's rows and notes have a green edge; yours do not. Claude makes notes, siz
 
 **Changing it.** "Add" at the top makes a size, a rule, a note or a picture (a picture is chosen from a file or dropped on the page; a photo larger than Claude is sent is scaled down by the window first); "Add a size", "Add a rule" and "Add a note" are over each section. A row shows **Edit** and **Remove** when it is pointed at or has the keyboard. You edit only your own. A size has a form: what it measures, the value as typed (at most 60 characters, never changed to numbers in the file), the unit (`mm` or `°`), where it came from and a note of a line; Enter or "Add" keeps it, and when something is missing the form says what and stays; `Esc` leaves it as it was. A note or a rule is a field: `Enter` keeps it, `Shift+Enter` is a new line, `Esc` leaves it. A removal says "Removed … Undo" for ten seconds. What torno made for you (the brief, a photo) is not lost when removed from the page: it is listed under "Put away" with "Show". A text card holds 4000 characters, a brief 2000 cards.
 
-**What holds, and what is not on it.** The page also holds what must hold: a **Checks** block after the sizes (the model's own checks and your dimension checks, one list with gauges, with the head `5 checks, 1 fails`) and the **Marks** list after the notes (Review this build, to send, with the agent, from the agent, resolved; its head says `4 open, 1 to send`). They are the same rows the left column held, shown on the page; the page is a view, so a mark you place in the model is in the Marks block the next time you switch to the Brief. Marks, scans, tracings and review rounds are not copied into the brief's own cards (the Marks block, the Scans and Tracings sections, the Tracing view, the round's panel): the brief is not a copy of them, and placing a mark, importing a scan, making a tracing or starting a review adds nothing to it. The brief is the project's requirements, not its record: how the part changed from build to build stays in the chat, **Prompts only** and the builds strip. A project made before the brief page may still hold cards of those kinds, builds, views, the Parameters and the Checks, frames and arrows in its file. They are kept in the file and not drawn: nothing is lost. A saved view has no "Pin to board" any more.
+**What holds, and what is not on it.** The page also holds what must hold: a **Checks** block after the sizes (the model's own checks and your dimension checks, one list with gauges, with the head `5 checks, 1 fails`) and the **Marks** list after the notes (Review this build, to send, with the agent, from the agent, resolved; its head says `4 open, 1 to send`). They are the same rows the left column held, shown on the page; the page is a view, so a mark you place in the model is in the Marks block the next time you switch to the Brief. Marks, scans, tracings and review rounds are not copied into the brief's own cards (the Marks block, the Scans and Tracings sections, the Tracing view, the round's panel): the brief is not a copy of them, and placing a mark, importing a scan, making a tracing or starting a review adds nothing to it. The brief is the project's requirements, not its record: how the part changed from build to build stays in the chat, **Prompts only** and the builds timeline. A project made before the brief page may still hold cards of those kinds, builds, views, the Parameters and the Checks, frames and arrows in its file. They are kept in the file and not drawn: nothing is lost. A saved view has no "Pin to board" any more.
 
 **What Claude is told.** Every prompt carries one line: how many cards the brief has, how many are new and what they are, and that `board` reads it. It never carries the brief. A card is new when it was added or what it says changed (a text, a caption, a name), not when it was moved. The line under each prompt in the chat says it: `brief: 12 cards, 2 new`.
 
@@ -2227,9 +2240,9 @@ project (below), or, of the project on show, a **picture** of the view or a
 have been opened first. Nothing is uploaded: the file goes where the save
 dialog says, which opens in `.torno/exports/`.
 
-The export opens in the session dock, under the builds strip, in place of the
-conversation. The strip stays: the ringed node is the build that will be
-exported (the build on show; picking another node does not export it). The
+The export opens in the session dock, under its header, in place of the
+conversation. The builds timeline stays under the view: the ringed group holds the build that will be
+exported (the build on show; picking another build does not export it). The
 conversation folds to a 40 px band at the dock's foot ("Claude Code idle, 1 mark
 to review", and **Back to the chat**); an ask that arrives turns that band to
 the warning wash and says it needs you, with **Answer**, which puts the export
@@ -2406,6 +2419,7 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Everywhere | `Shift+F6` | To the part before |
 | Everywhere | `Ctrl+Shift+D` | Show or hide the session pane |
 | Everywhere | `Ctrl+Shift+L` | Show or hide the left column: the Parameters and Parts bench |
+| Everywhere | `Ctrl+Shift+H` | Open or fold the builds timeline at the foot of the view |
 | Everywhere | `Ctrl+Shift+E` | Export to one HTML file, or to STEP, STL or 3MF: the open project, or from the page of projects any of them |
 | Everywhere | `Ctrl+Shift+B` | Rebuild: build the open project again, as the button in the status line does |
 | Everywhere | `Ctrl+Tab` | The model, the brief and a tracing, in turn |
@@ -3001,13 +3015,13 @@ On the screen:
 - **Another project's session, in the title bar.** A session of another project that works or waits has its pill beside the dock's toggle, readable at a glance in both themes.
 - **Compare in all four modes.** Compare a turn, a row and an older build with **Before**, **Overlay**, **After** and **Side by side**: the grey translucent earlier build over the later one, each build alone in its part colours, one camera for both halves, the two boxes over the corners, the band and the status line (`comparing prompt 14 · h40 → h41`) legible in both themes and clear of the compass. Tests drove them in the hidden window and never looked. Compare a turn while newer builds land: the older build is drawn in the live one's place and the view says so; check it reads as the live build, not as a second model. An older build is built again from its copy (tested against the real kernel on small models in a temporary folder): on a real project, how long the wait is, and that `Building h40 to compare…` is shown while it runs.
 - **Prompts only and Earlier conversations.** **Prompts only** in More, and **Close** on the list: one row per prompt with its picture, words, builds, result and time, the lines for your saves between the rows, the faded row of prompts gone back from, **Starred** and **Hide gone back**, a click to compare and a double click to open it in the chat; **Earlier conversations** above the chat with a project of dozens of conversations, and the pane over a terminal session. Legible in a narrow dock and in both themes, and quick to open.
-- **The builds strip, by eye.** On top of the session pane in the chat, the terminal and with no session: the pictures of the builds (which a test never sees), the 2 px ring on the one on show, the hatch of a failed build, the outline and seconds of the running one, the bracket under the prompts in sight as you scroll the chat, a build sliding in, the fold when the pane is short, and the ticks in the status line, in both themes and in a narrow dock. With forty builds the strip scrolls sideways and the build on show stays in sight.
+- **The builds timeline, by eye.** At the foot of the view: the chips folded, the drawer opening and folding, a pile opening into its builds, the pictures of the builds (which a test never sees), the ring on the one on show, the hatch of a failed build, the outline and seconds of the running one, a build sliding in, and the ticks in the status line, in both themes and in a narrow window. With forty builds the bar and the drawer scroll sideways and the build on show stays in sight; the error of a failed build stands well from its chip.
 - **Go back's question.** On a turn after a prompt that edited the model: the list of files to write, to delete, to leave alone and changed since, the Params, and the prompts undone, in the monospace face for names and numbers; then "Go back" puts the files back in your own editor and folder (it was only tried on temporary folders), the note in the chat and the faded row appear, and the next prompt tells Claude. With no copy kept, the sentence about asking Claude instead.
 - **The edge of the card.** The line between the route card and the view drags without lag and keeps its place at start.
 - **The leaders and the tags, by eye.** Take a tool (`M`, `X`, `P`) and point at the part: the tool's tag pops by the point and its leader, a fine accent line, draws out from the part to the tag in about a quarter of a second, once. Orbit, pan and zoom: the tags follow what they stand on without lagging behind a frame, and none leaves the view or covers the reed, the compass or a band. Point at a ref in the chat and the leader to its place draws the same way. With the system set to reduce motion they appear in place at once.
 - **The caption by the pointer.** With a tool in hand, the small caption a little below and to the right of the pointer follows it without lag, says what the tool waits for next, steps aside near the switch or a band, and shows at once for your first ten takes of a tool.
 - **The compass and its cube.** At the top right of the view, drag the cube to turn the camera and click a face to take that view: the cube turns as the camera does, the face you are looking along is in the accent's wash, and the saved views fold under it while Section is in hand. Check it at 1280 × 800 and in both themes.
-- **A build landing.** Make Claude Code build while the session is in view: the new build's node slides into the builds strip (about 0.7 s), the table's new numbers count up from the old ones, and each gauge tick that moved slides to its place. Nothing keeps moving afterwards, and with reduced motion the numbers show their new value at once.
+- **A build landing.** Make Claude Code build while the session is in view: the new build slides into the builds timeline (about 0.7 s), the table's new numbers count up from the old ones, and each gauge tick that moved slides to its place. Nothing keeps moving afterwards, and with reduced motion the numbers show their new value at once.
 - **The dyed plate and its vise.** The first screen, an empty folder and the prompt side of a new project are the layout-blue field with the vise scribed on it: its outline draws itself in about a second and a half, then the dimensions and the part come in. Check the lines stay fine at 1x and 2x scale, and that the blue is used nowhere else as a field.
 - **The bench at true scale.** On the page of projects, **True scale**: the pictures stand side by side at one scale, a part twice as big drawn twice as big, the same part is the same size on every shelf (measure two pictures of one part), and thumbnails sit where they should in light and dark.
 - **The keyboard rising.** Press `?`: the keys rise from the foot of the window (about a third of a second), key caps in the monospace face, each key lit as you press it; `Esc` puts it away. While a sketch is open its own keys take over.

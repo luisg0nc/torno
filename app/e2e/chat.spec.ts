@@ -6,7 +6,7 @@ import type { TornoState } from '../src/renderer/state/store'
 import type { HistoryEntry } from '../src/shared/history'
 import type { Mark } from '../src/shared/marks'
 import { openListed } from './objects'
-import { clickHere, closeModelMenu, fromMore, inModelMenu, newSession, openStrip } from './helpers'
+import { clickHere, closeModelMenu, fromMore, inModelMenu, newSession, openTimeline } from './helpers'
 
 // The chat pane of Claude Code, through the window: what is said and shown, what torno added to a prompt, every torno
 // tool the agent used (through the real MCP server), refs that point into the viewport, stopping, the switch to the
@@ -480,7 +480,7 @@ test('a turn ends with the builds of its prompt, Compare draws them, Star keeps 
   await say('edit hollow.py "wall: float = 4" "wall: float = 5"')
   await expect(turns()).toHaveCount(before + 1, { timeout: 30_000 })
   const end = turns().last()
-  // The buttons; the builds are the strip's, on top of the dock: the build the prompt began from and the one it made are its last two nodes.
+  // The buttons; the builds are the timeline's, at the foot of the view: the build the prompt began from and the one it made are its last two nodes.
   for (const name of ['Compare', 'See changes', 'More for this turn']) await expect(end.getByRole('button', { name, exact: true })).toBeVisible()
   // What the dots hold: Go back and Star, and no Pin to board.
   await moreItem(end, GO_BACK)
@@ -488,8 +488,8 @@ test('a turn ends with the builds of its prompt, Compare draws them, Star keeps 
   await expect(end.getByRole('menuitem', { name: 'Pin to board', exact: true })).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(end.getByRole('menu')).toHaveCount(0)
-  await openStrip(page)
-  const nodes = dock().locator('.strip-node[data-kind="built"]')
+  await openTimeline(page)
+  const nodes = page.locator('[data-region="builds"] .strip-node[data-kind="built"]')
   await expect.poll(() => nodes.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
   const ids = (await nodes.evaluateAll((els) => els.map((el) => el.getAttribute('data-build')!))).slice(-2)
 

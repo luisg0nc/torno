@@ -1,129 +1,344 @@
-/* The builds strip at the top of the dock (Task 28): the project's builds, a bracket under those of the prompts in sight. */
-.strip {
-  position: relative;
-  flex: none;
+/* The builds timeline (#332): a slim bar across the foot of the view, above the status line, a chip for each group of builds on a
+   hairline; and a drawer that rises from it over the view, with the pictures. A group of several builds is a pile until it is opened. */
+.timeline {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 8;
+  height: var(--timeline-h);
+  color: var(--ink);
+  font-size: var(--text-small);
+}
+
+/* The view stands above the bar: the camera is fitted to what is left, and what sits at the foot of the view sits on the bar. */
+.viewport:has(> .timeline) > .viewport-pane {
+  bottom: var(--timeline-h);
+}
+
+.timeline-bar {
   display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  height: auto;
-  padding-top: 6px;
-  border-bottom: var(--divider);
-  background: var(--surface);
+  align-items: center;
+  gap: var(--space-3);
+  height: 100%;
+  padding: 0 var(--space-3) 0 var(--space-4);
+  border-top: var(--divider);
+  background: var(--panel);
 }
 
-/* Open, the track has its room; shut, only the head line stands. */
-.strip[data-open]:not([data-folded]) {
-  height: 136px;
-}
-
-.strip:not([data-open]) .strip-head {
-  padding-bottom: 6px;
-}
-
-.strip-toggle {
+.timeline-toggle {
+  flex: none;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
-  min-width: 0;
-  padding: 0;
+  height: 22px;
+  padding: 0 var(--space-2) 0 6px;
   border: 0;
+  border-radius: var(--radius-control);
   background: transparent;
-  color: inherit;
-  font: inherit;
+  color: var(--ink);
+  font-weight: 500;
   white-space: nowrap;
 }
 
-.strip-toggle:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 2px;
+.timeline-toggle .num {
+  color: var(--muted);
+  font-weight: 400;
 }
 
-.strip-chevron {
+.timeline-toggle:hover {
+  background: var(--surface);
+}
+
+/* Up while it is folded: the drawer opens upward. */
+.timeline-chevron {
   display: inline-flex;
-  align-self: center;
-  transform: rotate(-90deg);
-  transition: transform 0.15s var(--ease);
+  transform: rotate(180deg);
+  transition: transform 0.18s var(--ease);
 }
 
-.strip-chevron[data-open] {
+.timeline-chevron[data-open] {
   transform: none;
 }
 
-.strip-chevron .chevron {
+.timeline-chevron .chevron {
   width: 10px;
   height: 10px;
 }
 
-.strip-shown::before {
-  content: '· ';
+/* The chips, oldest at the left, on the hairline the builds hang on. */
+.timeline-chips {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-/* Under 640 px of dock height: the head line and a row of ticks. */
-.strip[data-folded] {
-  height: auto;
-  padding-bottom: var(--space-2);
+.tl-chip-item {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
 }
 
-.strip-head {
+/* The hairline between one chip and the next. */
+.tl-chip-item + .tl-chip-item::before {
+  content: '';
+  width: 6px;
+  height: 1px;
+  margin-left: -6px;
+  background: color-mix(in srgb, var(--field-edge) 50%, transparent);
+}
+
+.tl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-inline);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tl-chip:hover {
+  background: var(--raise);
+}
+
+.tl-chip-count {
+  color: var(--muted);
+}
+
+/* The person's own builds: their saves and their Parameters, a dot in their pencil's colour. */
+.tl-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--user-mark);
+}
+
+.tl-chip-star {
+  width: 10px;
+  height: 10px;
+  color: var(--warn);
+}
+
+/* The group of the build on show, and of the one a review is of. */
+.tl-chip[data-on-show],
+.tl-chip[data-reviewing] {
+  background: var(--accent-wash);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.tl-chip[data-on-show] .tl-chip-count {
+  color: var(--accent);
+}
+
+.tl-chip[data-state='failed'] {
+  background: var(--fail-wash);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fail) 45%, var(--hairline));
+  color: var(--fail);
+}
+
+.tl-chip[data-state='running'] {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  color: var(--accent);
+}
+
+.tl-chip[data-struck] {
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: line-through;
+}
+
+.tl-chip[data-landing] {
+  animation: strip-land 0.5s var(--ease) both;
+}
+
+.timeline-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* The drawer: on the bar, over the view, opened and folded by its rows' height. */
+.timeline-drawer {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.22s var(--ease), visibility 0s linear 0.22s;
+}
+
+.timeline[data-open] .timeline-drawer {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 0.22s var(--ease), visibility 0s;
+}
+
+.timeline-sheet {
+  min-height: 0;
+  overflow: hidden;
+  border-top: var(--divider);
+  background: var(--panel);
+}
+
+.timeline-head {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  flex: none;
-  padding: 0 var(--space-4) 6px;
+  padding: var(--space-2) var(--space-4) 6px;
   color: var(--muted);
   font-size: 11.5px;
   white-space: nowrap;
 }
 
-.strip-head b {
+.timeline-head b {
   color: var(--ink);
   font-weight: 600;
 }
 
-.strip-says {
+.timeline-says {
   min-width: 0;
   margin-left: auto;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.strip-track {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+.timeline-track {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-3);
   overflow-x: auto;
-  overflow-y: hidden;
   scrollbar-width: thin;
 }
 
-.strip-inner {
-  position: relative;
+.timeline-track > .timeline-empty {
+  padding-bottom: var(--space-2);
+}
+
+/* A group: what made it over its builds, a bracket over them while it is opened. */
+.tl-group {
+  flex: none;
   display: flex;
-  align-items: flex-start;
-  box-sizing: border-box;
-  gap: 10px;
-  width: max-content;
-  min-width: 100%;
-  height: 100%;
-  padding: 0 var(--space-4);
+  flex-direction: column;
+  gap: 6px;
 }
 
-/* The hairline the nodes hang on, at the middle of the pictures. */
-.strip-inner::before {
-  content: '';
-  position: absolute;
-  top: 22px;
-  right: var(--space-4);
-  left: var(--space-4);
-  height: 1px;
-  background: color-mix(in srgb, var(--field-edge) 50%, transparent);
-}
-
-.strip-empty {
+.tl-group-head {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
-  padding: 0 var(--space-4);
+  padding: 0 0 3px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+button.tl-group-head {
+  cursor: pointer;
+}
+
+button.tl-group-head:hover .tl-group-label {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tl-group-head .num {
   color: var(--muted);
-  font-size: var(--text-small);
+  font-weight: 400;
+}
+
+.tl-group-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tl-group[data-saved] .tl-group-head::before {
+  content: '';
+  flex: none;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  margin-right: 2px;
+  border-radius: 50%;
+  background: var(--user-mark);
+}
+
+.tl-group[data-expanded] .tl-group-head {
+  padding: 0 var(--space-2) 3px;
+  border: 1px solid var(--field-edge);
+  border-bottom: 0;
+  border-radius: var(--radius-inline) var(--radius-inline) 0 0;
+  border-color: color-mix(in srgb, var(--field-edge) 55%, transparent);
+  align-self: stretch;
+}
+
+.tl-group-builds {
+  display: flex;
+  gap: 10px;
+}
+
+/* The builds of a group just opened come out of its pile, one after the other. */
+.tl-group[data-expanded] .strip-node:not([data-landing]) {
+  animation: tl-fan 0.26s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 22ms);
+}
+
+@keyframes tl-fan {
+  from {
+    transform: translateX(calc(var(--i, 0) * -72px));
+    opacity: 0;
+  }
+}
+
+/* A pile: the last build's picture on the edges of the ones under it. */
+.tl-pile .strip-pic {
+  overflow: visible;
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    3px -3px 0 0 var(--panel),
+    3px -3px 0 1px var(--hairline),
+    6px -6px 0 0 var(--panel),
+    6px -6px 0 1px var(--hairline);
+}
+
+.tl-pile .strip-pic img {
+  border-radius: var(--radius-control);
+}
+
+.tl-pile[data-on-show] .strip-pic,
+.tl-pile[data-reviewing] .strip-pic {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    4px -4px 0 0 var(--panel),
+    4px -4px 0 1px var(--hairline),
+    7px -7px 0 0 var(--panel),
+    7px -7px 0 1px var(--hairline);
 }
 
 .strip-node {
@@ -255,73 +470,17 @@
   }
 }
 
-/* Under the nodes of the prompts in sight: open at the top, its words under it. */
-.strip-bracket {
-  position: absolute;
-  top: 78px;
-  box-sizing: border-box;
-  height: 6px;
-  border: 1.5px solid var(--accent);
-  border-top: 0;
-  border-radius: 0 0 var(--radius-inline) var(--radius-inline);
-  pointer-events: none;
-}
-
-.strip-bracket span {
-  position: absolute;
-  top: 5px;
-  left: 0;
-  padding-right: 4px;
-  background: var(--surface);
-  color: var(--accent);
-  font-size: 10.5px;
-  white-space: nowrap;
-}
-
-/* The folded strip: a tick for each build, the one on show taller and in the accent. */
-.strip-ticks {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  min-height: 15px;
-  padding: 0 var(--space-4);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.strip-tick {
-  flex: none;
-  width: 7px;
-  height: 11px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: color-mix(in srgb, var(--field-edge) 50%, transparent);
-  cursor: pointer;
-}
-
-.strip-tick[data-saved] {
-  background: color-mix(in srgb, var(--user-mark) 75%, transparent);
-}
-
-.strip-tick[data-kind='failed'] {
-  background: var(--fail);
-}
-
-.strip-tick[data-kind='running'] {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.strip-tick[data-on-show] {
-  height: 13px;
-  background: var(--accent);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .strip-node[data-landing] {
+  .strip-node[data-landing],
+  .tl-chip[data-landing],
+  .tl-group[data-expanded] .strip-node {
     animation: none;
+  }
+
+  .timeline-chevron,
+  .timeline-drawer,
+  .timeline[data-open] .timeline-drawer {
+    transition: none;
   }
 }
 
@@ -336,10 +495,6 @@
 .strip-node[data-struck] .strip-pic {
   filter: grayscale(1);
   box-shadow: 0 0 0 1px var(--hairline);
-}
-
-.strip-tick[data-struck] {
-  background: var(--hairline);
 }
 
 .chat-group[data-struck] .chat-phead-n,

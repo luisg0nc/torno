@@ -171,11 +171,11 @@ test('an object is exported to the path that was chosen, and the file opens by i
   await expect(sheet()).toContainText('2 marks and 1 dimension, 1 of them a draft the agent has not been sent')
   await expect(sheet()).toContainText('1 resolved mark, with its note: left out')
   await expect(sheet().getByRole('checkbox', { name: /Include resolved marks/ })).toBeDisabled()
-  // It stands in the dock under the builds strip, which stays, and the conversation is folded to a band at the foot: it is no modal, and the view is its preview.
+  // It stands in the dock under its header, and the conversation is folded to a band at the foot: it is no modal, and the view is its preview.
   await expect(sheet()).not.toHaveAttribute('aria-modal', 'true')
-  const strip = await page.locator('[data-region="session"] .strip').boundingBox()
+  const head = await page.locator('[data-region="session"] .session-head').boundingBox()
   const docked = await sheet().boundingBox()
-  expect(docked!.y).toBeGreaterThanOrEqual(strip!.y + strip!.height - 1)
+  expect(docked!.y).toBeGreaterThanOrEqual(head!.y + head!.height - 1)
   await expect(page.locator('.export-fold')).toContainText('Claude Code')
   await expect(page.locator('.export-fold').getByRole('button', { name: 'Back to the chat' })).toBeVisible()
   await expect(page.locator('[data-band="export"]')).toContainText('Exporting a page of hollow r1')

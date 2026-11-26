@@ -36,6 +36,8 @@ import { Welcome } from './ui/Welcome'
 import { giveKeysBack } from './ui/typing'
 import { CARD_DEFAULT, cardFor, windowStorage } from './state/column'
 import { clampDock, DOCK_MIN, dockDefault, readDock, writeDock } from './state/dock'
+import { timelineActions } from './state/timeline'
+import { BuildsTimeline } from './ui/strip/BuildsTimeline'
 
 const KEY_STEP = 16
 
@@ -322,6 +324,22 @@ function useDockKey(): void {
   }, [])
 }
 
+/** The key that opens or folds the builds timeline at the foot of the view, as its toggle does: heard everywhere, with a project's view on screen. */
+function useTimelineKey(): void {
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent): void => {
+      if (!pressed(e, 'builds.toggle')) return
+      e.preventDefault()
+      e.stopPropagation()
+      const s = store.getState()
+      if (e.repeat || s.page !== 'object' || s.objectId === null) return
+      timelineActions.toggle()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+}
+
 /** The key that shows or hides the left column, as the dock's does: heard everywhere. */
 function useColumnKey(): void {
   useEffect(() => {
@@ -351,6 +369,7 @@ export function App() {
   usePickerKey()
   useExportKey()
   useBoardSwapKey()
+  useTimelineKey()
   const workspace = useStore((s) => s.workspace)
   const page = useStore((s) => s.page)
   const workspaceKnown = useStore((s) => s.workspaceKnown)
@@ -545,6 +564,8 @@ export function App() {
         {/* First in the region, so that the focus a region key gives lands on it. */}
         <BoardSwitch />
         <ViewportPane />
+        {/* The project's builds, in a bar across the foot of the view, above the status line. */}
+        <BuildsTimeline />
         {page === 'object' && briefOf !== null && <BriefPage key={briefOf} />}
         {page === 'object' && tracingOf !== null && <TracingView key={tracingOf} />}
         {/* Over the model: a tracing on a face waits for the face. */}

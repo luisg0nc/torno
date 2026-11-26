@@ -57,7 +57,7 @@ what you mean rather than make geometry. The model is the Python file, and torno
 - **Point, don't describe.** Pins, arrows, strokes, shapes and picks on faces and edges, each with a note. The
   agent gets them with your next prompt as refs like `lid/F12`, never as vague words. What you have selected waits
   in a tag by the part, with what the kernel says of it.
-- **What waits on you.** The top of the left column says how the build on show stands (`2 fail, 5 pass`) and lists
+- **What waits on you.** The top of the left column says how the build on show stands (`2 checks fail, 5 pass`) and lists
   what needs you: a failing check, Claude's question, a mark to review. Parameters and Parts are two tabs under it,
   and `Ctrl+P` finds any part or value in a model of many. `Ctrl+Shift+L` hides the column.
 - **Sketch in 3D.** Draw strokes in space, on a plane or on the surface of the parts, in millimetres, to show
@@ -66,8 +66,8 @@ what you mean rather than make geometry. The model is the Python file, and torno
   round. Claude answers each item, and after the next build you say OK or Still wrong. [More](docs/manual.md#reviews)
 - **Name what you mean.** Give a few faces, edges, parts or strokes a name like `#deck` that you and Claude both
   use. torno finds them again after every build. [More](docs/manual.md#named-sets)
-- **Every build kept.** The builds strip at the top of the session lets you compare two builds, star one, review
-  one, or go back to before a prompt.
+- **Every build kept.** The builds timeline under the view groups them by prompt and lets you compare two builds,
+  star one, review one, or go back to before a prompt.
 - **Exact numbers.** Distances, angles, radii and wall thickness are measured on the B-rep, not on the mesh.
   Give a dimension the value it should be and it says *passes* or *fails* after every build.
 - **The agent sees what you see.** The agent gets MCP tools of its own: `look` (a picture of your view, marks

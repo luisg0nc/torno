@@ -11,6 +11,7 @@ import { insertIntoSession } from '../insertIntoSession'
 import { groupMarks, splitMarkGroups } from '../markGroups'
 import { numbered } from '../numbered'
 import { bakeText, paramRow, tried } from '../paramRows'
+import { buildNamed } from '../strip/strip'
 import { useStripNodes } from '../strip/useStripNodes'
 import { onBlock, type OnInput, type OnRow } from './onRows'
 
@@ -136,27 +137,45 @@ function Row({ row, objectId }: { row: OnRow; objectId: string }) {
 }
 
 /**
- * "On h18": the build on show's verdict in a line (`2 fail, 5 pass`) and what waits on the person as one-line rows that act where
+ * The build on show named in the builds timeline's words ("Latest build · prompt 5"; its history id in the title only), its verdict
+ * in a line (`27 checks pass`, `2 checks fail, 5 pass`) and what waits on the person as one-line rows that act where
  * they stand: Claude's question (a pointer to the chat), the checks that fail with their value, the brief's sizes nothing checks, the
  * marks Claude resolved (OK, Reopen), the marks it left, the values tried. At most four, then "N more", which opens the rest.
+ * While a compare draws an older build in the live one's place ("Prompt 3 · older build"), the head says so with "Back to latest",
+ * which ends the compare, and leaves out the verdict, which is the latest build's.
  */
 export function OnBlock() {
   const input = useOnInput()
   const strip = useStripNodes()
   const revision = useStore((s) => (s.scene ? s.revision : 0))
   const objectId = useStore((s) => s.objectId)
+  const compare = useStore((s) => s.compare)
   const [opened, setOpened] = useState(false)
   if (!input || !objectId) return null
-  const build = strip.nodes.find((n) => n.onShow)?.id ?? (revision > 0 ? `r${revision}` : 'the build')
+  const live = strip.nodes.find((n) => n.onShow)?.id
+  // What the view draws in the live build's place: the live build, or while comparing the "after" (the earlier one alone in Before).
+  const drawn = compare === null ? live : compare.mode === 'before' ? compare.from : compare.to
+  const named = drawn === undefined ? null : buildNamed(strip.nodes, drawn)
+  const older = named !== null && !named.latest
+  const own = drawn === live
+  const head = named?.head ?? 'Latest build'
+  const id = named?.id ?? (revision > 0 ? `r${revision}` : null)
   const { said, rows, more } = onBlock(input, opened)
   const failing = input.failing.length > 0
   return (
-    <section className="on-block" aria-label={`On ${build}`} data-part="on">
-      <h3 className="on-head">
-        On <span className="num">{build}</span>
-        <span className="on-said" data-fail={failing ? '' : undefined}>
-          {numbered(said)}
-        </span>
+    <section className="on-block" aria-label={head} data-part="on" data-older={older ? '' : undefined}>
+      <h3 className="on-head" title={id === null ? undefined : named && revision > 0 && own ? `${named.id}, revision r${revision}` : id}>
+        <span className="on-name">{numbered(head)}</span>
+        {own && (
+          <span className="on-said" data-fail={failing ? '' : undefined}>
+            {numbered(said)}
+          </span>
+        )}
+        {older && compare !== null && (
+          <button type="button" className="link-button on-back" onClick={() => actions.endCompare()}>
+            Back to latest
+          </button>
+        )}
       </h3>
       {rows.length > 0 && (
         <ul className="on-rows">

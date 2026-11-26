@@ -86,7 +86,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`netParts`: a part's volume and faces from the first digest's `before` to the last's `after`, `≈` unless exact). The builds of the turn's prompt are
   joined to it (`ui/chat/historyJoin.ts` `joinTurns`: the turn answers the `user` item before it, and the history's
   entries whose `turn.prompt` is that item's id are its; `ChatPane` reads them with `useHistory`, `ChatItems` joins) and
-  drawn on the builds strip of the dock, not under the account (`ui/strip/`, builds-history; `turnFacts`: the parts changed, the checks that flipped, the
+  drawn as a group of the builds timeline under the view, not under the account (`ui/strip/`, builds-history; `turnFacts`: the parts changed, the checks that flipped, the
   builds that failed on the way). The buttons: "See changes", "Compare" (`actions.compare(from, to, prompt number)`,
   "Comparing" while it is on, off while a section or an explode is) and the dots, `TurnMore`, a menu from the button (a
   `Popover`, `useMenu`: arrows, Escape) that holds "Go back to before this prompt" (`useGoBack` in `GoBack.tsx`; `GoBack`

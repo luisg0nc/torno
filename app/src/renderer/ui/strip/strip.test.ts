@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { HistoryEntry } from '../../../shared/history'
-import { STRIP_FOLD_BELOW, bracketOf, inSightOf, stripFolded, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
+import { buildNamed, groupCount, groupTitle, stripGroups, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
 
 let n = 0
 const entry = (id: string, extra: Partial<HistoryEntry> = {}): HistoryEntry => ({
@@ -18,7 +18,8 @@ const entry = (id: string, extra: Partial<HistoryEntry> = {}): HistoryEntry => (
 })
 const agent = (id: string, prompt: string, extra: Partial<HistoryEntry> = {}) => entry(id, { cause: 'agent', turn: { prompt }, ...extra })
 const idle = (over: Partial<StripLive> = {}): StripLive => ({ status: 'ok', onShow: null, ...over })
-const numbering = new Map([['u13', 13], ['u14', 14]])
+const numbering = new Map([['u13', 13], ['u14', 14], ['u15', 15]])
+const byId = (history: HistoryEntry[]) => new Map(history.map((e) => [e.id, e]))
 
 describe('stripNodes', () => {
   it('gives an empty history no node', () => {
@@ -26,9 +27,9 @@ describe('stripNodes', () => {
   })
 
   it('draws a build that is running while none has landed: one node, running', () => {
-    const nodes = stripNodes([], idle({ status: 'building', prompt: 1 }))
+    const nodes = stripNodes([], idle({ status: 'building', prompt: 1, cause: 'agent' }))
     expect(nodes).toHaveLength(1)
-    expect(nodes[0]).toMatchObject({ kind: 'running', by: 'prompt 1', onShow: false })
+    expect(nodes[0]).toMatchObject({ kind: 'running', by: 'Prompt 1', onShow: false })
   })
 
   it('draws a failed build with no build before it as a failed node with nothing it is after', () => {
@@ -40,9 +41,9 @@ describe('stripNodes', () => {
 
   it('says a build after h40 failed: a failed node after h40, and h40 on show', () => {
     const history = [agent('h39', 'u13'), agent('h40', 'u13')]
-    const nodes = stripNodes(history, idle({ status: 'failed', onShow: 'h40', failedAfter: 'h40', prompt: 14 }), numbering)
+    const nodes = stripNodes(history, idle({ status: 'failed', onShow: 'h40', failedAfter: 'h40', prompt: 14, cause: 'agent' }), numbering)
     expect(nodes.map((x) => x.kind)).toEqual(['built', 'built', 'failed'])
-    expect(nodes[2]).toMatchObject({ kind: 'failed', after: 'h40', by: 'prompt 14' })
+    expect(nodes[2]).toMatchObject({ kind: 'failed', after: 'h40', by: 'Prompt 14' })
     expect(nodes[1]).toMatchObject({ id: 'h40', onShow: true })
     expect(nodes[0]!.onShow).toBe(false)
   })
@@ -54,30 +55,41 @@ describe('stripNodes', () => {
       ['h40', 'built', undefined],
       ['h41', 'failed', 'h40']
     ])
-    expect(nodes[1]!.by).toBe('prompt 14')
+    expect(nodes[1]!.by).toBe('Prompt 14')
   })
 
   it('puts a running build last', () => {
-    const nodes = stripNodes([agent('h40', 'u13')], idle({ status: 'building', onShow: 'h40', prompt: 14 }), numbering)
+    const nodes = stripNodes([agent('h40', 'u13')], idle({ status: 'building', onShow: 'h40', prompt: 14, cause: 'agent' }), numbering)
     expect(nodes.map((x) => x.kind)).toEqual(['built', 'running'])
-    expect(nodes[1]).toMatchObject({ by: 'prompt 14' })
+    expect(nodes[1]).toMatchObject({ by: 'Prompt 14' })
     expect(nodes[0]!.onShow).toBe(true)
   })
 
-  it('says a build the person saved: saved, by "you saved"', () => {
+  it('says a build the person saved: saved, "Saved by you"', () => {
     const nodes = stripNodes([entry('h38', { cause: 'person' })], idle({ onShow: 'h38' }))
-    expect(nodes[0]).toMatchObject({ saved: true, by: 'you saved', onShow: true })
+    expect(nodes[0]).toMatchObject({ saved: true, by: 'Saved by you', cause: 'person', onShow: true })
   })
 
   it('keeps a starred build starred, and marks the build a review is of', () => {
     const nodes = stripNodes([agent('h40', 'u13', { starred: true }), agent('h41', 'u14')], idle({ onShow: 'h41', reviewing: 'h41' }), numbering)
-    expect(nodes[0]).toMatchObject({ starred: true, reviewing: false, by: 'prompt 13' })
+    expect(nodes[0]).toMatchObject({ starred: true, reviewing: false, by: 'Prompt 13' })
     expect(nodes[1]).toMatchObject({ starred: false, reviewing: true })
   })
 
-  it('names what made a build that no prompt made', () => {
+  it('names what made a build that no prompt made: "Manual edit" for Parameters, never "you tried"', () => {
     const nodes = stripNodes([entry('h1', { cause: 'params' }), entry('h2', { cause: 'goback', wentBackTo: 'h1' }), entry('h3')], idle())
-    expect(nodes.map((x) => x.by)).toEqual(['you tried', 'went back', 'earlier'])
+    expect(nodes.map((x) => x.by)).toEqual(['Manual edit', 'Went back', 'Earlier'])
+    expect(nodes[0]!.saved).toBe(true)
+  })
+
+  it('says "Claude Code" for a build of a prompt the window has no number for', () => {
+    expect(stripNodes([agent('h1', 'u99')], idle(), numbering)[0]!.by).toBe('Claude Code')
+  })
+
+  it('names a running build by what started it', () => {
+    expect(stripNodes([], idle({ status: 'building', cause: 'params' }))[0]!.by).toBe('Manual edit')
+    expect(stripNodes([], idle({ status: 'building', cause: 'person' }))[0]!.by).toBe('Saved by you')
+    expect(stripNodes([], idle({ status: 'building' }))[0]!.by).toBe('')
   })
 
   it('keeps the order of the history, oldest to newest', () => {
@@ -86,35 +98,121 @@ describe('stripNodes', () => {
   })
 })
 
-describe('bracketOf', () => {
-  const history = [agent('h39', 'u13'), entry('h40', { cause: 'person' }), agent('h41', 'u14')]
-  const nodes = stripNodes(history, idle({ onShow: 'h41' }), numbering)
-
-  it('covers the node of the prompt in sight, and says so', () => {
-    expect(bracketOf(nodes, [14])).toEqual({ from: 2, to: 2, label: 'prompt 14, in sight below' })
+describe('stripGroups', () => {
+  it('makes one group of a prompt\'s builds, labelled by its number, its last build the one shown', () => {
+    const history = [agent('h1', 'u13'), agent('h2', 'u14'), agent('h3', 'u14'), agent('h4', 'u14')]
+    const groups = stripGroups(stripNodes(history, idle({ onShow: 'h4' }), numbering))
+    expect(groups.map((g) => [g.label, groupCount(g), g.last.id])).toEqual([
+      ['Prompt 13', 1, 'h1'],
+      ['Prompt 14', 3, 'h4']
+    ])
+    expect(groups[1]).toMatchObject({ id: 'h2', prompt: 14, onShow: true })
+    expect(groups[0]!.onShow).toBe(false)
   })
 
-  it('covers every node between the first and the last of the prompts in sight', () => {
-    expect(bracketOf(nodes, [13, 14])).toEqual({ from: 0, to: 2, label: 'prompts 13 to 14, in sight below' })
+  it('makes one "Manual edit" group of the Parameters builds between two prompts', () => {
+    const history = [agent('h1', 'u13'), entry('h2', { cause: 'params' }), entry('h3', { cause: 'params' }), agent('h4', 'u14')]
+    const groups = stripGroups(stripNodes(history, idle(), numbering))
+    expect(groups.map((g) => [g.label, groupCount(g)])).toEqual([
+      ['Prompt 13', 1],
+      ['Manual edit', 2],
+      ['Prompt 14', 1]
+    ])
+    expect(groups[1]!.saved).toBe(true)
   })
 
-  it('is none when no prompt in sight made a build', () => {
-    expect(bracketOf(nodes, [15])).toBeNull()
-    expect(bracketOf(nodes, [])).toBeNull()
-    expect(bracketOf([], [14])).toBeNull()
+  it('labels the other causes "Saved by you", "Went back" and "Earlier", and keeps each going back its own', () => {
+    const history = [entry('h1'), entry('h2'), entry('h3', { cause: 'person' }), entry('h4', { cause: 'person' }), entry('h5', { cause: 'goback', wentBackTo: 'h1' }), entry('h6', { cause: 'goback', wentBackTo: 'h3' })]
+    const groups = stripGroups(stripNodes(history, idle()))
+    expect(groups.map((g) => [g.label, groupCount(g)])).toEqual([
+      ['Earlier', 2],
+      ['Saved by you', 2],
+      ['Went back', 1],
+      ['Went back', 1]
+    ])
   })
 
-  it('covers the running build of a prompt in sight', () => {
-    const running = stripNodes([agent('h40', 'u13')], idle({ status: 'building', onShow: 'h40', prompt: 14 }), numbering)
-    expect(bracketOf(running, [14])).toEqual({ from: 1, to: 1, label: 'prompt 14, in sight below' })
+  it('splits a prompt\'s builds when something else came between them, and keeps two prompts apart', () => {
+    const history = [agent('h1', 'u13'), entry('h2', { cause: 'params' }), agent('h3', 'u13'), agent('h4', 'u14')]
+    expect(stripGroups(stripNodes(history, idle(), numbering)).map((g) => g.label)).toEqual(['Prompt 13', 'Manual edit', 'Prompt 13', 'Prompt 14'])
+  })
+
+  it('counts a failed build in its prompt\'s group and says the group ended in a failure', () => {
+    const history = [agent('h1', 'u14'), agent('h2', 'u14', { failed: true, error: 'NameError' })]
+    const [group] = stripGroups(stripNodes(history, idle({ status: 'failed', onShow: 'h1', failedAfter: 'h1' }), numbering))
+    expect(group).toMatchObject({ label: 'Prompt 14', state: 'failed', onShow: true })
+    expect(groupCount(group!)).toBe(2)
+  })
+
+  it('puts the running build in its prompt\'s group, and one that nobody can say in a group of its own', () => {
+    const running = stripGroups(stripNodes([agent('h1', 'u14')], idle({ status: 'building', onShow: 'h1', prompt: 14, cause: 'agent' }), numbering))
+    expect(running.map((g) => [g.label, groupCount(g), g.state])).toEqual([['Prompt 14', 2, 'running']])
+    const unknown = stripGroups(stripNodes([agent('h1', 'u14')], idle({ status: 'building', onShow: 'h1' }), numbering))
+    expect(unknown.map((g) => [g.label, g.state])).toEqual([
+      ['Prompt 14', 'built'],
+      ['Building', 'running']
+    ])
+    const failed = stripGroups(stripNodes([], idle({ status: 'failed' })))
+    expect(failed.map((g) => g.label)).toEqual(['Failed build'])
+  })
+
+  it('says a group is starred when one of its builds is, and is under review when its build is', () => {
+    const history = [agent('h1', 'u14', { starred: true }), agent('h2', 'u14')]
+    const [group] = stripGroups(stripNodes(history, idle({ onShow: 'h2', reviewing: 'h2' }), numbering))
+    expect(group).toMatchObject({ starred: true, reviewing: true })
+  })
+
+  it('is none for no node', () => {
+    expect(stripGroups([])).toEqual([])
   })
 })
 
-describe('stripFolded', () => {
-  it('folds under 640 px of dock height', () => {
-    expect(STRIP_FOLD_BELOW).toBe(640)
-    expect(stripFolded(639)).toBe(true)
-    expect(stripFolded(640)).toBe(false)
+describe('groupTitle', () => {
+  it('gives a prompt\'s words and how many builds, never in the label', () => {
+    const history = [agent('h1', 'u14', { turn: { prompt: 'u14', text: 'Make the box 96 mm wide' } }), agent('h2', 'u14', { turn: { prompt: 'u14', text: 'Make the box 96 mm wide' } })]
+    const [group] = stripGroups(stripNodes(history, idle({ onShow: 'h2' }), numbering))
+    expect(group!.label).toBe('Prompt 14')
+    expect(groupTitle(group!, byId(history))).toBe('Prompt 14: Make the box 96 mm wide\n2 builds, h1 to h2, h2 on show')
+  })
+
+  it('gives the values a manual edit set', () => {
+    const history = [entry('h1', { cause: 'params', tried: ['wall'], set: { wall: 3 } }), entry('h2', { cause: 'params', tried: ['lid'], set: { lid: 1.5 } })]
+    const [group] = stripGroups(stripNodes(history, idle()))
+    expect(groupTitle(group!, byId(history))).toBe('Manual edit: You set wall to 3, lid to 1.5 · not in the model yet\n2 builds, h1 to h2')
+  })
+
+  it('says what a going back restored, and a failed or a starred build alone', () => {
+    const history = [entry('h1', { cause: 'goback', wentBackTo: 'h0', starred: true })]
+    expect(groupTitle(stripGroups(stripNodes(history, idle()))[0]!, byId(history))).toBe('Went back to h0\nh1, starred')
+    const failed = [agent('h2', 'u13', { failed: true, error: 'NameError' })]
+    expect(groupTitle(stripGroups(stripNodes(failed, idle(), numbering))[0]!, byId(failed))).toBe('Prompt 13\nh2, failed')
+  })
+})
+
+describe('buildNamed', () => {
+  it('names the newest build that drew as the latest, with what made it in the timeline\'s words', () => {
+    const history = [agent('h1', 'u13'), agent('h2', 'u14')]
+    expect(buildNamed(stripNodes(history, idle({ onShow: 'h2' }), numbering), 'h2')).toEqual({ id: 'h2', head: 'Latest build · prompt 14', latest: true })
+    const manual = [agent('h1', 'u13'), entry('h2', { cause: 'params' })]
+    expect(buildNamed(stripNodes(manual, idle(), numbering), 'h2')!.head).toBe('Latest build · manual edit')
+    expect(buildNamed(stripNodes([entry('h3', { cause: 'person' })], idle()), 'h3')!.head).toBe('Latest build · saved by you')
+    expect(buildNamed(stripNodes([entry('h4', { cause: 'goback', wentBackTo: 'h1' })], idle()), 'h4')!.head).toBe('Latest build · went back')
+    expect(buildNamed(stripNodes([agent('h5', 'u99')], idle(), numbering), 'h5')!.head).toBe('Latest build · Claude Code')
+  })
+
+  it('names an older build by what made it, and says it is older', () => {
+    const history = [agent('h1', 'u13'), agent('h2', 'u14')]
+    expect(buildNamed(stripNodes(history, idle({ onShow: 'h2' }), numbering), 'h1')).toEqual({ id: 'h1', head: 'Prompt 13 · older build', latest: false })
+    expect(buildNamed(stripNodes([entry('h1'), entry('h2')], idle()), 'h1')!.head).toBe('Earlier · older build')
+  })
+
+  it('still calls the build the latest when only failed or running builds came after it', () => {
+    const history = [agent('h1', 'u13'), agent('h2', 'u14', { failed: true, error: 'NameError' })]
+    expect(buildNamed(stripNodes(history, idle({ status: 'building', onShow: 'h1', prompt: 14, cause: 'agent' }), numbering), 'h1')!.latest).toBe(true)
+  })
+
+  it('is null for a build the timeline does not have', () => {
+    expect(buildNamed([], 'h1')).toBeNull()
   })
 })
 
@@ -158,23 +256,5 @@ describe('stripSays', () => {
   })
   it('says an export of nothing built', () => {
     expect(stripSays({ nodes: [], exporting: true })).toBe('Exporting the build on show')
-  })
-})
-
-describe('inSightOf', () => {
-  const spans = [
-    { number: 12, top: -400, bottom: -10 },
-    { number: 13, top: -10, bottom: 120 },
-    { number: 14, top: 120, bottom: 480 },
-    { number: 15, top: 480, bottom: 700 }
-  ]
-  it('lists the prompts whose stretch shows in the window', () => {
-    expect(inSightOf(spans, 0, 480)).toEqual([13, 14])
-  })
-  it('leaves out a stretch that only touches the window', () => {
-    expect(inSightOf(spans, -10, 120)).toEqual([13])
-  })
-  it('is none for no prompts', () => {
-    expect(inSightOf([], 0, 480)).toEqual([])
   })
 })
