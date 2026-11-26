@@ -77,6 +77,7 @@ import { HOOK_DEADLINE_MS, InstructionList } from './instructions'
 import { Trust } from './trust'
 import { KnownModels } from './sessions/models'
 import { UserProfiles, projectProfile } from './profile'
+import type { ShelfPart } from '../shared/shelf'
 
 // Environment switches:
 //   TORNO_TEST=1            the window is created hidden and never shown (tests, headless checks)
@@ -534,7 +535,9 @@ const toolDeps: ToolDeps = {
     return proposing(obj.dir, req.name, () => theWindow().then((win) => requestSaveView(win, req)), (e) => e instanceof NoAnswer)
   }
 }
-const promptDeps = { ...toolDeps, references: referencesOf, sketching: openSketch }
+// The parts of the shelf, told to a new conversation (`shelfLine`). #350: the ShelfStore's list takes the place of this empty one.
+const shelfNow = (): ShelfPart[] => []
+const promptDeps = { ...toolDeps, references: referencesOf, shelf: () => shelfNow(), sketching: openSketch }
 
 /** The instruction files Claude Code reads for an object (the person's home, and the organisation's file, are the machine's): found for the session pane and for the first prompt of a session. */
 const instructionFiles = new InstructionList()

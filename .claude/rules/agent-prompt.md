@@ -52,6 +52,11 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `listReferences`: plain files of create's names, photos then doodles, twelve named at most). It is no mark, and is
   left out when it does not fit in the context's limit. The onboarding prompt names them itself, so its context
   (`opts.onboarding`, from `Sessions`' `onboarding` flag) has no such line (#324).
+- **The parts shelf** (#349): the same conversations, the onboarding one too (a new project should know the shelf), are told what is on `common/parts/`
+  (`ContextDeps.shelf`, `shelfLine` in `main/shelf/told.ts`): a head (`On the shelf, common/parts/ (6 parts; use one before researching it, and say which sizes
+  are assumed):`), a line a part (`ec11: hole Ø7, 2 sizes assumed`; the pieces with nothing to say are left out; `<id>: does not build` for a part with an error), and the
+  rest counted (`and 4 more`), in at most `SHELF_LIMIT` 600 characters. After the references and before the files' line; left out whole when it does not fit. `turncost.test.ts`
+  holds a part's line at 60 characters and the block of 30 parts at `SHELF_LIMIT`. The skills say the rest (`torno-model` "References: bought parts"); the system prompt does not.
 - **The brief** (#249): the same conversations are told, after the board's line, the person's sizes and rules (`briefOf` in `board/text.ts`: every
   visible `size` card by `saySize`, then the text cards of the frame named Rules, one line, in at most `BRIEF_LIMIT` 1,000 characters, the rules at most
   400 of them, sizes cut by whole sizes and counted; `contextFor` `opts.brief`, room kept like the board's line, never in an edit's answer). `boardLine(…, { again })`

@@ -373,6 +373,40 @@ from `bd_warehouse`, which torno's own kernel environment has (`simple=True` for
 model itself (`import_step`) and returned among the references, as torno reads no file of its own accord. A reference that is a
 library's compound of many solids is taken as the solids it holds, in one shape.
 
+**The parts shelf.** A part bought for several projects lives once, in the workspace's `common/parts/`: one folder a part,
+`common/parts/<id>/part.py`, where `<id>` is a Python identifier (`ec11`, `push_button_16`; a name with a `-` cannot be imported).
+The file says what Claude and torno read of it:
+
+```python
+"""EC11 rotary encoder
+A 20-detent encoder with a push switch, on a 7 mm bushing."""
+@dataclass(frozen=True)
+class Params:
+    bushing_d: float = 7.0   # datasheet ec11.pdf: bushing thread
+    shaft_h: float = 15.0    # assumed: above the panel
+
+def body(p): ...      # the part as bought
+def cutout(p): ...    # optional: what to subtract from a panel, the fit included
+def keepout(p): ...   # optional: the room to keep clear around and behind it
+```
+
+The docstring's first line is the part's name, the rest what it is. Every size of `Params` says where it comes from, as in any model
+(see Parameters). `body(p)` is drawn with the panel it mounts in as the XY plane, its front face at `z = 0`, and `+Z` the side you see;
+`cutout(p)` is the solid to subtract from a panel at the origin and `keepout(p)` the room to keep clear. Its datasheets and photos sit
+beside `part.py`. A project uses a part by importing it
+(`from common.parts.ec11.part import Params as EC11, body as ec11_body, cutout as ec11_cutout`), putting the body among its
+`references(p)` and subtracting the cutout in the model; a save in the part's folder builds each project that imports it, as any save in
+`common/` does.
+
+Claude is told what is on the shelf: a conversation's first prompt (and the first after `/clear` or a compaction, and the first
+prompt of a new project) carries a block of at most 600 characters, `On the shelf, common/parts/ (6 parts; use one before researching
+it, and say which sizes are assumed):` and a line a part, `ec11: hole Ø7, 2 sizes assumed`; what does not fit is counted (`and 4 more`),
+and a part that does not build says so. With no part on the shelf the prompt has no such block. Claude uses a part from the shelf
+before it researches one, says which of its sizes are assumed, and before it writes a part it researched to the shelf it asks you
+(`Put EC11 rotary encoder on the parts shelf?`, with a line for each size, its value, what it measures and its source, and the choices
+`Put it on the shelf` and `Not this one`); it writes the folder only when you say yes, and copies into it the datasheet or photo the
+sizes came from.
+
 **Builds.** Saving a file in the project's folder (dotfiles, `out/`, `cache/`,
 `.torno/` and `__pycache__/` are ignored, as are `build/`, `dist/`,
 `node_modules/`, `.venv/` and `.git/`) or in the workspace's `common/` starts
@@ -509,7 +543,7 @@ rest back. That is a view of the list: the agent is told every mark as before. I
 in the view lights its row, and the rows of its marks and of its checks, with the accent wash and a bar at the left, instead of
 lines drawn to them. **`Ctrl+P` opens the picker**, a sheet over the middle of the view, for a model with many parts: every part of the layout, under its group's name, and then every value of the model, in one list. What you type narrows it (a part is found by its name or its group's, a value by its name or its comment; every word must be found), and the count at the foot says `4 of 40`; at most 60 rows are drawn, so a model of hundreds is searched, not scrolled. `Up` and `Down` choose; `Enter` takes the row: a part is selected and brought into view (and switched on if it was hidden), a value opens the Parameters tab with its control in focus. `Alt+Enter` shows only the part and `Alt+H` hides it or shows it again; the pointer on a row lights the part in the view as in the Parts tab. `Esc`, `Ctrl+P` again or a press beside it puts it away. Parameters lists the fields of
 the model's `Params` (a model with none has no Parameters tab). Over the list, a find box (`/` from anywhere outside a field opens the tab and puts the cursor in it; Esc clears it) narrows the rows by what is in a name or a comment, and a tally of four counts over the list, `all`, `assumed`, `brief` and `no source`, each the number over its word and each a filter (assumed in the warning colour; the names of the sizes are in its tooltip), keeps the sizes whose comment says `assumed:` or `brief:` or says no source; with a find or a filter on, a line says `3 of 22 match`. The list is a ledger, one line a field in the model's order: its name, where its comment says it comes from in one word
-(`photo-1` for `ref photo-1.jpg:`, `you` for `person:`, `model` for `derived:`, `brief`, `assumed`, `ISO 7380`, `no source`), and
+(`photo-1` for `ref photo-1.jpg:`, `you` for `person:`, `model` for `derived:`, `brief`, `assumed`, `listing`, `measured`, `ISO 7380`, `no source`), and
 its value in a field of its own, in the monospace face (four digits at most, the whole value on hover), said once. Each
 number says its unit in its field, muted, after the value: `96 mm`, `15°`, `9` for a count. A number written as a `float`
 is in millimetres unless the model says otherwise; a whole number (an `int`) has no unit unless the model gives one, since
@@ -524,7 +558,8 @@ The comment is in the line's tooltip (and, in a column 360 px wide or more, on t
 or `Enter` on it in the picker): the comment whole with its source as written, the slider where the model gives a
 range, and, for a value you are trying, the kept line with Reset. A value you try keeps its line open. Pointing at a line lights the faces
 its value drives and moves nothing. The model's comments should begin with where a size
-comes from (`brief:`, `M3:`, `S1 ≈:`, `ref <file>:`, `object:`, `datasheet <name>:`, `person:`, `derived:` or
+comes from (`brief:`, `M3:`, `S1 ≈:`, `ref <file>:`, `object:`, `datasheet <name>:`, `listing:` (a seller's page),
+`measured:` (your own tape or calipers), a standard (`ISO 15:`, `DIN 912:`, `EN 10025:` or `standard:`), `person:`, `derived:` or
 `assumed:`), and the tally counts them; it is what the model says, not something torno has checked. Trying a value never writes the model. A
 field whose default is a number or a flag written in the file (`wall: float = 2`, `lid: bool = True`), or a
 `Literal["round", "square"]`, is its own control: type a number and press Enter, or let go of a slider
@@ -1219,6 +1254,8 @@ Open marks: M2 (moved), M6 (unchecked)
   after `/clear`, or after a compaction) ends with a line naming the files in `reference/` (twelve at
   most, then how many more), to read when they matter. The first prompt of a new project names them itself, and
   has no such line.
+- The same prompts, the first prompt of a new project too, carry a block naming the parts on the parts shelf (`common/parts/`, see
+  "The parts shelf" under the model): a line a part, its hole and how many of its sizes are assumed, in at most 600 characters.
 - The first prompt of every session, resumed or not, and the first after
   `/clear`, ends with a line naming the instruction files Claude Code reads
   there by default (six at most, with their sizes;

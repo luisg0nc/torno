@@ -169,8 +169,18 @@ def references(p: Params):
   (`from pathlib import Path`; the folder `reference/` of the project is where the person puts such a file), and return it among the
   references. torno reads no file itself. A STEP can be big and is read at every build: say so if a build is slow.
   A part of many solids or an assembly is taken as the solids it holds, in one shape; its labels are lost.
-- Parts bought for several projects go in `common/` (a save there builds every project that imports from it), as
-  `common/parts.py` with a maker for each, rather than a copy in each model.
+- A part bought for several projects goes on the **parts shelf**, `common/parts/`, one folder a part:
+  `common/parts/<id>/part.py` (`<id>` a Python identifier: `ec11`, `push_button_16`). The docstring's first line is its
+  name, the rest what it is. It has `Params` with a source comment on every size, `body(p)` (the part as bought: the
+  panel's front face is the XY plane at z = 0 and +Z is the side the person sees), an optional `cutout(p)` (what to subtract
+  from a panel at the origin, the fit included) and an optional `keepout(p)` (the room to keep clear), and its
+  datasheets and photos beside it. A project imports it rather than copying it:
+  `from common.parts.ec11.part import Params as EC11, body as ec11_body, cutout as ec11_cutout`, puts the body among
+  `references(p)` and subtracts the cutout in the model. A save in `common/` builds every project that imports from it.
+- Use a part from the shelf (the prompt lists it) before researching one, and say which of its sizes are assumed.
+  Before you write a part you researched to the shelf, ask with `AskUserQuestion`: header `Shelf`, question
+  `Put <name> on the parts shelf?` followed by one line a size, `<value> <what> (<source>)`, options `Put it on the
+  shelf` and `Not this one`. Write the folder only on a yes, and copy the datasheet or photo it came from into it.
 - Give each a place that is true: a reference at the wrong place makes a `clearance` that passes for the wrong reason.
   Say where it is from (a datasheet, a measurement) in a comment of `Params`.
 
@@ -228,8 +238,8 @@ written inline. A change of size is then one edit, and the parts that must fit e
 
 Every size says where it comes from: its comment begins with the source and a colon, and the rest says why. The
 sources are `brief`, `M<n>` (a mark), `S<n> ≈` (a scan), `ref <file>` (a reference picture's note), `object` (another
-project), `datasheet <name>`, `person` (an answer in the chat), `derived` (worked out from other fields) and
-`assumed`. A size with no source is shown to the person as having none; torno tells you the assumed ones after a build
+project), `datasheet <name>`, `listing` (a seller's page), `measured` (the person's own tape or calipers), a standard
+(`ISO 15`, `DIN 912`), `person` (an answer in the chat), `derived` (worked out from other fields) and `assumed`. A size with no source is shown to the person as having none; torno tells you the assumed ones after a build
 and does not check any of them.
 
 ```py
