@@ -20,7 +20,7 @@ import { copyExample, exampleSource, removeExample, sweepExamples } from './exam
 import { type Config, configOf, listed, recentWith, recentWithout } from './recent'
 import { startHttp } from './http'
 import { buildContextFor, contextFor, tellsInstructions } from './context'
-import { takeGoBackNotice } from './goback'
+import { takeNotices } from './notices'
 import { listReferences } from './sessions/reference'
 import { buildIdentity, buildStartedAt, buildState, closeWorkspace, findObject, historyOf, historySceneOf, keepDimensions, keptScenes, lastScene, letGoForTest, marksChecks, openObjectId, openWorkspace, openWorkspaceInfo, openedObjects, placedMark, queryObject, recheckAlignments, registerIpc, trialObject, tracingDoors } from './ipc'
 import { forgetSketchesWith, openSketch } from './sketches/ipc'
@@ -727,7 +727,8 @@ void app.whenReady().then(async () => {
       const instructions = folder === undefined ? undefined : await instructionFiles.look(folder, HOOK_DEADLINE_MS)
       // What a Go back left for the agent is told with this prompt and no other: the file is removed once the answer has left (`delivered`), not as it is read.
       const dir = findObject(id)?.dir
-      const notice = dir === undefined ? null : await takeGoBackNotice(dir).catch(() => null)
+      // And what a rename of a part left (`main/rename.ts`), the same way (`takeNotices`).
+      const notice = dir === undefined ? null : await takeNotices(dir).catch(() => null)
       // What is on the board, and what of it is new to the agent: one line. A board that cannot be read is no reason to tell nothing of the build.
       const all = await marks.list(id).catch(() => [])
       // The onboarding prompt says the brief in its own words (and `markAllTold` kept its hash): it is not told it again.

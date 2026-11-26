@@ -13,6 +13,7 @@ import { sectionOf, snappedSection, type Camera, type SectionPlane, type ViewNam
 import { type SavedView, MAX_VIEWS, TOO_MANY_VIEWS, cleanViewName, findView, ownViews, proposalToDrop, viewNameRefusal } from '../../shared/views'
 import { sameCamera, viewOnScreen } from './savedViews'
 import type { LayerSettings, SceneFile } from '../../shared/scenefile'
+import { renamedRef } from '../../shared/rename'
 import type { WorkspaceInfo } from '../../shared/workspace'
 import { type BenchKept, type BenchTab, type ColumnPrefs, readBench, storedBench, writeBench, keptWidth, readColumn, storedColumn, windowStorage, writeColumn } from './column'
 import type { CompareMode, CompareState } from './compare'
@@ -329,6 +330,24 @@ export const actions = {
     // The person's own choice from here on, whatever the agent had shown.
     const { layout: _theirsAgain, ...shownByAgent } = s.shownByAgent ?? { visible: {} }
     store.setState({ ...layoutChange(s, layout), edits: s.edits + 1, shownByAgent: s.shownByAgent && shownByAgent })
+  },
+
+  /**
+   * The part `from` is now `to` (a rename by hand, `state/rename.ts`): what the window keeps by the part's name follows it (its
+   * layer settings, the saved views that hide it, the selection, the agent's show, the marks listed by part), as one edit, so
+   * that the scene file is saved with the new name before the build of it lands.
+   */
+  partRenamed(from: string, to: string): void {
+    const s = store.getState()
+    const moved = <T>(by: Record<string, T>): Record<string, T> => (Object.hasOwn(by, from) && !Object.hasOwn(by, to) ? Object.fromEntries(Object.entries(by).map(([name, v]) => [name === from ? to : name, v])) : by)
+    store.setState({
+      layers: moved(s.layers),
+      views: s.views.map((view) => (view.hidden.includes(from) ? { ...view, hidden: view.hidden.map((name) => (name === from ? to : name)) } : view)),
+      selection: s.selection.map((ref) => renamedRef(ref, from, to)),
+      shownByAgent: s.shownByAgent && { ...s.shownByAgent, visible: moved(s.shownByAgent.visible) },
+      marksOnPart: s.marksOnPart === from ? to : s.marksOnPart,
+      edits: s.edits + 1
+    })
   },
 
   /** Change some settings of one part; the others keep their values. */

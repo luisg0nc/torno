@@ -58,6 +58,7 @@ const bridge: TornoBridge = {
   object: {
     open: (id) => invoke('object:open', id),
     rebuild: (id) => invoke('object:rebuild', id),
+    renamePart: (id, from, to) => invoke('object:renamePart', id, from, to),
     setParam: (id, name, value) => invoke('object:setParam', id, name, value),
     resetParams: (id, name) => invoke('object:resetParams', id, name),
     drives: (id, name) => invoke('object:drives', id, name),

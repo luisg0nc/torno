@@ -19,14 +19,14 @@ const digits = (text: string): Cap[] => [...text].map((c) => k(`Digit${c}`, c))
 
 /**
  * The rows from `` ` `` to Space, fifteen keys wide, as a US keyboard has them. Where a keyboard has a key the table never
- * names (the backslash, the function row but for F6) there is none; Home, End, Delete and the arrows are where they fit.
+ * names (the backslash, the function row but for F2 and F6) there is none; Home, End, Delete and the arrows are where they fit.
  */
 export const KEYBOARD: Cap[][] = [
   [k('Backquote', '`'), ...digits('1234567890'), k('Minus', '-'), k('Equal', '='), k('Backspace', 'Backspace', 2, true)],
   [k('Tab', 'Tab', 1.5, true), ...letters('QWERTYUIOP'), k('BracketLeft', '['), k('BracketRight', ']'), k('Delete', 'Del', 1.5)],
   [k('CapsLock', 'Caps', 1.75, true), ...letters('ASDFGHJKL'), k('Semicolon', ';'), k('Quote', "'"), k('Enter', 'Enter', 2.25, true)],
   [k('ShiftLeft', 'Shift', 2.25, true), ...letters('ZXCVBNM'), k('Comma', ','), k('Period', '.'), k('Slash', '/'), k('ShiftRight', 'Shift', 2.75, true)],
-  [k('Escape', 'Esc', 1.25), k('ControlLeft', 'Ctrl', 1.25, true), k('AltLeft', 'Alt', 1.25, true), k('Space', 'Space', 4, true), k('F6', 'F6', 1.25), k('Home', 'Home'), k('End', 'End'), k('ArrowLeft', '←'), k('ArrowDown', '↓'), k('ArrowUp', '↑'), k('ArrowRight', '→')]
+  [k('Escape', 'Esc', 1.25), k('ControlLeft', 'Ctrl', 1.25, true), k('AltLeft', 'Alt', 1.25, true), k('Space', 'Space', 2.75, true), k('F2', 'F2', 1.25), k('F6', 'F6', 1.25), k('Home', 'Home'), k('End', 'End'), k('ArrowLeft', '←'), k('ArrowDown', '↓'), k('ArrowUp', '↑'), k('ArrowRight', '→')]
 ]
 
 /** The names the table gives the keys of a cap, where they are not its label. `?` is Shift with the slash, `+` Shift with the equals sign, and the table writes the arrows and the others in words. */

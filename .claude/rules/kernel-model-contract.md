@@ -28,7 +28,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - **Params are read, never written.** The worker that loads a model reads its `Params` dataclass
   (`loader.read_params`: name, type as written, default, whether that default is a literal in the source, the
   field's comment) and the build's scene carries it as `params`; `scene` lists it. Nothing in torno writes the
-  model file: it is the person's, outside `.torno/`. A `Params` that cannot be read is no failure: `[]`.
+  model file (it is the person's, outside `.torno/`) but Go back and a rename of a part by hand (`rename-part`), which main writes from what `part_sites` read. A `Params` that cannot be read is no failure: `[]`.
   Each field also says `value` (what this build used), `editable` (`float`, `int`, `bool` or `choice`: only a field
   whose default is a literal number or bool, or a `Literal` of literals, with a default among them), `choices` and
   `metadata` (the plain numbers `min`, `max`, `step` of the field's own `metadata`) and `unit` (the text that same

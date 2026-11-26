@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { peek } from '../state/agent'
 import { boardActions } from '../state/board'
 import { actions, layerOf, useStore } from '../state/store'
@@ -13,6 +13,9 @@ import { setsOfLayout, useSets } from '../state/sets'
 import { NamedSets, SetRowView } from './sets/SetRows'
 import { setRows } from './sets/rows'
 import { useLitPart } from './card/useLit'
+import { pressed } from '../../shared/keys'
+import { PART_NAME_MAX } from '../../shared/rename'
+import { renameActions, useRenaming } from '../state/rename'
 
 /**
  * The parts of the layout shown: colour, name, an opacity slider that appears
@@ -134,6 +137,8 @@ function GroupRow({ group, layout, layers, folded }: { group: PartGroup; layout:
 function LayerRow({ part, layout, layer, color, inGroup, marks, listed, lit: pointed }: { part: Part; layout: string; layer: LayerSettings | undefined; color: string | undefined; inGroup?: string; marks: PartMarks | undefined; listed: boolean; lit: boolean }) {
   const { name } = part
   const selected = useStore((s) => s.selection.includes(name))
+  const objectId = useStore((s) => s.objectId)
+  const renaming = useRenaming((s) => s.objectId === objectId && s.part === name)
   // The pointer or the keys' focus on the row lights its part in the view; a row that goes while it does takes the light with it.
   const peeking = useRef(false)
   const light = (on: boolean): void => {
@@ -157,6 +162,7 @@ function LayerRow({ part, layout, layer, color, inGroup, marks, listed, lit: poi
       data-hidden={visible ? undefined : ''}
       data-selected={selected ? '' : undefined}
       data-lit={pointed ? '' : undefined}
+      data-renaming={renaming ? '' : undefined}
       onPointerEnter={() => light(true)}
       onPointerLeave={() => light(false)}
       onFocus={(e) => {
@@ -167,19 +173,28 @@ function LayerRow({ part, layout, layer, color, inGroup, marks, listed, lit: poi
       }}
     >
       <span className="swatch" style={{ background: layer?.color ?? color ?? colorFor(name, -1) }} aria-hidden="true" />
-      <button
-        type="button"
-        className="row-name layer-name num"
-        aria-pressed={selected}
-        title="Select this part. Double click to bring it into view"
-        onClick={(e) => {
-          actions.setSelection([name])
-          if (e.detail > 0) giveKeysBack(e.currentTarget)
-        }}
-        onDoubleClick={() => actions.framePart(name)}
-      >
-        {name}
-      </button>
+      {renaming ? (
+        <RenameField name={name} />
+      ) : (
+        <button
+          type="button"
+          className="row-name layer-name num"
+          aria-pressed={selected}
+          title="Select this part. Double click to bring it into view, F2 to rename it"
+          onClick={(e) => {
+            actions.setSelection([name])
+            if (e.detail > 0) giveKeysBack(e.currentTarget)
+          }}
+          onDoubleClick={() => actions.framePart(name)}
+          onKeyDown={(e) => {
+            if (!pressed(e, 'part.rename')) return
+            e.preventDefault()
+            renameActions.start(name)
+          }}
+        >
+          {name}
+        </button>
+      )}
       {part.role === 'reference' && (
         <span className="layer-bought" data-part="reference" title="A bought part, put in the model to see and to check against. It is not printed, weighed or exported as a part">
           bought
@@ -214,7 +229,16 @@ function LayerRow({ part, layout, layer, color, inGroup, marks, listed, lit: poi
         </button>
       )}
       {!visible && <span className="layer-off">hidden</span>}
-      <span className="layer-controls">
+      {!renaming && <span className="layer-controls">
+        <button
+          type="button"
+          className="icon-button layer-rename"
+          aria-label={`Rename ${name}`}
+          title="Rename this part: torno writes the new name into the model and tells Claude"
+          onClick={() => renameActions.start(name)}
+        >
+          <RenameIcon />
+        </button>
         <input
           type="range"
           className="layer-opacity"
@@ -249,8 +273,70 @@ function LayerRow({ part, layout, layer, color, inGroup, marks, listed, lit: poi
         >
           <EyeIcon open={visible} />
         </button>
-      </span>
+      </span>}
     </li>
+  )
+}
+
+/**
+ * The name of a part as a field (#359): Enter asks main to rename it (it writes the model and tells Claude), Esc or leaving the
+ * field puts it away with nothing asked. What main refuses is said under it until the name is changed.
+ */
+function RenameField({ name }: { name: string }) {
+  const [typed, setTyped] = useState(name)
+  const going = useRenaming((s) => s.going)
+  const refused = useRenaming((s) => s.refused)
+  return (
+    <>
+      <input
+        className="layer-rename-field num"
+        type="text"
+        autoFocus
+        value={typed}
+        maxLength={PART_NAME_MAX}
+        aria-label={`New name of ${name}`}
+        aria-invalid={refused !== null}
+        aria-describedby={refused !== null ? 'layer-rename-why' : undefined}
+        aria-busy={going}
+        readOnly={going}
+        spellCheck={false}
+        autoComplete="off"
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => {
+          setTyped(e.target.value)
+          renameActions.edited()
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation()
+          if (pressed(e, 'field.keep')) {
+            e.preventDefault()
+            if (typed.trim() === name) renameActions.cancel()
+            else void renameActions.apply(typed)
+          } else if (pressed(e, 'field.leave')) {
+            e.preventDefault()
+            renameActions.cancel()
+          }
+        }}
+        onBlur={() => {
+          if (refused === null) renameActions.cancel()
+        }}
+      />
+      {refused !== null && (
+        <span className="layer-rename-why" id="layer-rename-why" role="alert">
+          {refused}
+        </span>
+      )}
+    </>
+  )
+}
+
+/** A pencil: rename. */
+function RenameIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10.5 2.75 13.25 5.5 5.5 13.25H2.75V10.5Z" />
+      <path d="M9 4.25 11.75 7" />
+    </svg>
   )
 }
 

@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readFile, rm, rmdir, stat as statFile, writeFile } from 'node:fs/promises'
 import { basename, isAbsolute, join } from 'node:path'
 import type { Vec3 } from '../../shared/marks'
+import { renamedIn } from '../../shared/rename'
 import { type AlignmentCheck, type Reimported, type Scan, type ScanAlignment, type ScanInfo, type ScanUnit, type ScanUp, type ScansFile, UNIT_MM } from '../../shared/scans'
 import { aligned, checked, held, undone } from './alignments'
 import { loadScansFile, sanitiseScan, saveScansFile, scanName } from './file'
@@ -389,6 +390,27 @@ export class ScanStore {
     } finally {
       busy.delete(id)
     }
+  }
+
+  /** The part `from` of the model is now `to` (`main/rename.ts`): what the scans' alignments say of it follows, in one change. How many names it changed. */
+  renamePart(objectId: string, from: string, to: string): Promise<number> {
+    return this.of(objectId, (place) =>
+      this.turn(place, async (current, dir) => {
+        let count = 0
+        const file = structuredClone(current)
+        file.scans = file.scans.map((scan) => {
+          const renamed = renamedIn(scan, from, to)
+          count += renamed.count
+          return renamed.value
+        })
+        if (count === 0) return 0
+        await saveScansFile(dir, file)
+        this.keep(place, file)
+        const scans = await this.told(dir, file)
+        if (place.epoch === this.epoch) this.emit('changed', { objectId: place.objectId, scans })
+        return count
+      })
+    )
   }
 
   rename(objectId: string, id: string, name: string): Promise<ScanInfo> {

@@ -24,6 +24,8 @@ import { buildContextFor, contextFor, type ContextDeps, type PromptContext } fro
 import { startKernel } from '../kernel/client'
 import type { Scene } from '../../shared/scene'
 import { listReferences } from './reference'
+import { takeNotices } from '../notices'
+import { keepRenameNotice } from '../rename'
 import type { BuildVerdicts } from '../verdicts'
 
 // The session manager with a real PTY and a real HTTP server; only the agent is
@@ -1355,6 +1357,8 @@ describe('the transcript of a chat session', () => {
   let marksPerCall: string[][] = []
   let hooks = 0
   let handedOver: (() => void) | undefined
+  /** The folder whose notices for the next prompt (`takeNotices`) the hook tells, as `index.ts` does. */
+  let noticesOf: string | undefined
   let picture: ((obj: ObjectInfo) => Promise<Uint8Array>) | undefined
   let attacher: ((objectId: string, ids: string[] | 'all') => Promise<BoardAttachment>) | undefined
   /** The draft view notes the project has, in mark order. */
@@ -1379,6 +1383,10 @@ describe('the transcript of a chat session', () => {
       adapter: claudeAdapter(`node ${FAKE}`),
       viewFor: () => 'chat',
       contextFor: async () => {
+        if (noticesOf !== undefined) {
+          const notice = await takeNotices(noticesOf)
+          return { text: notice?.text ?? '', sentMarkIds: [], ...(notice ? { delivered: notice.done } : {}) }
+        }
         const ids = marksPerCall[hooks++] ?? marks
         return { text: tracingsTold ? 'tracings: T1 (new to you). Read them with tracings.' : boardTold ? 'Board: 1 card (1 new: C1 text). Read it with board.' : ids.length > 0 ? `Marks: ${ids.join(' ')}` : handedOver ? 'A notice of main\'s' : '', sentMarkIds: ids, ...(handedOver ? { delivered: handedOver } : {}), ...(boardTold ? { boardTold } : {}), ...(tracingsTold ? { tracingsTold } : {}), ...(boardTold && boardCounts ? { board: boardCounts } : {}) }
       },
@@ -1404,6 +1412,7 @@ describe('the transcript of a chat session', () => {
     marksPerCall = []
     hooks = 0
     handedOver = undefined
+    noticesOf = undefined
     picture = undefined
     attacher = undefined
     drafted = []
@@ -1499,6 +1508,20 @@ describe('the transcript of a chat session', () => {
     await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
     expect(c.items().find((i) => i.kind === 'context')).toMatchObject({ text: 'A notice of main\'s' })
     expect(seen).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells Claude of a rename of a part with the next prompt, once', async () => {
+    const c = await start()
+    await keepRenameNotice(c.obj.dir, { from: 'shell', to: 'front case', files: ['model.py'], at: new Date().toISOString() })
+    noticesOf = c.obj.dir
+    await c.send('say first')
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(1)
+    const said = 'The person renamed the part shell to front case in model.py; keep the new name.'
+    expect(c.items().filter((i) => i.kind === 'context')).toMatchObject([{ text: said }])
+    await expect.poll(() => existsSync(join(c.obj.dir, '.torno', 'renamed.json')), { timeout: 5000 }).toBe(false)
+    await c.send('say second')
+    await expect.poll(() => c.turns(), { timeout: 5000 }).toBe(2)
+    expect(c.items().filter((i) => i.kind === 'context' && i.text.includes('renamed'))).toHaveLength(1)
   })
 
   it('keeps what a turn changed in the .py files of the folder, in memory, and tells it by the id of the turn', async () => {

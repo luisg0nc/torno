@@ -55,6 +55,6 @@ it('draws every cap of the keyboard in a place, with its width and whether it is
   const drawn = drawnKeyboard('Viewport')
   expect(drawn.map((line) => line.length)).toEqual(KEYBOARD.map((line) => line.length))
   const space = drawn.flat().find((cap) => cap.label === 'Space')!
-  expect([space.w, space.mod, space.does]).toEqual([4, true, null])
+  expect([space.w, space.mod, space.does]).toEqual([2.75, true, null])
   expect(drawn.flat().find((cap) => cap.label === 'F6')!.does).toBe('next pane')
 })

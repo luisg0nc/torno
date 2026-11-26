@@ -101,6 +101,10 @@ def run(
         from . import faceprints
 
         return faceprints.face_prints(shapes, args)
+    if name == "part_sites":
+        from . import names
+
+        return names.query(shapes, args, kept)
     if name == "nearest":
         layout, anchors = args.get("layout"), args.get("anchors")
         if not isinstance(layout, str) or not isinstance(anchors, list):
@@ -112,7 +116,7 @@ def run(
         "bad_request",
         f"unknown query {name!r}; the queries are describe, nearest, measure, section, check, "
         "scan_clash, scan_deviation, scan_section, export, export_check, features, try_fillet, match_edges, "
-        "selectors, refind and face_prints",
+        "selectors, refind, face_prints and part_sites",
     )
 
 

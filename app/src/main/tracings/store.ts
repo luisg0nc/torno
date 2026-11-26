@@ -3,6 +3,7 @@ import { number } from '../../shared/format'
 import { type LineupPair, type LineupSnap, MOST_PAIRS, SIMILAR_NEEDS, STRAIGHT_NEEDS, fitSimilar, fitStraight, transformKey } from '../../shared/lineup'
 import type { Vec3 } from '../../shared/marks'
 import { faceLabel } from '../../shared/planes'
+import { renamedIn } from '../../shared/rename'
 import {
   LAYER_COLOURS,
   MAX_LAYER_NAME,
@@ -242,6 +243,19 @@ export class TracingStore {
   }
 
   /** What is wrong with the tracings file of a project, as a sentence, or null: told once as a `problem` event, and the same here until dismissed. */
+  /** The part `from` of the model is now `to` (`main/rename.ts`): the tracings that cut it or lie on its face follow, in one change. How many names it changed. */
+  renamePart(objectId: string, from: string, to: string): Promise<number> {
+    return this.change(objectId, (file) => {
+      let count = 0
+      file.tracings = file.tracings.map((tracing) => {
+        const renamed = renamedIn(tracing, from, to)
+        count += renamed.count
+        return renamed.value
+      })
+      return count
+    })
+  }
+
   problem(objectId: string): Promise<string | null> {
     return this.turn(objectId, (_file, dir) => this.problems.get(dir) ?? null)
   }

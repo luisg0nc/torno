@@ -33,13 +33,13 @@ const NOTICE_TEXT = 60
 const MOST_NOTICE_PROMPTS = 200
 
 /** A `.py` file of this project's own folder, as a path from the workspace with `/`: no way out of it, no hidden part. */
-function ownFile(own: string, file: unknown): file is string {
+export function ownFile(own: string, file: unknown): file is string {
   if (typeof file !== 'string' || !file.endsWith('.py') || file.includes('\\') || file.includes('\0') || posix.normalize(file) !== file) return false
   const parts = file.split('/')
   return parts[0] === own && parts.length >= 2 && parts.every((part) => part !== '' && !part.startsWith('.'))
 }
 
-const absolute = (obj: ObjectInfo, file: string): string => join(dirname(obj.dir), ...file.split('/'))
+export const absolute = (obj: ObjectInfo, file: string): string => join(dirname(obj.dir), ...file.split('/'))
 const bytesOf = (path: string): Promise<Buffer | null> => readFile(path).catch(() => null)
 const equal = (a: Buffer | null, b: Buffer | null): boolean => (a === null || b === null ? a === b : a.equals(b))
 
@@ -158,7 +158,7 @@ export async function planGoBack(obj: ObjectInfo, to: string): Promise<GoBackPla
 const sameList = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((file, i) => file === b[i])
 
 /** Why a file may not be written or removed, or null. A link, a folder or anything not a plain file is not. */
-async function unfit(obj: ObjectInfo, file: string, mustExist: boolean): Promise<string | null> {
+export async function unfit(obj: ObjectInfo, file: string, mustExist: boolean): Promise<string | null> {
   const path = absolute(obj, file)
   if (!isInsideFolder(obj.dir, path)) return 'it is not inside the project'
   const here = await lstat(path).catch((e: NodeJS.ErrnoException) => (e.code === 'ENOENT' ? null : e))

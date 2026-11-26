@@ -20,8 +20,10 @@ import { rebuildKept } from './oldbuild'
 import { BuildLog, sourcesHash } from './buildlog'
 import { RecentMeshes } from './meshes'
 import { type GoBackPlan, type GoBackResult, applyGoBack, entryBefore, planGoBack } from './goback'
+import { type PartSites, renamePart } from './rename'
 import { History, type KeptCause, keptCause, readHistory, readHistoryDrawnGone, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
 import { type HistoryEntry, type HistoryGhost, type HistoryList, drawable } from '../shared/history'
+import type { RenameResult } from '../shared/rename'
 import type { Verdict } from '../shared/sanity'
 import { gitStateRecently } from './git'
 import { keepExample } from './example'
@@ -109,7 +111,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
 //           board:read, board:change, board:tie, board:picture, board:brief, board:reference, board:addPicture, board:pin, board:open, board:openLink,
 //           board:problem, board:dismissProblem, board:seen, board:markSeen, board:aside, board:useAside, board:undoAside, board:letGoAside,
 //           workspace:refresh, workspace:recent, workspace:forget, workspace:hasExample, workspace:openExample, workspace:keepExample,
-//           object:open, object:rebuild, object:sceneFile,
+//           object:open, object:rebuild, object:renamePart, object:sceneFile,
 //           session:current, session:start, session:trust, session:instructions, session:revealInstruction, session:stop, session:chooseView,
 //           chat:history, chat:lastConversation, chat:prompts, chat:conversation, chat:reference, chat:changes, chat:undo, chat:send, chat:interrupt, chat:setModel, chat:setEffort, chat:models, profile:choices, profile:savePrinter, profile:saveMaterial, profile:get, profile:set,
 //           marks:list, marks:add, marks:update, marks:acknowledge, marks:remove, marks:restore, marks:replace, marks:sketch, marks:span, marks:offset, marks:sketchPicture, marks:round, marks:rounds, marks:setIntent, marks:roundOut, marks:judge, marks:problem (also sent to the renderer),
@@ -969,6 +971,30 @@ export function registerIpc(
 
   handle('object:rebuild', (_event, id: string) => {
     requireWorkspace().builds.rebuild(id)
+  })
+
+  // Rename a part by hand (`main/rename.ts`): with Go back, the one place torno writes the model.
+  handle('object:renamePart', async (_event, id: string, from: unknown, to: unknown): Promise<RenameResult> => {
+    const ws = requireWorkspace()
+    const obj = findObject(String(id))
+    if (!obj) return { done: false, refused: 'That project is not open.' }
+    const result = await renamePart(obj, { from, to }, {
+      scene: () => lastScene(obj.id)?.scene,
+      sites: (part, name) => ws.builds.query<PartSites>(obj.id, 'part_sites', { part, to: name }),
+      builds: ws.builds,
+      sourcesBuilt: async () => {
+        const last = lastScene(obj.id)
+        const made = last ? buildIdentity(obj.id, last.revision) : undefined
+        return made !== undefined && made.sources === (await sourcesHash(obj.dir, last?.scene.uses))
+      },
+      busy: () => sessions?.busyWith(obj.id, 'rename') ?? null,
+      follow: async (was, now) => {
+        const moved = await Promise.allSettled([marks?.renamePart(obj.id, was, now), sets?.renamePart(obj.id, was, now), tracings?.renamePart(obj.id, was, now), scans?.renamePart(obj.id, was, now)])
+        for (const m of moved) if (m.status === 'rejected') console.error(`after renaming ${was} to ${now} in ${obj.id}: ${m.reason instanceof Error ? m.reason.message : String(m.reason)}`)
+      }
+    })
+    if (result.done) sessions?.noteGoBack(obj.id, `You renamed the part ${String(from)} to ${result.to} in the model. Claude is told with your next prompt.`)
+    return result
   })
 
   handle('object:setParam', async (_event, id: string, name: string, value: unknown) => {

@@ -659,7 +659,18 @@ a click with Select would, so "Insert in prompt" and "Note" work on it) and a do
 the row shows only that part, and when some parts are switched off the title says `3 hidden · Show all`. A build whose parts replace every part you were looking at (the first model of a new project) shows its parts, even under a name you had switched off, and says none of them is hidden. A part that
 is switched off says `hidden` at the right of its row, with its colour faint. The slider for its opacity, the target and the
 eye are on the row while the pointer is on it or the keys are, as a group's header (in the sans, since the name is the model's) has
-its own. After the name, a small ring holds the number of open marks on the part (in the colour of a failing check when one of
+its own. **Renaming a part.** The pencil on the row, or `F2` on its name, makes the name a field: type the new one and press
+`Enter` (`Esc` leaves it as it was). torno writes the new name into the model itself, where the model writes it as a plain name:
+the key of `assembly(p)`, `printables(p)` or `references(p)` and the same name in `groups(p)`, `tags(p, parts)` and `checks(p)`,
+or, for a model of `make_<part>(p)` functions, the function's name and its uses (the new name is then a Python name). It builds
+again, your marks, named sets, tracings, scans and saved views that name the part follow it, and Claude is told once, with your
+next prompt, so that it keeps the new name. It says why not, under the field, when the name is built from a variable or an
+f-string, comes from another file or from `common/`, is written somewhere else that may not be this part (a label, a print,
+a keyword of a call other than `dict(...)`),
+or when the new name is empty, has a `/`, a `:` or the form `M3`, or is another part's or group's (in the build, or already
+written in the model since); and while Claude is working, a build runs, or the last build failed or is not of your latest save.
+If one of the files cannot be written, or you save one while torno writes, those it wrote are put back and nothing is renamed.
+The builds kept before keep the old name. After the name, a small ring holds the number of open marks on the part (in the colour of a failing check when one of
 them is one); a click on it lists only those marks in Marks, under a line `Only marks on lid` with a cross that brings the
 rest back. That is a view of the list: the agent is told every mark as before. It works the other way too: the pointer on a part
 in the view lights its row, and the rows of its marks and of its checks, with the accent wash and a bar at the left, instead of
@@ -1336,6 +1347,9 @@ M1 distance 6 mm between planes, plate/F2 to plate/F4 (expected 8 ± 0.05: FAIL,
 Open marks: M2 (moved), M6 (unchecked)
 ```
 
+- After a Go back, or after you renamed a part, a line of that comes first, once: `The person renamed the part shell to
+  front case in model.py; keep the new name.` It goes with the next prompt, in a new conversation too, and is gone once
+  a prompt has carried it.
 - The first line is the build: for a failed build it carries the error; for
   a project that is not the one open in the window it says so, and names no
   layout; with the parts drawn apart it says `exploded 40 % along z (display
@@ -2602,6 +2616,7 @@ and it holds the line of what the agent points at. The window remembers what it 
 | Everywhere | `Ctrl+Tab` | The model, the brief and a tracing, in turn |
 | Everywhere | `Right` | On a tab of the bench: the next tab |
 | Everywhere | `Left` | On a tab of the bench: the tab before |
+| Everywhere | `F2` | Rename the part whose name has the focus in the Parts tab: torno writes the new name into the model |
 | Viewport | `/` | Find a value: to the find box of the Parameters tab, opening the tab |
 | Viewport | `V` | Select: click a face or an edge, double-click for its part; Shift-click adds or takes out. The choice by the selection says what a click takes |
 | Viewport | `M` | Measure: two clicks, or a double click on a round thing; nothing is kept unless you keep it |
@@ -2717,11 +2732,13 @@ repository.
 
 ## Files torno writes
 
-Inside a workspace torno writes only under `<project>/.torno/`, with two exceptions. One: "Create" on the page of a new
+Inside a workspace torno writes only under `<project>/.torno/`, with three exceptions. One: "Create" on the page of a new
 project (see "Making a new project") writes the new project's folder, `<name>/<module>.py`, `brief.md` and `reference/`.
 Those are the project's own, in git like its model, and torno never writes into them again. Two: "Go back to before this prompt"
 (see "The chat") writes and deletes `.py` files of the open project's own folder, after you have confirmed what it names, each
-whole or not at all; it never writes `common/` or another project's folder. It writes under `.torno/` only when
+whole or not at all; it never writes `common/` or another project's folder. Three: renaming a part (see "Projects and builds", the Parts tab) writes
+the new name into the `.py` files of the open project's own folder where the model writes the old one, each file whole or not
+at all, after checking that the file is what the kernel read. It writes under `.torno/` only when
 that is a real folder inside the project: where a link or a file is in its
 place (a workspace copied from elsewhere may hold one) torno writes nothing
 there, and says so once in the Marks block of the Brief page, until a real folder is put in its
@@ -2749,6 +2766,7 @@ place.
 | `builds.jsonl` | a line for each build that worked: its revision, when, the run of torno it was made in (revisions count from 1 in every run), a hash of the sources it was made from, and the commit then checked out and whether files differed from it; the last 500 | ignored |
 | `history/` | the builds kept: for each build that worked (not again for sources the newest kept build was made from) a copy of the Python files it was made from, its scene without the meshes, a small picture, and an index of them with an id such as `h41`, which counts on across runs; the latest 100 and every one you star. An entry also says what caused the build (`cause`: `agent`, `person`, `params`, `goback` or `unknown`, which is every entry kept before this was said), the prompt it came out of (`turn`: the conversation and the id of the prompt, with its first 200 characters), the Params you tried (`tried`), `failed` with the line of the error for a build that failed (an entry with no copies, picture or scene), `wentBackTo` for the build after a Go back, and `undone` for a build a later Go back undid. These are written by torno alone. The copies are read back into your files only by "Go back to before this prompt" | ignored |
 | `goback.json` | what the next prompt tells Claude after a Go back: the build the files were put back to, and the prompts it undid. Removed when a prompt has carried it | ignored |
+| `renamed.json` | what the next prompt tells Claude after you renamed a part: the old name, the new one and the files written. Removed when a prompt has carried it | ignored |
 | `views/<n>.png` | the pictures and section drawings the agent asked for, the latest 20 | ignored (a picture of a scan may show the real world) |
 | `exports/` | where the save dialog of an export opens; empty unless you save there | ignored |
 
@@ -3277,3 +3295,4 @@ With a real agent:
 - **Claude reading the brief.** The real agent understands the line every prompt carries, reads the brief with `board`, and works through it after "Send with the next prompt"; what it adds with `add_card` (a note, a size, a rule, a picture of the view) has the green edge and never changes yours. Tests used the stand-in, which says each line it is given.
 - **The Brief by eye, in dark and in light.** The ledger of sizes with its gauges and the dashed "nothing checks this" rows, the rules, the notes, the green edge of Claude's rows, the pictures opened large, and the Checks and Marks blocks are legible and quiet in both themes, with a project of a dozen cards and with one of 200 marks, whose Marks block opens and scrolls without a stall. Tests used a handful of marks and a count of how many times the page is drawn.
 - **A brief file that cannot be read, and a pull.** Break `board.json` (conflict markers) and open the project: the Brief is empty and a notice at its head says where the old file was kept, with "Dismiss". Pull a change of `board.json` made elsewhere, then add a note: the pulled cards show with it. Tests wrote the file themselves and looked at the notice in a hidden window only.
+- **Renaming a part, by eye and with the real CLI (#359).** The pencil on a row of Parts and `F2` on a name, the field in the row, a refusal said under it and the row growing to hold it, in a narrow card and in both themes; the model rewritten in your own editor while it is open there; and that the real agent, told "The person renamed the part shell to front case in model.py; keep the new name.", keeps the new name in the next edit. Tests used a hidden window and the stand-in.

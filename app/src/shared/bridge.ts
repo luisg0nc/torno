@@ -1,3 +1,4 @@
+import type { RenameResult } from './rename'
 import type { AskAnswer, OpenAsk } from './ask'
 import type { BoardAttach, BoardFile, BoardOpen, PersonChange, PinWhat } from './board'
 import type { BuildState } from './build'
@@ -275,6 +276,13 @@ export interface TornoBridge {
   object: {
     open(id: string): Promise<BuildState>            // starts watching and building
     rebuild(id: string): Promise<void>
+    /**
+     * Renames the part `from` of the model to `to` (#359): main writes the new name where the model names the part, builds
+     * again, has the marks, named sets, tracings and scans that name it follow, and tells Claude with the next prompt.
+     * Resolves with `refused` and a sentence when it cannot (Claude is working, a build runs, a name it will not take, a
+     * name the model does not write plainly).
+     */
+    renamePart(id: string, from: string, to: string): Promise<RenameResult>
     /**
      * Try `value` for a field of the model's `Params` in place of the file's default (kept in `.torno/params.json`;
      * the model is never written) and build again. Rejects, saying why, for a field the model does not offer.

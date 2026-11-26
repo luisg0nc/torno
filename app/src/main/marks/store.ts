@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { type Anchor, type AnchorState, type DimensionMark, type Mark, type MarkPatch, type MarksFile, type DimensionSample, type Measurement, type NewMark, type NewNote, type NewStroke, type NoteMark, type NotePatch, type OffsetMark, type Replacement, type ReviewIntent, type RegionMark, type SketchMark, type Vec3, MAIN_ONLY_KEYS, MAX_NOTE, MEASURED_KEYS, MOST_STROKE_NUMBER, REGION_KEYS, SKETCH_PICTURE, markAnchors, markPoints, translated } from '../../shared/marks'
 import type { SketchDraft } from '../../shared/bridge'
 import { withSample } from '../../shared/dimension'
+import { renamedIn } from '../../shared/rename'
 import { type RegionStats, maskStem } from '../../shared/regions'
 import { type Round, type RoundsView, carriedRound, openRound, roundItems } from '../../shared/reviews'
 import { type Tracing, type TracingPlane, inPlane, planeDistance, planeNormal } from '../../shared/tracings'
@@ -664,6 +665,22 @@ export class MarkStore {
    * none, when one of them is not a mark the agent resolved (the refusal names it). Each is checked as
    * `update` checks one; an id named twice is one.
    */
+  /**
+   * The part `from` of the model is now `to` (a rename by hand, `main/rename.ts`): every mark that names it, by its part or a ref,
+   * follows in one change (`renamedIn`); nothing a person or Claude wrote is touched. How many names it changed; 0 writes nothing.
+   */
+  renamePart(objectId: string, from: string, to: string): Promise<number> {
+    return this.change(objectId, (file) => {
+      let count = 0
+      file.marks = file.marks.map((mark) => {
+        const renamed = renamedIn(mark, from, to)
+        count += renamed.count
+        return renamed.value
+      })
+      return count === 0 ? UNCHANGED : count
+    }).then((count) => (count === UNCHANGED ? 0 : count))
+  }
+
   acknowledge(objectId: string, ids: readonly string[]): Promise<Mark[]> {
     return this.change(objectId, (file) =>
       [...new Set(ids.map(String))].map((id) => {
