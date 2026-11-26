@@ -63,12 +63,18 @@ export interface TokenCount {
 }
 
 /**
- * What a turn used, from the `result` that ended it (`usage`, `modelUsage`, `num_turns`): numbers only, kept with the
- * turn in the chat's log. `models` is the same count for each model, where the CLI split it.
+ * What a turn used, from the `result` that ended it: numbers only, kept with the turn in the chat's log. The counts
+ * are `usage`'s: this turn's, of the main agent alone. `costUsd` and `models` are what the CLI's running totals
+ * (`total_cost_usd`, `modelUsage`) grew by over the turn, so its subagents and compactions are in them; both are
+ * absent for the first turn of a resumed conversation, whose totals cannot be split from what earlier processes spent.
  */
 export interface TurnUsage extends TokenCount {
-  /** Requests to the model in the turn (`num_turns`). */
+  /** The turns of the agent in it, as the CLI counts them (`num_turns`). */
   requests?: number
+  /** The CLI's estimate of what this turn cost, in US dollars. */
+  costUsd?: number
+  /** The CLI's running total when the turn ended (`total_cost_usd`), as it said it: what a first turn after a resume can be worked out from. */
+  sessionCostUsd?: number
   models?: Record<string, TokenCount>
 }
 

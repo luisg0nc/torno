@@ -1040,6 +1040,55 @@ describe('what the CLI says of itself (#116)', () => {
     expect(of(t, 'turn')[2]).not.toHaveProperty('usage')
   })
 
+  // The recorded streams: three `result`s of one process each. `usage` is the turn's own; `total_cost_usd` and `modelUsage` are totals so far.
+  const results = (stream: AgentMessage[]): Array<Record<string, unknown>> => stream.filter((m) => m.type === 'result') as Array<Record<string, unknown>>
+  const played = (stream: AgentMessage[], opts: ConstructorParameters<typeof Transcript>[0] = {}): Array<Extract<ChatItem, { kind: 'turn' }>> => {
+    const t = new Transcript(opts)
+    for (const m of results(stream)) t.message(m as AgentMessage)
+    return of(t, 'turn')
+  }
+
+  it('gives each turn its own cost and its own count of each model, from the running totals of the recorded results (#127)', () => {
+    const turns = played(FIXTURE)
+    expect(turns).toHaveLength(3)
+    const totals = results(FIXTURE).map((r) => r.total_cost_usd as number)
+    expect(turns.map((turn) => turn.usage!.costUsd)).toEqual([totals[0], totals[1] - totals[0], totals[2] - totals[1]])
+    expect(turns.map((turn) => turn.usage!.sessionCostUsd)).toEqual(totals)
+    // No subagent and no compaction in this one: each model's count of a turn is the turn's own.
+    for (const turn of turns) {
+      const { input, output, cacheRead, cacheCreation } = turn.usage!
+      expect(turn.usage!.models).toEqual({ 'claude-haiku-5-5': { input, output, cacheRead, cacheCreation } })
+    }
+    expect(turns.map((turn) => turn.usage!.requests)).toEqual([2, 2, 3])
+    expect(turns.map((turn) => turn.seconds)).toEqual([5.1, 3.2, 4])
+  })
+
+  it('counts on a /compact what the compaction used, which its result says only in the totals (#127)', () => {
+    const turns = played(ASKS)
+    const compact = turns[2].usage!
+    expect(compact).toMatchObject({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0, requests: 0 })
+    expect(compact.models).toEqual({ 'claude-haiku-5-5': { input: 2072, output: 920, cacheRead: 29246, cacheCreation: 227 } })
+    expect(compact.costUsd).toBeCloseTo(0.000988035, 12)
+  })
+
+  it('claims no cost and no count by model for the first turn of a resumed conversation: its totals hold what earlier processes spent (#127)', () => {
+    const turns = played(FIXTURE, { resumed: true })
+    expect(turns[0].usage).toEqual({ input: 4, output: 454, cacheRead: 38193, cacheCreation: 16582, requests: 2, sessionCostUsd: results(FIXTURE)[0].total_cost_usd })
+    expect(turns[1].usage!.costUsd).toBeCloseTo(0.00079227, 12)
+    expect(turns[1].usage!.models).toEqual({ 'claude-haiku-5-5': { input: 4, output: 169, cacheRead: 58637, cacheCreation: 605 } })
+  })
+
+  it('counts from nothing again when the totals went down, as after /clear (#127)', () => {
+    const t = new Transcript()
+    const says = (cost: number, n: number): void => void t.message(result({ total_cost_usd: cost, usage: { input_tokens: n }, modelUsage: { m: { inputTokens: n, outputTokens: 0 } } }))
+    says(0.5, 100)
+    says(0.2, 7)
+    expect(of(t, 'turn')[1].usage).toMatchObject({ costUsd: 0.2, models: { m: { input: 7, output: 0, cacheRead: 0, cacheCreation: 0 } } })
+    // A model the turn did not use is left out of it.
+    t.message(result({ total_cost_usd: 0.3, usage: { input_tokens: 1 }, modelUsage: { m: { inputTokens: 7 }, other: { inputTokens: 3 } } }))
+    expect(Object.keys(of(t, 'turn')[2].usage!.models!)).toEqual(['other'])
+  })
+
   it('never throws at what it does not know', () => {
     const t = new Transcript({ plugin: PLUGIN, tested: TESTED })
     expect(() => {

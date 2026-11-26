@@ -2583,7 +2583,7 @@ place.
 | `scans/<id>/mesh.bin`, `<mark>.mask` | the scan as torno draws and checks it, and the triangles of each region | the meshes are ignored (`scans/.gitignore`): a clone has the record, and the row offers "Import again" |
 | `profile.json` | the printer and material the project is made for (a copy of your choice in the print profile chip) | travels with the project |
 | `agent.json` | whether Claude Code is shown as a chat or a terminal; without it, in a chat | travels |
-| `chat/<conversation>.jsonl` | what a chat session said and did, as text (a turn's line holds the tokens it used, as numbers); no picture data, no address (a picture of `reference/` by its path) | ignored |
+| `chat/<conversation>.jsonl` | what a chat session said and did, as text (a turn's line holds what it took, as numbers: its `seconds`, and under `usage` the tokens in, out, cache read and cache written of the main agent, the turns as the CLI counts them (`requests`), the CLI's estimate of the turn's cost in US dollars (`costUsd`), its running total (`sessionCostUsd`) and the tokens by model with subagents and compactions in them (`models`); the first turn after a resume has no `costUsd` and no `models`, as the CLI's totals then hold earlier spend too; a terminal session records nothing); no picture data, no address (a picture of `reference/` by its path) | ignored |
 | `session.json` | the conversation to resume | ignored |
 | `state.md` | the build, the parts, the checks of the model, the views, the scans and the open marks as text | ignored |
 | `thumb.png`, `thumb.json` | the card's picture, and what it is of | ignored |
