@@ -6,7 +6,7 @@ import { giveKeysBack } from './typing'
 import { number } from '../../shared/format'
 import { numbered } from './numbered'
 import { markNumbered, markWords, wordsOf } from './markWords'
-import { splitSource } from '../../shared/params'
+import { splitSource, unitMark, unitTight, withUnit } from '../../shared/params'
 import { bakeText, paramRow, tried, type ParamRow } from './paramRows'
 import { gaugeSaid } from './card/gaugeWindow'
 import { driveNote, leave, restOn, useDrives } from '../state/drives'
@@ -177,6 +177,22 @@ function ParamItem({ row, canInsert, words, rest, set, reset }: { row: ParamRow;
     set(whole ? Math.round(n) : n)
   }
   const label = `Try ${row.name}`
+  const unit = unitMark(row.unit)
+  const inUnit = (text: string | number): string => withUnit(String(text), row.unit)
+  // The unit is the field's, never part of the value typed; a press on it is a press on the field.
+  const unitSaid = unit !== '' && (
+    <span
+      className="param-unit"
+      data-tight={unitTight(unit) ? '' : undefined}
+      aria-hidden={current !== null ? true : undefined}
+      onMouseDown={(e) => {
+        e.preventDefault()
+        e.currentTarget.parentElement?.querySelector<HTMLElement>('[data-param-field]')?.focus()
+      }}
+    >
+      {unit}
+    </span>
+  )
   const standing = typeof current === 'number' ? (Number.isFinite(Number(draft)) && draft.trim() !== '' ? Number(draft) : current) : null
   const name = <span className="param-name num">{markWords(row.name, words)}</span>
   return (
@@ -228,8 +244,9 @@ function ParamItem({ row, canInsert, words, rest, set, reset }: { row: ParamRow;
           {row.word}
         </span>
         {current === null ? (
-          <span className="param-value num" title={row.worked ? `Worked out in the model${row.full ? `: ${row.full}` : ''}` : (row.full ?? undefined)}>
+          <span className="param-value num" title={row.worked ? `Worked out in the model${row.full ? `: ${inUnit(row.full)}` : unit !== '' ? `, in ${row.unit}` : ''}` : row.full ? inUnit(row.full) : undefined}>
             {row.value}
+            {unitSaid}
           </span>
         ) : (
           <span className="param-field" data-kind={row.editable ?? undefined} data-assumed={row.source === 'assumed' ? '' : undefined} data-tried={row.file !== null ? '' : undefined}>
@@ -257,7 +274,8 @@ function ParamItem({ row, canInsert, words, rest, set, reset }: { row: ParamRow;
                 className="param-input num"
                 data-param-field=""
                 aria-label={label}
-                title={shown !== String(current) ? String(current) : undefined}
+                aria-description={unit !== '' ? `in ${row.unit}` : undefined}
+                title={unit !== '' || shown !== String(current) ? inUnit(String(current)) : undefined}
                 value={draft}
                 min={min}
                 max={max}
@@ -275,6 +293,7 @@ function ParamItem({ row, canInsert, words, rest, set, reset }: { row: ParamRow;
                 }}
               />
             )}
+            {unitSaid}
           </span>
         )}
       </div>
@@ -288,13 +307,15 @@ function ParamItem({ row, canInsert, words, rest, set, reset }: { row: ParamRow;
           )}
           {ranged && typeof current === 'number' && (
             <span className="param-number">
-              <span className="num">{min}</span>
+              <span className="num">{inUnit(min)}</span>
               <span className="param-track">
-                {row.file !== null && <span className="param-was" style={{ left: `${along(Number(row.file), min, max) * 100}%` }} title={`The file's ${row.file}`} />}
+                {row.file !== null && <span className="param-was" style={{ left: `${along(Number(row.file), min, max) * 100}%` }} title={`The file's ${inUnit(row.file)}`} />}
                 <input
                   type="range"
                   className="param-slider"
                   aria-label={`${label} (slider)`}
+                  aria-valuetext={unit !== '' ? inUnit(standing ?? current) : undefined}
+                  title={unit !== '' ? inUnit(standing ?? current) : undefined}
                   min={min}
                   max={max}
                   step={step ?? (whole ? 1 : (max - min) / 100)}
@@ -304,15 +325,15 @@ function ParamItem({ row, canInsert, words, rest, set, reset }: { row: ParamRow;
                   onKeyUp={(e) => take(e.currentTarget.value)}
                 />
               </span>
-              <span className="num">{max}</span>
+              <span className="num">{inUnit(max)}</span>
             </span>
           )}
           {row.file !== null && (
             <span className="param-differs">
               <span>
-                Kept by torno, not in the model file yet. The file has <span className="num">{row.file}</span>.
+                Kept by torno, not in the model file yet. The file has <span className="num">{inUnit(row.file)}</span>.
               </span>
-              <button type="button" className="button button-quiet" aria-label={`Reset ${row.name} to ${row.file}`} title={`Back to the file's ${row.file}`} onClick={reset}>
+              <button type="button" className="button button-quiet" aria-label={`Reset ${row.name} to ${row.file}`} title={`Back to the file's ${inUnit(row.file)}`} onClick={reset}>
                 Reset
               </button>
             </span>

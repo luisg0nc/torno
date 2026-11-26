@@ -48,7 +48,8 @@ describe('the body of the Parameters section', () => {
     const out = html()
     expect([...out.matchAll(/data-param="([^"]+)"/g)].map((m) => m[1])).toEqual(['wall', 'inner', 'ribs', 'label'])
     // A value that is not offered to try is plain text in the value's place; one that is has a field (below).
-    expect(out).toContain('<span class="param-value num">2.4</span>')
+    // A float's unit is mm; a whole number and a text have none.
+    expect(out).toContain('<span class="param-value num">2.4<span class="param-unit">mm</span></span>')
     expect(out).toContain('<span class="param-value num">4</span>')
     expect(out).toContain('<span class="param-value num">&quot;M3&quot;</span>')
   })
@@ -61,7 +62,7 @@ describe('the body of the Parameters section', () => {
     expect(out.match(/data-worked=""/g)).toHaveLength(1)
     const inner = out.slice(out.indexOf('data-param="inner"'), out.indexOf('data-param="ribs"'))
     expect(inner).toContain('data-worked')
-    expect(inner).toContain('title="Worked out in the model"')
+    expect(inner).toContain('title="Worked out in the model, in mm"')
     expect(inner).toContain('18.4')
     expect(out.slice(out.indexOf('data-param="wall"'), out.indexOf('data-param="inner"'))).not.toContain('data-worked')
   })
@@ -70,7 +71,7 @@ describe('the body of the Parameters section', () => {
     store.setState({ scene: scene(PARAMS), column: COLUMN_DEFAULT, objectId: 'o', sessions: {} })
     const out = html()
     expect(out).not.toContain('<button type="button" class="param-button"')
-    expect(out).toContain('aria-description="Params.wall: float = 2.4. Clearance 0.2 mm, M3. Start a session to put Params.wall in its prompt"')
+    expect(out).toContain('aria-description="Params.wall: float = 2.4 mm. Clearance 0.2 mm, M3. Start a session to put Params.wall in its prompt"')
   })
 
   it('has a button for each row, named for the text it puts in the prompt, while a session runs', () => {
@@ -78,7 +79,7 @@ describe('the body of the Parameters section', () => {
     const out = html()
     expect(out.match(/<button type="button" class="param-button"/g)).toHaveLength(PARAMS.length)
     expect(out).toContain('aria-label="Params.wall"')
-    expect(out).toContain('aria-description="Params.wall: float = 2.4. Clearance 0.2 mm, M3. Put it in the session&#x27;s prompt"')
+    expect(out).toContain('aria-description="Params.wall: float = 2.4 mm. Clearance 0.2 mm, M3. Put it in the session&#x27;s prompt"')
   })
 
   const OFFERED: Param[] = [
@@ -123,7 +124,10 @@ describe('the body of the Parameters section', () => {
     const out = html()
     const wall = out.slice(out.indexOf('data-param="wall"'), out.indexOf('data-param="ribs"'))
     expect(wall).toContain('data-tried')
-    expect(wall).toContain('Kept by torno, not in the model file yet. The file has <span class="num">2</span>.')
+    expect(wall).toContain('Kept by torno, not in the model file yet. The file has <span class="num">2 mm</span>.')
+    // In a field the unit is beside the input, whose own description says it.
+    expect(wall).toContain('aria-description="in mm"')
+    expect(wall).toContain('<span class="param-unit" aria-hidden="true">mm</span>')
     expect(wall).toContain('aria-label="Reset wall to 2"')
     expect(out.slice(out.indexOf('data-param="ribs"'))).not.toContain('not in the model file yet')
     expect(out).toContain('Ask the agent to bake it in')

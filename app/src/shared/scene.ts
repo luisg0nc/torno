@@ -87,6 +87,8 @@ export interface Param {
   choices?: Array<string | number> | null
   /** The plain numbers `min`, `max` and `step` the field's own `metadata` gives. */
   metadata?: { min?: number; max?: number; step?: number }
+  /** The `unit` the field's own `metadata` gives, as written (`''` says none); null or absent where it says nothing. What a field is shown in is `unitOf`. */
+  unit?: string | null
 }
 export type ParamKind = 'float' | 'int' | 'bool' | 'choice'
 /** A value an override may hold. */

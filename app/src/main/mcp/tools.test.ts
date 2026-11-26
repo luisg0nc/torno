@@ -275,10 +275,14 @@ describe('scene', () => {
   it("lists the model's Params as the kernel read them, and none from a kernel that read none", () => {
     const params = [
       { name: 'wall', type: 'float', default: 2.5, literal: true, doc: 'thickness of every wall, mm' },
-      { name: 'depth', type: 'float', default: 8, literal: false, doc: null }
+      { name: 'depth', type: 'float', default: 8, literal: false, doc: null },
+      { name: 'tilt', type: 'float', default: 15, literal: true, doc: null, unit: 'deg' },
+      { name: 'ribs', type: 'int', default: 4, literal: true, doc: null, unit: null },
+      { name: 'lid', type: 'bool', default: true, literal: true, doc: null }
     ]
     const told = JSON.parse(textOf(sceneTool(fake({ scene: () => ({ revision: 3, scene: { ...SCENE, params } }) }), 'bracket')))
-    expect(told.params).toEqual(params)
+    // Each with the unit the window shows: millimetres where the model says nothing of a float, none for a count or a flag.
+    expect(told.params).toEqual(params.map((p, i) => ({ ...p, unit: ['mm', 'mm', 'deg', '', ''][i] })))
     expect(JSON.parse(textOf(sceneTool(fake(), 'bracket'))).params).toEqual([])
     expect(TOOLS.scene.description).toContain('under params')
   })

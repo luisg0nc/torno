@@ -48,6 +48,6 @@ describe('what a turn costs', () => {
 
   it('the text torno adds to the system prompt, with the instructions of its server, is under 12,000 characters', () => {
     expect(SYSTEM_PROMPT.length + SERVER_INSTRUCTIONS.length).toBeLessThan(12_000)
-    expect(FULL_PROMPT.length).toBeLessThan(8800)
+    expect(FULL_PROMPT.length).toBeLessThan(8900)
   })
 })

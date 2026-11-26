@@ -373,7 +373,9 @@ def read_params(module: ModuleType, path: Path, applied: dict[str, Any] | None =
     be (``"float"``, ``"int"``, ``"bool"`` or ``"choice"``, else null);
     ``choices`` (a ``Literal``'s values, else null); ``metadata``, the plain
     numbers ``min``, ``max`` and ``step`` the field's own ``metadata`` gives
-    (``{}`` without); and ``doc``, the comment at the end of the field's
+    (``{}`` without); ``unit``, the text that ``metadata`` gives as ``unit``,
+    on one line, as written (``""`` says there is none; null when it says nothing
+    or no text; what a field with none is read in is the app's rule); and ``doc``, the comment at the end of the field's
     line, else the comment lines right above it, else a string right below
     it, else null. Reading it never fails a build: what cannot be read is
     left out.
@@ -407,6 +409,7 @@ def read_params(module: ModuleType, path: Path, applied: dict[str, Any] | None =
                     "editable": editable,
                     "choices": choices,
                     "metadata": _range(field),
+                    "unit": _unit(field),
                     "doc": source.get("doc"),
                 }
             )
@@ -444,6 +447,12 @@ def _range(field: Any) -> dict[str, float]:
         if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
             told[key] = value
     return told
+
+
+def _unit(field: Any) -> str | None:
+    """The ``unit`` the field's own ``metadata`` gives, when it is text: on one line, else as written."""
+    value = field.metadata.get("unit")
+    return " ".join(value.split()) if isinstance(value, str) else None
 
 
 def apply_overrides(module: ModuleType, path: Path, overrides: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:

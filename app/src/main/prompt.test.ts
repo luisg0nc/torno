@@ -201,6 +201,13 @@ describe("Claude Code's prompt, with the skills", () => {
     for (const said of ['"Dimensions (measured on rN):" with every prompt until they pass', 'A scan (S1, S2)', 'nothing taken from it is exact', 'New marks arrive with the prompt', 'a class Params (made with no arguments)', 'mcp__torno__measure {"kind": "distance"']) expect(SYSTEM_PROMPT).toContain(said)
   })
 
+  // #333: the window shows each value of Params with a unit, so a new model says which are angles.
+  it('says, in the prompt and the model skill, which unit a field of Params is shown in and how a model declares another', () => {
+    for (const prompt of [SYSTEM_PROMPT, FULL_PROMPT]) expect(prompt).toContain('A float of Params is shown in mm, an int bare: else say so in its field metadata, {"unit": "deg"}.')
+    const model = skill('torno-model').replace(/\s+/g, ' ')
+    for (const said of ['**Units.**', 'metadata={"unit": "deg"}', '`"count"`', 'a `float` is shown in mm and an `int` with no unit', 'A float that is an angle, a count, a ratio or a per cent must say so']) expect(model).toContain(said)
+  })
+
   it('whose skills say, to the letter, what the prompt no longer does', () => {
     for (const sentence of SCANS_TEXT) expect(skill('scans')).toContain(sentence)
     for (const sentence of DIMENSIONS_TEXT) expect(skill('dimensions')).toContain(sentence)

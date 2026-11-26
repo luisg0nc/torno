@@ -37,6 +37,7 @@ const text = (skills: boolean): string => [
   'torno rebuilds the model every time its file is saved: do not run it yourself to preview.',
   'The project folder holds one model file (of several .py files, the one named after the folder, - and _ alike), which torno imports: a class Params (made with no arguments) with assembly(p) and/or printables(p) (or printable(p)), each returning a dict of part name to build123d shape, gives the layouts assembly (the parts as put together) and print (as printed, which torno may spread along X when parts overlap).',
   'Without those, Params with make_<part>(p) functions gives the layout main, a part per function, and failing that the solid shapes at the top level of the file are the parts of main.',
+  'A float of Params is shown in mm, an int bare: else say so in its field metadata, {"unit": "deg"}.',
   'mcp__torno__scene reports the build status and error, the layouts, every part with its size and volume, and how many dimensions pass and fail.',
   'mcp__torno__look returns an image: with no arguments what the user sees, or a named view (iso, front, back, left, right, top, bottom), a camera, a layout or chosen parts.',
   'The build result of an edit comes back with what it did to the parts ("Changed since rN") and what the geometry says of them ("Check:"), from the B-rep, which a picture is not: adding material must raise a volume and a cut lower it; a part you did not mean to touch changing is a defect, and so is a part Check calls not valid, inside out, open or of more solids than meant: mend it or say why.',

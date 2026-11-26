@@ -13,6 +13,7 @@ import { number } from '../../shared/format'
 import { FOCUS_NOT_EXPLODED } from '../../shared/focus'
 import { groupOf, groupsIn, groupVisibility, partsNamed } from '../../shared/groups'
 import { tagRefs } from '../../shared/tags'
+import { unitOf } from '../../shared/params'
 import { alignmentSaid } from '../scans/said'
 import { setsListed } from '../sets/text'
 import { type Focused, MARGIN_NEEDS_FOCUS, NO_SAVED_FRAME, focusOf, hiddenText, marginShare, notDrawn } from './focus'
@@ -202,7 +203,7 @@ export function sceneTool(deps: ToolDeps, objectId: string, marks?: readonly Mar
     // The files the model imported from outside its folder (another project's, common/): a save in one builds this project again.
     ...(scene.uses && scene.uses.length > 0 ? { uses: scene.uses } : {}),
     // The model's Params as the kernel read them from the source: read only, the model file is the user's.
-    params: scene.params ?? [],
+    params: (scene.params ?? []).map((p) => ({ ...p, unit: unitOf(p) })),
     // The person's overrides of those Params this build was made with (value differs from default), and those let go of.
     ...(scene.overrides && (Object.keys(scene.overrides.applied).length > 0 || scene.overrides.dropped.length > 0) ? { paramsTried: scene.overrides } : {}),
     ...(groups.length > 0 ? { groups } : {}),

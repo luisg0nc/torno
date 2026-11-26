@@ -1,5 +1,5 @@
 import { number } from '../../shared/format'
-import { isSize, isTried, sourceOf, sourceWord, type Source } from '../../shared/params'
+import { isSize, isTried, sourceOf, sourceWord, unitOf, withUnit, type Source } from '../../shared/params'
 import type { Param, ParamKind, ParamValue } from '../../shared/scene'
 
 /** What the Parameters section draws for one field of the model's `Params`. */
@@ -9,6 +9,8 @@ export interface ParamRow {
   text: string
   /** The default as the person reads it, numbers to four digits; null where the kernel has no value to give (a default worked out in the model that JSON cannot say). */
   value: string | null
+  /** The unit of the value (`unitOf`: `mm`, `deg`, `count`), `''` for none; `value`, `full` and `file` are the numbers alone. */
+  unit: string
   /** The default whole, only where it differs from `value`. */
   full: string | null
   /** Whether the default in the source is not a literal (an expression, a `default_factory`). */
@@ -57,7 +59,7 @@ function sourceLine(param: Param, source: Source): string {
   return sourceWord(param.doc)
 }
 
-/** The row of a field. No unit is taken from its comment: the comment is shown as it was written. */
+/** The row of a field. Its unit is the model's `metadata`'s or the default of its type (`unitOf`), never taken from its comment. */
 export function paramRow(param: Param, note: string | null = null): ParamRow {
   const worked = !param.literal
   const nothing = worked && param.default === null
@@ -65,11 +67,13 @@ export function paramRow(param: Param, note: string | null = null): ParamRow {
   const whole = nothing ? null : show(param.default, true)
   const source = sourceOf(param.doc)
   const text = `Params.${param.name}`
-  const said = [`${text}: ${param.type}`, whole !== null ? ` = ${whole}` : '', worked ? ', worked out in the model' : ''].join('')
+  const unit = unitOf(param)
+  const said = [`${text}: ${param.type}`, whole !== null ? ` = ${withUnit(whole, unit)}` : '', worked ? ', worked out in the model' : ''].join('')
   return {
     name: param.name,
     text,
     value,
+    unit,
     full: whole !== null && whole !== value ? whole : null,
     worked,
     doc: param.doc,

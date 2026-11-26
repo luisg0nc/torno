@@ -37,7 +37,31 @@ export function splitSource(doc: string | null | undefined): { source: string; r
 }
 
 /** A field is a size when its default is a number (a count, a clearance); text, flags and lists have no source to tell. */
-export const isSize = (param: Param): boolean => typeof param.default === 'number'
+export const isSize = (param: Pick<Param, 'default'>): boolean => typeof param.default === 'number'
+
+/**
+ * The unit a field's value is in, `''` for none. Only a number has one: a flag, a text, a choice, a list and a value
+ * there is none of have not, whatever the model declares. A number is in what the field's `metadata` says, as written;
+ * where it says nothing a float is in millimetres, as every length of torno is, and a whole number has no unit, being
+ * most often a count. The model's own claim: torno converts nothing.
+ */
+export function unitOf(param: Pick<Param, 'type' | 'default' | 'editable' | 'unit'>): string {
+  if (!isSize(param) || param.editable === 'choice') return ''
+  if (typeof param.unit === 'string') return param.unit
+  return param.editable === 'float' || (param.editable !== 'int' && /\bfloat\b/.test(param.type)) ? 'mm' : ''
+}
+
+/** How a unit is written beside its number: `deg` is `°`, a `count` is said by the number alone, any other as it is. */
+export const unitMark = (unit: string): string => (unit === 'deg' ? '°' : unit === 'count' ? '' : unit)
+
+/** Whether a unit's mark stands against its number, with no space: `15°`, `50%`. */
+export const unitTight = (mark: string): boolean => mark === '°' || mark === '%'
+
+/** A number as said with its unit: `96 mm`, `15°`, `50%`, `9`. */
+export function withUnit(text: string, unit: string): string {
+  const mark = unitMark(unit)
+  return mark === '' ? text : `${text}${unitTight(mark) ? '' : ' '}${mark}`
+}
 
 /**
  * Why a comment does not count as a source, in a few words: it has none, it does not begin with a word and a colon

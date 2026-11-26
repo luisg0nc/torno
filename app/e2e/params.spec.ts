@@ -29,7 +29,7 @@ test.beforeAll(async () => {
     '    side: float = 40  # Outer width, mm',
     '    wall: float = 2',
     '    # Room left round the post, 0.2 mm at least',
-    '    gap: float = 0.123456',
+    "    gap: float = field(default=0.123456, metadata={'unit': 'deg'})",
     '    inner: float = 40 - 2 * 2  # Worked out from side and wall',
     "    ribs: int = field(default=4, metadata={'min': 1, 'max': 8})"
   ].join('\n')
@@ -92,17 +92,37 @@ test('a row has the name and the value in the monospace face, the comment as wri
   expect(await face('.left .param-input')).toContain('Mono')
   // Four digits at most, the whole value in the title.
   await expect(row('gap').getByRole('spinbutton', { name: 'Try gap' })).toHaveValue('0.1235')
-  await expect(row('gap').getByRole('spinbutton', { name: 'Try gap' })).toHaveAttribute('title', '0.123456')
+  await expect(row('gap').getByRole('spinbutton', { name: 'Try gap' })).toHaveAttribute('title', '0.123456°')
   // An expression is worked out in the model, has no field, and its value is still shown, after an equals sign.
   await expect(row('inner')).toHaveAttribute('data-worked', '')
-  await expect(row('inner').locator('.param-value')).toHaveText('36')
-  await expect(row('inner').locator('.param-value')).toHaveAttribute('title', 'Worked out in the model')
+  await expect(row('inner').locator('.param-value')).toHaveText('36mm')
+  await expect(row('inner').locator('.param-value')).toHaveAttribute('title', 'Worked out in the model, in mm')
   await expect(row('inner').locator('.param-input')).toHaveCount(0)
   expect(await row('inner').locator('.param-value').evaluate((el) => getComputedStyle(el, '::before').content)).toBe('"="')
   await expect(row('side')).not.toHaveAttribute('data-worked', '')
   // The face of the numbers: the monospace one, a name of a field too.
   expect(await face('.left .param-name')).toBe(await face('.left .param-input'))
   expect(await face('.left .param-doc')).not.toBe(await face('.left .param-input'))
+})
+
+test('each value says its unit in its field: mm for a float, the model\'s own where it declares one, none for a whole number', async () => {
+  const row = (name: string) => section().locator(`[data-param="${name}"]`)
+  await expect(row('side').locator('.param-field .param-unit')).toHaveText('mm')
+  await expect(row('gap').locator('.param-field .param-unit')).toHaveText('°')
+  await expect(row('inner').locator('.param-value .param-unit')).toHaveText('mm')
+  await expect(row('ribs').locator('.param-unit')).toHaveCount(0)
+  // Never part of the value typed; muted, in the face of numbers.
+  const box = row('side').getByRole('spinbutton', { name: 'Try side' })
+  await expect(box).toHaveValue('40')
+  await expect(box).toHaveAttribute('title', '40 mm')
+  await expect(box).toHaveAttribute('aria-description', 'in mm')
+  expect(await face('.left .param-unit')).toBe(await face('.left .param-input'))
+  const colour = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el).color)
+  expect(await colour('.left .param-unit')).toBe(await colour('.left .param-source'))
+  // A press on the unit is a press on the field.
+  await row('side').locator('.param-unit').click()
+  await expect(box).toBeFocused()
+  await box.press('Escape')
 })
 
 test('a field with a range in its metadata fills its field to where its value stands, and a field without one does not', async () => {
@@ -134,7 +154,7 @@ test('the print profile chip of the status line says what the project is made fo
 
 test('with no session running the rows are text, and say why', async () => {
   await expect(section().locator('button.param-button')).toHaveCount(0)
-  await expect(section().locator('[data-param="wall"] .param-button')).toHaveAttribute('aria-description', 'Params.wall: float = 2. Start a session to put Params.wall in its prompt')
+  await expect(section().locator('[data-param="wall"] .param-button')).toHaveAttribute('aria-description', 'Params.wall: float = 2 mm. Start a session to put Params.wall in its prompt')
 })
 
 test('with a session, a click puts Params.<name> at the cursor of the box and sends nothing', async () => {
@@ -143,7 +163,7 @@ test('with a session, a click puts Params.<name> at the cursor of the box and se
   await expect(composer()).toBeFocused()
   await composer().fill('make')
   const wall = section().getByRole('button', { name: 'Params.wall', exact: true })
-  await expect(wall).toHaveAttribute('aria-description', "Params.wall: float = 2. Put it in the session's prompt")
+  await expect(wall).toHaveAttribute('aria-description', "Params.wall: float = 2 mm. Put it in the session's prompt")
   await wall.click()
   await expect(composer()).toHaveValue('make Params.wall ')
   await expect(composer()).toBeFocused()
@@ -162,7 +182,7 @@ test('trying a value builds the model with it, says it differs from the file, an
   await box.fill('3')
   await box.press('Enter')
   await expect(row).toHaveAttribute('data-tried', '', { timeout: 30_000 })
-  await expect(row.locator('.param-differs')).toContainText('Kept by torno, not in the model file yet. The file has 2.')
+  await expect(row.locator('.param-differs')).toContainText('Kept by torno, not in the model file yet. The file has 2 mm.')
   await expect(box).toHaveValue('3')
   // A tried row stays open, the file's default is in its kept line, and the scene says what the build used.
   await expect(row).toHaveAttribute('data-open', '')
@@ -282,4 +302,29 @@ test('wide, the comment is a column of the line, between the name and the source
   await handle.dblclick()
   await expect(row.locator('.param-doc')).toBeHidden()
   await page.mouse.move(0, 0)
+})
+
+test('at the narrowest column a long name and a value of four digits with its unit read whole', async () => {
+  const model = join(root, 'hollow', 'hollow.py')
+  const source = readFileSync(model, 'utf8')
+  writeFileSync(model, source.replace('    wall: float = 2\n', '    wall: float = 2\n    tab_hole_from_rear: float = 0.1235  # assumed: a long name\n    reach: float = 188.8\n'))
+  const row = (name: string) => section().locator(`[data-param="${name}"]`)
+  await expect(row('tab_hole_from_rear')).toBeVisible({ timeout: 30_000 })
+  // A double click on the edge keeps the narrow width, 264 px.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 800))
+  await page.getByRole('separator', { name: 'Resize panel' }).dblclick()
+  await expect.poll(() => section().evaluate((el) => el.getBoundingClientRect().width)).toBeLessThanOrEqual(270)
+  for (const name of ['tab_hole_from_rear', 'reach']) {
+    const cut = await row(name).evaluate((el) => {
+      const shown = el.querySelector('.param-name')!
+      const input = el.querySelector<HTMLInputElement>('.param-input')!
+      const style = getComputedStyle(input)
+      const ink = document.createElement('canvas').getContext('2d')!
+      ink.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+      ink.letterSpacing = style.letterSpacing
+      return { name: shown.scrollWidth - shown.clientWidth, value: ink.measureText(input.value).width - (input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) }
+    })
+    expect(cut.name, `${name}: the name`).toBeLessThanOrEqual(0)
+    expect(cut.value, `${name}: the value`).toBeLessThanOrEqual(0)
+  }
 })

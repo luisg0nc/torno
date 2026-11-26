@@ -51,7 +51,7 @@
 /* The line: name, (comment, when wide), source word, value. */
 .param-line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 50px 58px;
+  grid-template-columns: minmax(0, 1fr) 50px 66px;
   align-items: center;
   column-gap: 7px;
   min-height: 27px;
@@ -111,7 +111,7 @@ button.param-button {
   align-items: center;
   justify-content: flex-end;
   box-sizing: border-box;
-  width: 58px;
+  width: 66px;
   height: 21px;
   justify-self: end;
   overflow: hidden;
@@ -171,6 +171,41 @@ select.param-input {
   appearance: none;
   cursor: pointer;
   font-size: 10px;
+}
+
+/* The unit stands in the field after the value, muted: part of the field, never of what is typed. */
+.param-unit {
+  position: relative;
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  margin: 0 4px 0 2px;
+  color: var(--muted);
+  font-size: 9px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+
+.param-unit[data-tight] {
+  margin-left: 0;
+}
+
+/* A degree or per cent sign alone is small: it is drawn at the size of its number. */
+.param-field .param-unit[data-tight],
+.param-value .param-unit[data-tight] {
+  font-size: 10.5px;
+}
+
+.param-input:has(+ .param-unit) {
+  flex: 1;
+  width: 0;
+  padding: 0 0 0 2px;
+}
+
+.param-value .param-unit {
+  margin-right: 0;
+  cursor: default;
 }
 
 .param-field[data-kind='bool'] {
@@ -320,8 +355,8 @@ select.param-input {
 /* Narrow: the source and the value give up a little, so the longest name still reads whole. */
 @container (max-width: 270px) {
   .param-line {
-    grid-template-columns: minmax(0, 1fr) 46px 50px;
-    column-gap: 6px;
+    grid-template-columns: minmax(0, 1fr) 46px 60px;
+    column-gap: 4px;
   }
 
   .param-name {
@@ -335,7 +370,16 @@ select.param-input {
 
   .param-field,
   .param-value {
-    width: 50px;
+    width: 60px;
+  }
+
+  .param-field:has(.param-unit) {
+    font-size: 10px;
+  }
+
+  .param-unit {
+    margin-right: 3px;
+    font-size: 8.5px;
   }
 }
 
@@ -414,7 +458,7 @@ select.param-input {
 /* Wide: the comment fills the room between the name and the source. */
 @container (min-width: 360px) {
   .param-line {
-    grid-template-columns: minmax(0, auto) minmax(0, 1fr) 50px 58px;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) 50px 66px;
   }
 
   .param-name {
@@ -439,7 +483,7 @@ select.param-input {
 
 @container (min-width: 360px) {
   .param-row[data-finding] .param-line {
-    grid-template-columns: minmax(0, 1fr) 50px 58px;
+    grid-template-columns: minmax(0, 1fr) 50px 66px;
   }
 }
 

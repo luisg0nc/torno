@@ -228,6 +228,17 @@ board_w: float = 55.2   # datasheet: ESP32-S3 DevKitC-1 v1.1
 clearance: float = 0.2  # person: "0.2 per side"
 ```
 
+**Units.** torno's window shows each value with its unit, and `scene` tells it (`unit`). Say nothing and a `float` is
+shown in mm and an `int` with no unit. Declare any other in the field's own `metadata`, as written text: `"deg"` for an
+angle (shown `15°`), `"count"` for a count (shown as the number alone), `"%"`, `""` for none, or any other unit
+(`"rpm"`). A float that is an angle, a count, a ratio or a per cent must say so, or the person reads it as millimetres;
+so must an `int` that is a length (`"mm"`). torno converts nothing: the unit says what the number your model reads is in.
+
+```py
+tilt: float = field(default=15.0, metadata={"unit": "deg"})  # person: "tilted 15 degrees"
+spread: float = field(default=1.5, metadata={"unit": ""})    # assumed: how much wider the foot is than the top
+```
+
 **Trying other values.** The person may try another value for a field in torno's window (a literal number or bool, or a
 `Literal`); torno then builds with it, and tells you under `params` (`value` against `default`) and in the first lines of
 each prompt. The file always wins: such a value is dropped when you change that default, so to keep one, edit the default.
