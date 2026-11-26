@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react'
 import { pressed, which } from '../../shared/keys'
 
 /**
@@ -28,8 +28,9 @@ export function useMenu(dep: unknown = 0, shownAtFirst = false): {
     return () => window.removeEventListener('pointerdown', away)
   }, [shown])
 
-  // Into the menu once it is there: the first thing that can be chosen.
-  useEffect(() => {
+  // Into the menu as it is drawn: the first thing that can be chosen. Before the window hears anything else: a menu that
+  // comes outside a click (the folder menu, once its list is read) would else be there a while without the keys.
+  useLayoutEffect(() => {
     if (shown) items()[0]?.focus({ preventScroll: true })
   }, [shown, dep])
 

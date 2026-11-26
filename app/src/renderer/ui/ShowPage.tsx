@@ -44,6 +44,9 @@ export function usePageKey(): void {
 /** What asks a question of its own beside the page, or lies over it: the build's error, a confirm of the left column. */
 const OVER = '[role="dialog"], [role="alertdialog"]'
 
+/** Whether it is a key of a menu: the arrows, Home and End, and what puts it away (`useMenu`). */
+const menuKey = (e: KeyboardEvent): boolean => pressed(e, 'menu.close') || pressed(e, 'menu.next') || pressed(e, 'menu.previous') || which(e, 'menu.ends') >= 0
+
 /** The topmost of those that is there to be seen: not one of the view under the page, which is put away with it. */
 function topmostOver(page: HTMLElement): HTMLElement | null {
   const found = [...document.querySelectorAll<HTMLElement>(OVER)].filter((one) => !page.contains(one) && !one.closest('[inert]'))
@@ -251,6 +254,8 @@ export function ShowPage({ onOpen, onExample, notes }: { onOpen: (id: string) =>
       // Somewhere else to type: the session's terminal, a field of the left column. A slider or a tick box there
       // keeps its keys, and so does whatever asks a question of its own (the build's error, a confirm).
       if (!here && target?.closest(`${TYPING}, input, ${OVER}`)) return
+      // A menu of the title bar or the session pane, with the focus in it, has its own keys: its Escape closes it, not the page.
+      if (!here && target?.closest('[role="menu"]') && menuKey(e)) return
       // The sheet of keys is asked for here as everywhere, outside a field.
       if (pressed(e, 'keys') && !target?.closest(TYPING)) return
       // Whatever else is pressed is the page's: no tool of the view under it is handed a key.

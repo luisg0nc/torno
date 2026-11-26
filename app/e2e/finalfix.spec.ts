@@ -5,7 +5,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { inTerminal } from './terminal'
 import type { TornoState } from '../src/renderer/state/store'
 import { EXAMPLE_NOTE } from '../src/shared/workspace'
-import { openSection } from './helpers'
+import { openSection, showProjects } from './helpers'
 import { openListed } from './objects'
 
 // The final fix wave of Milestone 5, through the hidden window: what was made easier to use (a real Rebuild,
@@ -166,6 +166,8 @@ test('the folder button opens a menu: the folders opened lately, the dialog and 
   await expect(page.locator('.workspace-example')).toHaveCount(0)
 
   // While the page of objects is up the sections of the card act on a view that is not there: the card is away.
+  // Run by itself, this test starts on that page, with nothing open: the sections need a project.
+  if ((await state()).objectId === null) await open('hollow')
   await openSection(page, 'Parts')
   await expect(page.getByRole('tabpanel', { name: /Parts/ })).toBeVisible()
   await canvas().click({ position: { x: 5, y: 5 } })
@@ -177,6 +179,44 @@ test('the folder button opens a menu: the folders opened lately, the dialog and 
   await page.keyboard.press('Escape')
   await expect.poll(async () => (await state()).page).toBe('object')
   await expect(page.getByRole('tabpanel', { name: /Parts/ })).toBeVisible()
+})
+
+// #367: the page of projects hears every key first, and kept the menu's own from it.
+test('on the page of projects the folder menu has its keys: the arrows move in it, Escape closes it and the page stays', async () => {
+  await showProjects(page)
+  await expect.poll(async () => (await state()).page).toBe('objects')
+  const button = page.getByRole('button', { name: /^Folder / })
+  await button.click()
+  const menu = page.getByRole('menu', { name: 'Folders' })
+  const item = (name: string) => menu.getByRole('menuitem', { name, exact: true })
+  await expect(item('Open folder…')).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(item('Open the example')).toBeFocused()
+  await page.keyboard.press('End')
+  await expect(item('Check what torno needs')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveCount(0)
+  await expect(button).toBeFocused()
+  expect((await state()).page).toBe('objects')
+})
+
+// #367: the menu comes when the list of folders has been read, and the focus went into it only some time after it was drawn.
+test('the folder menu has the keys as soon as it is drawn: an Escape pressed at once closes it', async () => {
+  await open('hollow')
+  // Escape from where the focus is, in the very task that put the menu there: no key of a person or a test can be sooner.
+  await page.evaluate(() => {
+    const seen = window as unknown as { __escaped?: boolean }
+    seen.__escaped = false
+    new MutationObserver((_changes, watching) => {
+      if (!document.querySelector('.folder-menu')) return
+      watching.disconnect()
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      seen.__escaped = true
+    }).observe(document.body, { subtree: true, childList: true })
+  })
+  await page.getByRole('button', { name: /^Folder / }).click()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __escaped?: boolean }).__escaped)).toBe(true)
+  await expect(page.getByRole('menu', { name: 'Folders' })).toHaveCount(0)
 })
 
 // #330: the rows were held to a menu item's 26 px, so each folder's path lay over its name and the focus ring cut the row under it.

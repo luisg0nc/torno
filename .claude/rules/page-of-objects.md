@@ -100,10 +100,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   open, and beside the list's title while one is (`ofObject` in `ui/ObjectList.tsx`), the page up or not: the one
   control, so the focus it had comes back to it.
 - **The keys on the page** are one capture-phase listener. Left alone: what is typed in a field or the
-  terminal (`TYPING`), any `input` outside the page (a slider of the left column keeps its arrows), and
-  whatever is inside a `[role="dialog"]` or `[role="alertdialog"]`. Everything else is the page's and goes no
-  further, so no tool under it is handed a key: arrows from card to card (`ui/cards.ts` `stepCard`), Enter
-  opens, `/` or a letter filters by name. **Escape goes to what is on top**: a sheet or a confirm that is
+  terminal (`TYPING`), any `input` outside the page (a slider of the left column keeps its arrows),
+  whatever is inside a `[role="dialog"]` or `[role="alertdialog"]`, and a menu's own keys (arrows, Home, End,
+  Escape, Tab) while the focus is in a `[role="menu"]` outside the page, such as the title bar's folder menu
+  (`e2e/finalfix.spec.ts`; `useMenu` moves the focus into a menu in a layout effect, so it has them as soon as
+  it is drawn). Everything else is the page's and goes no further, so no tool under it is handed a key: arrows
+  from card to card (`ui/cards.ts` `stepCard`), Enter opens, `/` or a letter filters by name. **Escape goes to what is on top**: a sheet or a confirm that is
   there to be seen (not one of the view put away under the page) gets it first, as if pressed there; then the
   filter is emptied; then the page goes. A sheet opened over the page (the export's) needs one of those two
   roles and nothing more.
