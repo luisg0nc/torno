@@ -42,6 +42,7 @@ import { labelText } from '../viewport/marks/labels'
 import { bindPane } from '../viewport/overlay'
 import { meshOf } from '../viewport/scans'
 import { Viewport } from '../viewport/Viewport'
+import type { ImageRequest, Picture } from '../viewport/picture'
 import { AlignBar } from './AlignBar'
 import { goToRow } from './BuildStatus'
 import { hoverMark } from './markHover'
@@ -79,10 +80,33 @@ const NO_SCENE: Scene = { model: '', layouts: [], parts: [], seconds: 0, output:
  * They are cut as on screen unless the request says otherwise: by a plane of
  * its own, or by none; and drawn apart as on screen unless it says how far, or not at all. The answer names the object, the revision and whether the parts were stale,
  * all read in the turn the picture is drawn in: a build that lands while the
- * PNG is being made does not change what the picture is said to be of.
+ * PNG is being made does not change what the picture is said to be of. Several views tiled in one picture
+ * (`req.tiles`) are all read and drawn in one such turn.
  */
 async function look(viewport: Viewport, req: LookRequest, person?: PersonPicture): Promise<LookResult> {
   let drawn: { objectId: string; revision: number; stale: boolean } | undefined
+  const read = (): TornoState => {
+    const s = store.getState()
+    if (!s.objectId || !s.scene) throw new Error('no build yet')
+    drawn = { objectId: s.objectId, revision: s.revision, stale: s.build?.stale ?? false }
+    return s
+  }
+  let picture: Picture
+  if (req.tiles) {
+    const tiles = req.tiles.map(asked)
+    picture = await viewport.renderTiles(() => {
+      const s = read()
+      return tiles.map((tile) => tile(s))
+    }, req.size)
+  } else {
+    const one = asked(req)
+    picture = await viewport.renderImage(() => ({ ...one(read()), ...(person ? { person } : {}) }))
+  }
+  return { ...picture, ...drawn! }
+}
+
+/** A request of one view, checked at once, as what to draw of the window as it stands when the picture is. */
+function asked(req: LookRequest): (s: TornoState) => ImageRequest {
   let section: SectionPlane | 'current' | null = 'current'
   if (req.section === null) section = null
   else if (req.section !== undefined && req.section !== 'current') {
@@ -91,9 +115,8 @@ async function look(viewport: Viewport, req: LookRequest, person?: PersonPicture
   }
   // As on screen unless the request says how far apart, or together: whatever it holds, only an explode is taken of it.
   const explode = req.explode === undefined || req.explode === 'current' ? 'current' : explodeOf(req.explode)
-  const picture = await viewport.renderImage(() => {
-    const s = store.getState()
-    if (!s.objectId || !s.scene) throw new Error('no build yet')
+  return (s) => {
+    if (!s.scene) throw new Error('no build yet')
     const layout = req.layout ?? s.layout
     let keys = visibleKeys(s, layout)
     if (req.parts) {
@@ -103,10 +126,8 @@ async function look(viewport: Viewport, req: LookRequest, person?: PersonPicture
       if (!Array.isArray(named)) throw new Error(named.text)
       keys = parts.filter((part) => named.includes(part.name)).map((part) => part.key)
     }
-    drawn = { objectId: s.objectId, revision: s.revision, stale: s.build?.stale ?? false }
-    return { view: req.view ?? 'current', layout, visibleKeys: keys, size: req.size, marks: req.marks ?? true, section, scans: req.scans, explode, ...(req.scanColour ? { scanColour: req.scanColour } : {}), ...(req.frame ? { frame: req.frame } : {}), ...(req.focus ? { focus: req.focus } : {}), ...(typeof req.viewName === 'string' ? { viewName: req.viewName } : {}), ...(person ? { person } : {}) }
-  })
-  return { ...picture, ...drawn! }
+    return { view: req.view ?? 'current', layout, visibleKeys: keys, size: req.size, marks: req.marks ?? true, section, scans: req.scans, explode, ...(req.scanColour ? { scanColour: req.scanColour } : {}), ...(req.frame ? { frame: req.frame } : {}), ...(req.focus ? { focus: req.focus } : {}), ...(typeof req.viewName === 'string' ? { viewName: req.viewName } : {}) }
+  }
 }
 
 /**

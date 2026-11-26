@@ -475,6 +475,7 @@ export class Sessions {
             transcript: new Transcript({
               prefix: `${id.slice(0, 6)}-`,
               redact: http.redact,
+              resumed: stored !== null,
               ...(skills && adapter.plugin ? { plugin: adapter.plugin } : {}),
               ...(adapter.tested ? { tested: adapter.tested } : {}),
               ...(isEffort(opts.effort) ? { effort: opts.effort } : {}),

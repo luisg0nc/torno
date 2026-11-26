@@ -34,6 +34,18 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
     moved for display is framed where it is shown, and the reply says so. The window says what stands between the
     camera and the middle of the focus (`LookResult.hiddenBy`) and the reply tells the agent how to see it
     (`hiddenText`).
+  - **`views`** of `look` (#348, `lookTool` in `mcp/viewTools.ts`): `MIN_TILES` to `MAX_TILES` (2 to 6, `shared/view.ts`)
+    views instead of `view` (both are refused), tiled in one picture, so that a survey is one call. Each is checked and
+    made a request by `askedLook`, exactly as a look of that view alone would be (a saved view's own parts, section and
+    explode are its tile's alone), with every other argument shared; what is wrong with one view is told as `view 2 of
+    views: …`, and nothing is drawn. The window is asked once: `{ size, tiles }`, where `size` is the long edge of the
+    whole picture (the same cap and default as any look, so it costs what one look costs). `PictureMaker.renderTiles`
+    (`viewport/picture.ts`) reads the store once and draws every tile with no wait between them, so all are of one
+    build; `tileGrid` lays them out (2×1, 2×2 to four, 3×2 to six, 4:3 cells; the `current` view is fitted into its
+    cell), each with its number and view on a plate. The reply is one image, a line for the whole, a numbered caption
+    per tile with what is said after a single look's (the saved view's passed over, spread parts, what hides the focus),
+    and the focus said once. One picture is kept under `.torno/views/`. A card made of one (`add_card`) keeps no camera.
+    "See in view" has no one view to go to and says so (`MANY_VIEWS`, `state/seeAgain.ts`).
   - `describe` of a face or an edge asks the kernel for a `selector` (`deps.describe(…, { selector: true })`; a part and
     the window's hover never do), a build123d expression on `part` that picks it now, with `robust` (`by geometry` or
     `by order`) and `checked: "this build only"`, or `selector: null` with `selectorWhy`. It is of the part as it stands in

@@ -69,6 +69,8 @@ export interface TranscriptOptions {
   /** An item that changed (streaming text no oftener than every 50 ms). */
   emit?: (item: ChatItem) => void
   emitMeta?: (meta: ChatMeta) => void
+  /** The session continues a conversation (`--resume`). */
+  resumed?: boolean
   /** The plugin of skills torno passed to the CLI: its `init` is then read for whether it loaded. Absent: none was passed, and nothing is expected. */
   plugin?: { name: string; skills: readonly string[] }
   /** The versions of the CLI torno was checked against, inclusive: one older, or of a newer major or minor, is said once. Absent: no version is judged. */
@@ -93,17 +95,29 @@ function countOf(raw: unknown): TokenCount | undefined {
   return { input: input ?? 0, output: output ?? 0, cacheRead: cacheRead ?? 0, cacheCreation: cacheCreation ?? 0 }
 }
 
-/** What a turn used, read off the `result` that ended it; none when it says no number (a result of no turns says zeros, which are kept). */
-function usageOf(m: AgentMessage): TurnUsage | undefined {
-  const total = countOf(m.usage)
-  if (!total) return undefined
-  const requests = num(m.num_turns)
+/** The counts by model a `result` holds (`modelUsage`), or none when it holds no number. */
+function modelsOfUsage(raw: unknown): Record<string, TokenCount> | undefined {
   const models: Record<string, TokenCount> = {}
-  for (const [name, raw] of Object.entries(obj(m.modelUsage) ?? {})) {
-    const count = countOf(raw)
+  for (const [name, one] of Object.entries(obj(raw) ?? {})) {
+    const count = countOf(one)
     if (count) models[name] = count
   }
-  return { ...total, ...(requests !== undefined ? { requests } : {}), ...(Object.keys(models).length > 0 ? { models } : {}) }
+  return Object.keys(models).length > 0 ? models : undefined
+}
+
+const NOTHING: TokenCount = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
+const KINDS = ['input', 'output', 'cacheRead', 'cacheCreation'] as const
+
+/** What running totals by model grew by since `before`, the models that did not left out. Totals that went down began again from nothing. */
+function grown(now: Record<string, TokenCount>, before: Record<string, TokenCount>): Record<string, TokenCount> {
+  const began = Object.entries(before).some(([name, was]) => KINDS.some((kind) => (now[name] ?? NOTHING)[kind] < was[kind]))
+  const out: Record<string, TokenCount> = {}
+  for (const [name, count] of Object.entries(now)) {
+    const was = (began ? undefined : before[name]) ?? NOTHING
+    const more = { input: count.input - was.input, output: count.output - was.output, cacheRead: count.cacheRead - was.cacheRead, cacheCreation: count.cacheCreation - was.cacheCreation }
+    if (KINDS.some((kind) => more[kind] !== 0)) out[name] = more
+  }
+  return out
 }
 
 /** A block of the message being streamed, by its index. */
@@ -190,12 +204,16 @@ export class Transcript {
   private readonly hookless = new Set<string>()
   private hookTimer: NodeJS.Timeout | undefined
   private pulled: Record<string, number> = {}
+  /** The running totals of the last `result` (`total_cost_usd`, `modelUsage`); each absent while it is not known. */
+  private totals: { cost?: number; models?: Record<string, TokenCount> }
 
   private readonly lastTold = new Map<string, number>()
   private readonly timers = new Map<string, NodeJS.Timeout>()
 
   constructor(opts: TranscriptOptions = {}) {
     this.maxItems = opts.maxItems ?? MAX_ITEMS
+    // A new conversation has spent nothing yet. A resumed one's totals take in what earlier processes spent, which is not known until a result says them.
+    this.totals = opts.resumed ? {} : { cost: 0, models: {} }
     this.maxImages = opts.maxImages ?? MAX_IMAGES
     this.prefix = opts.prefix ?? ''
     this.now = opts.now ?? Date.now
@@ -875,7 +893,7 @@ export class Transcript {
       const first = Array.isArray(m.errors) ? m.errors.map((e) => str(e) ?? str(obj(e)?.message)).find((e) => e) : undefined
       error = first ?? (m.is_error === true && typeof m.result === 'string' && m.result !== '' ? m.result : (str(m.subtype) ?? 'failed'))
     }
-    const usage = usageOf(m)
+    const usage = this.usageOf(m)
     this.noHooks()
     this.put({ kind: 'turn', id: this.newId('i'), ok, stopped, seconds: seconds(took), pulled: this.pulled, ...(usage ? { usage } : {}), ...(error !== undefined ? { error: this.redact(error) } : {}) })
     this.pulled = {}
@@ -888,6 +906,31 @@ export class Transcript {
     this.turnStarted = null
     this.unconfirmed.clear()
     this.blocks.clear()
+  }
+
+  /**
+   * What a turn used, read off the `result` that ended it; none when it says no number (a result of no turns says
+   * zeros, which are kept). `usage` is the turn's own, and counts the main agent only. `total_cost_usd` and
+   * `modelUsage` are the CLI's running totals, with its subagents and compactions in them: the turn's share is what
+   * they grew by since the last result.
+   */
+  private usageOf(m: AgentMessage): TurnUsage | undefined {
+    const before = this.totals
+    const cost = num(m.total_cost_usd)
+    const models = modelsOfUsage(m.modelUsage)
+    this.totals = { ...before, ...(cost !== undefined ? { cost } : {}), ...(models ? { models } : {}) }
+    const total = countOf(m.usage)
+    if (!total) return undefined
+    const requests = num(m.num_turns)
+    const spent = cost === undefined || before.cost === undefined ? undefined : cost < before.cost ? cost : cost - before.cost
+    const byModel = models && before.models ? grown(models, before.models) : undefined
+    return {
+      ...total,
+      ...(requests !== undefined ? { requests } : {}),
+      ...(spent !== undefined ? { costUsd: spent } : {}),
+      ...(cost !== undefined ? { sessionCostUsd: cost } : {}),
+      ...(byModel && Object.keys(byModel).length > 0 ? { models: byModel } : {})
+    }
   }
 
   /** A permission the CLI denied that no card says so (a rule or the mode refused it, no one was asked): one note. */

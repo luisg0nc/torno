@@ -84,6 +84,7 @@ describe('toolLabel', () => {
 
   it('shows a tool of torno as torno\'s, with the view it was asked for', () => {
     expect(toolLabel('mcp__torno__look', { view: 'iso' })).toBe('torno · look (iso)')
+    expect(toolLabel('mcp__torno__look', { views: ['iso', 'front', 'top'] })).toBe('torno · look (3 views)')
     expect(toolLabel('mcp__torno__scene', {})).toBe('torno · scene')
     expect(toolLabel('mcp__torno__describe', { ref: 'lid/F12' })).toBe('torno · describe (lid/F12)')
   })

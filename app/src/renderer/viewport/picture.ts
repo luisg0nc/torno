@@ -2,12 +2,13 @@ import * as THREE from 'three'
 import { type ExplodePart, type ExplodeState, EXPLODED_NOTE, NOT_EXPLODED_AND_CUT, SCANS_STAY, explodeShown, explodeText, isExploded, nothingApart, nothingApartText } from '../../shared/explode'
 import type { Part } from '../../shared/scene'
 import { number } from '../../shared/format'
-import type { Camera, ScanColouring, SectionPlane, ViewName } from '../../shared/view'
+import type { Camera, ScanColouring, SectionPlane, TileDrawn, ViewName } from '../../shared/view'
 import type { FocusBox } from '../../shared/focus'
 import { hiddenBehind } from './focus'
 import { tracingsSaid, type TracingLayer } from './tracings'
 import { MARK_LAYERS, type Highlights } from './highlight'
 import type { MarkLayer } from './marks/MarkLayer'
+import { canvasFont } from '../../shared/fonts'
 import { PERSPECTIVE_NOTE, chipSize, drawDeviationLegend, drawLabels, drawOverlay, overlayFonts, overlayUnit, type LabelStyle } from './overlay'
 import type { BuiltPart } from './partMesh'
 import { deviationColours, storedColour, type Rgb } from './scanDeviation'
@@ -59,6 +60,8 @@ export interface Picture {
   exploded: boolean
   /** Of a picture framed on a focus: the parts drawn that stand between the camera and the middle of the focus, nearest first. */
   hiddenBy?: string[]
+  /** Of a picture tiled of several (`PictureMaker.renderTiles`): what each tile drew, in reading order. */
+  tiles?: TileDrawn[]
 }
 
 /** Long edge of a picture for the agent, in pixels. */
@@ -174,6 +177,22 @@ export function pictureSize(size: number | undefined, aspect: number, forPerson 
   const width = aspect >= 1 ? long : Math.max(1, Math.round(long * aspect))
   const height = aspect >= 1 ? Math.max(1, Math.round(long / aspect)) : long
   return { width, height }
+}
+
+/** How a picture tiled of `count` views is laid out: in reading order, in cells of one 4:3 shape, within the size one picture of `size` has on its long edge. */
+export function tileGrid(count: number, size: number | undefined): { columns: number; rows: number; cell: { width: number; height: number }; width: number; height: number } {
+  const columns = count <= 2 ? count : count <= 4 ? 2 : 3
+  const rows = Math.ceil(count / columns)
+  // The sheet is never taller than wide, so its long edge is its width.
+  const across = pictureSize(size, NAMED_ASPECT).width
+  const width = Math.floor(across / columns)
+  const cell = { width, height: Math.round(width / NAMED_ASPECT) }
+  return { columns, rows, cell, width: cell.width * columns, height: cell.height * rows }
+}
+
+/** The long edge a picture of this shape is asked at to be as large as fits a cell. */
+export function tileLongEdge(aspect: number, cell: { width: number; height: number }): number {
+  return aspect >= 1 ? Math.min(cell.width, Math.floor(cell.height * aspect)) : cell.height
 }
 
 /** What a picture draws: a layout, those of its parts to show, and whether its marks are in it. */
@@ -338,6 +357,22 @@ export function colouringNote(colouring: ScanColouring, colours: DeviationColour
   return ` · scan ${colouring.scan} coloured by the distance of its points to ${colouring.part}: 0 to ${range} mm${solid ? `, inside the part marked and drawn over it (${key}, inside the part ${colours.inside}; ${how})` : ` (${key}; ${how}; ${colouring.part} is no solid, so nothing is marked as inside it)`}`
 }
 
+/** A picture composed, before its PNG is written. */
+interface Drawn { canvas: HTMLCanvasElement; picture: Omit<Picture, 'png'> }
+
+/** The number and the view of a tile, on a plate in its top left corner. */
+function tileName(ctx: CanvasRenderingContext2D, words: string, x: number, y: number, unit: number, colours: { ink: string; surface: string }): void {
+  const px = Math.round(12 * unit)
+  const pad = Math.round(4 * unit)
+  ctx.font = canvasFont(px, 500, true)
+  ctx.textBaseline = 'middle'
+  ctx.textAlign = 'left'
+  ctx.fillStyle = colours.surface
+  ctx.fillRect(x + 1, y + 1, Math.ceil(ctx.measureText(words).width) + 2 * pad, px + 2 * pad)
+  ctx.fillStyle = colours.ink
+  ctx.fillText(words, x + 1 + pad, y + 1 + pad + px / 2)
+}
+
 /**
  * Still pictures of a viewport for the agent, each with an axis triad and a
  * scale bar. One is drawn off screen in one go: the person's camera, the layout
@@ -351,12 +386,61 @@ export class PictureMaker {
 
   /** See `Viewport.renderImage`. */
   async render(request: ImageRequest | (() => ImageRequest)): Promise<Picture> {
-    const host = this.host
-    // Before anything is drawn: nothing below may wait between hiding parts and restoring them.
+    await this.ready()
+    const { canvas, picture } = this.one(typeof request === 'function' ? request() : request)
+    return { png: pngBytes(canvas), ...picture }
+  }
+
+  /**
+   * Several views tiled in one picture, each numbered in reading order and named: `size` is the long edge of the
+   * whole of it. They are drawn one after the other with no wait between them, so all are of the same build and of
+   * the screen as it stood in one moment.
+   */
+  async renderTiles(requests: () => ImageRequest[], size?: number): Promise<Picture> {
+    await this.ready()
+    const asked = requests()
+    const grid = tileGrid(asked.length, size)
+    const sheet = pictureCanvas(grid.width, grid.height)
+    const ctx = sheet.getContext('2d')
+    if (!ctx) throw new Error('Could not get a 2D canvas to compose the picture')
+    const colours = this.host.colours()
+    ctx.fillStyle = colours.surface
+    ctx.fillRect(0, 0, grid.width, grid.height)
+    const tiles = asked.map((req, i) => {
+      const aspect = req.view === 'current' ? this.host.aspect() : NAMED_ASPECT
+      const { canvas, picture } = this.one({ ...req, size: tileLongEdge(aspect, grid.cell) })
+      const x = (i % grid.columns) * grid.cell.width
+      const y = Math.floor(i / grid.columns) * grid.cell.height
+      ctx.drawImage(canvas, x + Math.floor((grid.cell.width - picture.width) / 2), y + Math.floor((grid.cell.height - picture.height) / 2))
+      // Over the tile, so that a line between two is never under one of them.
+      ctx.strokeStyle = colours.muted
+      ctx.lineWidth = 1
+      ctx.strokeRect(x + 0.5, y + 0.5, grid.cell.width - 1, grid.cell.height - 1)
+      tileName(ctx, `${i + 1} · ${viewSaid(req.view, req.viewName)}`, x, y, overlayUnit(grid.width, grid.height), colours)
+      return picture
+    })
+    return {
+      png: pngBytes(sheet),
+      width: grid.width,
+      height: grid.height,
+      caption: `${tiles.length} views tiled in one picture of ${grid.width}×${grid.height}, numbered left to right, top to bottom`,
+      layout: tiles[0].layout,
+      scans: [...new Set(tiles.flatMap((tile) => tile.scans))],
+      exploded: tiles.some((tile) => tile.exploded),
+      tiles: tiles.map(({ caption, layout, scans, exploded, hiddenBy }) => ({ caption, layout, scans, exploded, ...(hiddenBy ? { hiddenBy } : {}) }))
+    }
+  }
+
+  /** What every picture waits for before anything is drawn: nothing after it may wait between hiding parts and restoring them. */
+  private async ready(): Promise<void> {
     await overlayFonts()
-    if (host.closed()) throw new Error('The viewport is closed')
-    if (host.renderer.getContext().isContextLost()) throw new Error('The 3D view has lost its graphics context; try again in a moment')
-    const req = typeof request === 'function' ? request() : request
+    if (this.host.closed()) throw new Error('The viewport is closed')
+    if (this.host.renderer.getContext().isContextLost()) throw new Error('The 3D view has lost its graphics context; try again in a moment')
+  }
+
+  /** One view, drawn on a canvas of its own, with everything of the picture but its PNG. */
+  private one(req: ImageRequest): Drawn {
+    const host = this.host
     const layouts = host.layouts()
     if (!layouts.includes(req.layout)) {
       const known = layouts.length > 0 ? `the layouts are ${layouts.join(', ')}` : 'nothing has been built yet'
@@ -391,11 +475,11 @@ export class PictureMaker {
     }
   }
 
-  /** The picture itself, with the parts already drawn apart as it has them. Everything up to the encoding of the PNG is synchronous. */
+  /** The picture itself, with the parts already drawn apart as it has them. All of it is synchronous. */
   private drawn(
     req: ImageRequest,
     of: { aspect: number; width: number; height: number; shown: PicturePart[]; scans: string[] | null; scanBoxes: Array<{ id: string; box: THREE.Box3 }>; everything: THREE.Box3 | null; section: SectionPlane | null; explode: ExplodeState | null; /** What the caption says of having drawn the parts together all the same. */ together: string }
-  ): Promise<Picture> {
+  ): Drawn {
     const host = this.host
     const { aspect, width, height, shown, scans, scanBoxes, everything, section, explode, together } = of
     const wanted = new Set(req.visibleKeys)
@@ -486,10 +570,7 @@ export class PictureMaker {
     const beyond = scanBoxes.filter((one) => drawn.some((scan) => scan.id === one.id) && reachesBeyond(camera, one.box)).map((one) => one.id)
     const caption = `view ${viewName} · layout ${req.layout} · parts ${names}${scansNote(drawn, req.layout)}${beyondNote(beyond, !req.focus && typeof req.view === 'string' && req.view !== 'current' && req.frame !== 'all')}${colouring ? colouringNote(colouring, tokens, solid) : ''}${cutNote}${tracingNote}${explodedNote(explode, drawn.length > 0, split)}${together}${req.focus ? ' · framed on the focus' : ''} · ${projection} · ${width}×${height}`
     const layout = req.layout
-    const encoded = async (): Promise<Picture> => {
-      return { png: pngBytes(picture), width, height, caption, layout, scans: drawn.map((scan) => scan.id), exploded: explode !== null, ...(hiddenBy ? { hiddenBy } : {}) }
-    }
-    return encoded()
+    return { canvas: picture, picture: { width, height, caption, layout, scans: drawn.map((scan) => scan.id), exploded: explode !== null, ...(hiddenBy ? { hiddenBy } : {}) } }
   }
 
   dispose(): void {

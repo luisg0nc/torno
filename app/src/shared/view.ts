@@ -50,7 +50,18 @@ export interface LookRequest {
   viewName?: string
   /** A place to frame the picture on, in the layout's frame: the camera looks from the direction `view` gives (the user's, when `view` is `current`) and stands where it takes in the box and its margin. The parts are drawn together. */
   focus?: FocusBox
+  /**
+   * Several pictures tiled in one, `MIN_TILES` to `MAX_TILES`, in reading order: each is a request of its own (its
+   * `size` and `tiles` are not read). `size` beside them is the long edge of the whole picture, and nothing else
+   * beside them is read.
+   */
+  tiles?: LookRequest[]
 }
+/** How few and how many views one picture may be tiled of. */
+export const MIN_TILES = 2
+export const MAX_TILES = 6
+/** What one tile of a tiled picture drew: what a picture alone would have said of itself. */
+export interface TileDrawn { caption: string; layout: string; scans: string[]; exploded: boolean; hiddenBy?: string[] }
 /**
  * Colours one scan by its distance to a part of the layout, for a picture: from `--deviation-near` at 0 to
  * `--deviation-far` at `range` mm and beyond; scan vertices inside the part in `--deviation-inside`. Worked out
@@ -58,7 +69,7 @@ export interface LookRequest {
  */
 export interface ScanColouring { scan: string; part: string; range: number }
 /** A picture, and what the window drew to make it: the object it had open, that object's revision, and whether its parts were stale. `hiddenBy`, only of a picture framed on a focus: the parts drawn that stand between the camera and the middle of the focus, nearest first (none when it is in plain sight). */
-export interface LookResult { png: Uint8Array; hiddenBy?: string[]; width: number; height: number; caption: string; objectId: string; revision: number; stale: boolean; /** The layout drawn, and the scans drawn in it, by id. */ layout?: string; scans?: string[]; /** The parts are drawn apart in it. */ exploded?: boolean }
+export interface LookResult { png: Uint8Array; hiddenBy?: string[]; width: number; height: number; caption: string; objectId: string; revision: number; stale: boolean; /** The layout drawn, and the scans drawn in it, by id. */ layout?: string; scans?: string[]; /** The parts are drawn apart in it. */ exploded?: boolean; /** Of a tiled picture (`LookRequest.tiles`), what each tile drew, in reading order; `caption` is then of the whole. */ tiles?: TileDrawn[] }
 /** What the agent asks the window to show: an object, and of it a view, a layout, some parts (by name). */
 export interface ShowRequest {
   objectId: string

@@ -29,6 +29,8 @@ export interface Replay {
 const STANDARD: readonly string[] = ['iso', 'front', 'back', 'left', 'right', 'top', 'bottom']
 /** Said when a card was framed on a focus: that is worked out against the kernel, in main. */
 export const NO_FOCUS_AGAIN = 'That look was framed on a place, which the window cannot frame again. Ask the agent to show it.'
+/** Said when a card's picture was tiled of several views: there is no one view to put on screen. */
+export const MANY_VIEWS = 'That look drew several views in one picture, so there is no one view to go to. Ask the agent to show one.'
 const NO_EXPLODE = 'explode is a number from 0 to 1, or {"amount": 0.5, "axis": "z", "scale": 2}'
 
 const isVec = (value: unknown): value is [number, number, number] => Array.isArray(value) && value.length === 3 && value.every((c) => typeof c === 'number' && Number.isFinite(c))
@@ -60,6 +62,7 @@ export function replayOf(tool: SeeTool, input: unknown, s: TornoState, current: 
   const scene = s.scene
   if (!scene) return 'There is no build yet'
   const given = (typeof input === 'object' && input !== null && !Array.isArray(input) ? input : {}) as Record<string, unknown>
+  if (given.views !== undefined) return MANY_VIEWS
   if (given.focus !== undefined) return NO_FOCUS_AGAIN
 
   // The view: the camera it names, and the saved view it is of, if it is one.

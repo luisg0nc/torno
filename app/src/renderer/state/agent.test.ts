@@ -719,6 +719,7 @@ describe('a card of the agent\'s, gone to by the person', () => {
     expect(seeInView('look', { view: 'hinge side' })).toMatch(/no view "hinge side"/)
     expect(seeInView('show', { scans: ['S9'] })).toMatch(/no scan S9/)
     expect(seeInView('look', { view: 'iso', focus: 'base/F1' })).toMatch(/framed on a place/)
+    expect(seeInView('look', { views: ['iso', 'front'] })).toMatch(/drew several views in one picture/)
     expect(views).toEqual([])
   })
 

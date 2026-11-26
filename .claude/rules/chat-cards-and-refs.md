@@ -69,7 +69,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   view" (`show`: "Show again"): `seeInView` in `state/agent.ts` reads the card's input once more against the window as it is
   now (`replayOf` in `state/seeAgain.ts`, pure: a saved view it names is that view but for what is given beside it; a cut
   given leaves the parts together; an explode under a cut, a layout, scan or saved view the build lacks are refused in the
-  tools' words, and a `focus` is not framed again, it being worked out in main) and applies it as the person's own edit
+  tools' words, and a `focus` is not framed again, it being worked out in main; a look with `views` is several views and is
+  refused with `MANY_VIEWS`, its card's label saying `(3 views)`) and applies it as the person's own edit
   (`actions.applyLook`, which `applyView` is the saved-view case of: `shownByAgent` cleared, no `activeView`) and then
   moves the camera. A finished `highlight` has "Point again" (`pointAgain`) only for a card that was seen as it
   happened (`noteTool` in the chat's `onItem` keeps the object and build on show then: a ref names whatever that face is

@@ -1611,6 +1611,8 @@ describe('the transcript of a chat session', () => {
     expect(file).toMatch(new RegExp(`${UUID.source.slice(1, -1)}\\.jsonl$`))
     const logged = lines(file)
     expect(logged.map((i) => i.kind)).toEqual(['user', 'tool', 'text', 'turn', 'note'])
+    // What the turn took is in its line of the log (#127).
+    expect(logged[3]).toMatchObject({ seconds: expect.any(Number), usage: { input: 1, output: 1, cacheRead: 0, cacheCreation: 0, requests: 1, costUsd: 0, sessionCostUsd: 0 } })
     expect(logged.every((i) => i.kind !== 'thinking')).toBe(true)
     expect(readFileSync(file, 'utf8')).not.toContain(secret)
     expect(JSON.stringify(tSessions.history(c.id)!.items)).not.toContain(secret)
@@ -1642,6 +1644,10 @@ describe('the transcript of a chat session', () => {
     // What this session says is logged in the same file, and read as earlier by the next.
     await second.send('say after')
     await expect.poll(() => second.turns(), { timeout: 5000 }).toBe(1)
+    // Resumed: the CLI's running total may hold what the first process spent, so this turn claims no cost of its own.
+    const resumed = second.items().find((i) => i.kind === 'turn') as Extract<ChatItem, { kind: 'turn' }>
+    expect(resumed.usage).toMatchObject({ input: 1, sessionCostUsd: 0 })
+    expect(resumed.usage).not.toHaveProperty('costUsd')
     await tSessions.stop(second.id)
     expect(second.logFile()).toHaveLength(1)
     const third = await start({ folder: 'transcript-resume', resume: true })

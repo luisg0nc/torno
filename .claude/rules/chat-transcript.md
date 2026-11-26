@@ -45,8 +45,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   `version` (`claude_code_version`), `apiKeySource` and `pluginLoaded`; `result` adds `costUsd` (`total_cost_usd`) and
   `context` (the tokens of the last request, `usage.iterations`' last or else `usage`, against the `contextWindow` of
   the session's model in `modelUsage`; unchanged when the result has no tokens, as a `/compact`'s has none);
-  the `turn` item takes the tokens the `result` counts as `usage` (`TurnUsage`: `usage` summed, `num_turns` as `requests`,
-  and `modelUsage` per model; numbers only, so it is in the chat's log; none when the result counts none);
+  the `turn` item takes what the `result` says the turn took as `usage` (`TurnUsage`, #127; numbers only, so it is in
+  the chat's log beside the turn's `seconds`; none when the result counts none). `usage` is the turn's own (main agent
+  only) and gives the four token counts, `num_turns` gives `requests`. `total_cost_usd` and `modelUsage` are running
+  totals of the CLI's, with subagents and compactions in them (a `/compact`'s result has zero `usage`, and what it used
+  is only there): `costUsd` and `models` are what they grew by since the last result, and `sessionCostUsd` is the total
+  as said. Totals that went down (`/clear`) count from nothing. A resumed session (`TranscriptOptions.resumed`) takes in
+  what earlier processes spent, so its first turn has no `costUsd` and no `models`. A terminal session records nothing;
   a `warn` note `NO_HOOKS` says once per session that the hooks do not arrive: a prompt of ours the CLI started
   (`command_lifecycle`, not a `/` command) with no `UserPromptSubmit` by `hookWaitMs` (8 s) or the end of its turn, in a
   session where none has come (a setting that limits `httpHookAllowedEnvVars` makes every hook 404). It never moves

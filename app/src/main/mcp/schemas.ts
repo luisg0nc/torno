@@ -3,7 +3,7 @@ import type { ExplodeState } from '../../shared/explode'
 import type { MeasureKind, Quat, ShapeIntent, ShapeKind } from '../../shared/marks'
 import { MAX_ASK_OPTIONS, MAX_ASK_REFS } from '../../shared/ask'
 import { LAYER_COLOURS, MAX_LABEL_TEXT, MAX_LAYER_NAME, MAX_TRACING_NAME, MOST_SHAPES } from '../../shared/tracings'
-import type { AxisPlane, SectionPlane } from '../../shared/view'
+import { type AxisPlane, type SectionPlane, MAX_TILES, MIN_TILES } from '../../shared/view'
 import { unknownKeys } from './keys'
 import type { EndArg } from './markTools'
 import { type ToolResult, failure } from './tools'
@@ -54,12 +54,17 @@ const focusHelp = 'A place to frame on, for a detail: a ref (lid/F12, lid/E3, li
 const marginInput = loose(z.number())
 const marginHelp = "With focus: how far round it the picture reaches, as a share of the focus box's longest side (counted as 20 mm at the least), 0 to 5. Default 0.3."
 
+export const viewsHelp = `views is ${MIN_TILES} to ${MAX_TILES} views, each as view takes it: {"views": ["iso", "front", "top"]}`
+
 const lookInput = {
   view: loose(z.union([z.string(), cameraInput]))
     .optional()
     .describe(
       "'current' (the default) is the user's own camera. iso, front, back, left, right, top and bottom are orthographic views fitted to the parts. Or the name of a saved view, as scene lists them: the picture is then of that view whatever is on screen (its camera, layout, parts, section or explode, scans), and whatever you give beside it wins. Or a camera: {position, target, up?, ortho?, fov?, zoom?} in mm, Z up."
     ),
+  views: loose(z.array(z.unknown()))
+    .optional()
+    .describe(`Instead of view: ${MIN_TILES} to ${MAX_TILES} views, each as view takes it, tiled in one picture, numbered in reading order. size is the whole picture's, so a survey from several angles costs one look; each tile is small, so use view for fine detail. The other arguments apply to every tile.`),
   layout: z.string().optional().describe('The layout to draw, as listed by scene. Default: the one on screen.'),
   parts: z.array(z.string()).max(MAX_PARTS).optional().describe('Names of parts or groups to draw (a group stands for its parts in the layout, as scene lists them under groups). Default: the parts the user has switched on.'),
   size: z.number().optional().describe(`Long edge of the image in pixels, ${MIN_SIZE} to ${MAX_SIZE}. Default ${DEFAULT_SIZE}.`),
@@ -94,6 +99,8 @@ export interface CameraArg { position: Vec3; target: Vec3; up?: Vec3; ortho?: bo
 export interface LookArgs {
   /** `current`, a standard view, the name of a saved view, or a camera. */
   view?: string | CameraArg
+  /** Several views tiled in one picture, instead of `view`. */
+  views?: Array<string | CameraArg>
   layout?: string
   parts?: string[]
   size?: number
@@ -560,7 +567,7 @@ export const TOOLS = {
     annotations: READ_ONLY,
     meta: ALWAYS_LOADED,
     description:
-      "Returns a PNG of the project drawn by the same viewport the user is looking at, with a caption naming the view, layout, parts, the scans drawn with them (and of each whether it is aligned there), revision and whether the parts are stale. Call it with no arguments to see exactly what the user sees, or with a named view, a camera, a layout or a list of parts to check the shape after a change, or with focus (a ref, a mark or a box) to see one detail up close.",
+      "Returns a PNG of the project drawn by the same viewport the user is looking at, with a caption naming the view, layout, parts, the scans drawn with them (and of each whether it is aligned there), revision and whether the parts are stale. Call it with no arguments to see exactly what the user sees, or with a named view, a camera, a layout or a list of parts to check the shape after a change, or with focus (a ref, a mark or a box) to see one detail up close. For several angles give views, one picture, not a call for each.",
     inputSchema: lookInput
   },
   marks: {
@@ -778,7 +785,7 @@ export const INSTRUCTIONS_LIMIT = 4096
 export const SERVER_INSTRUCTIONS = `torno's server reads and measures the CAD part of the project this session works on, and shows things to the person in the torno window. Every answer is from the last build that worked, names its revision, and says when a newer build is running or has failed. Numbers from measure, check, section and diff are the B-rep's and say whether they are exact; scene's sizes are for orientation. Check an edit by numbers first, then one look. The tools that only read may be called together.
 
 - scene: the build status and error, what the model printed, layouts, parts with size and volume, groups, named sets (#name), params, saved views, the person's camera, section and explode; detail brief: short. Start here.
-- look: a picture of the part as the person's viewport draws it, with the marks, from any view, camera, layout, section or explode, or framed close on one face, edge, mark or box.
+- look: a picture of the part as the person's view draws it, with the marks: any view, several in one, camera, layout, section, explode, or framed close on a face, edge, mark or box.
 - marks: the person's marks (pins, picks, arrows, strokes, shapes, dimensions, scan regions, view notes with pictures on request) and yours, with notes, status and what each is on.
 - describe: the exact geometry of a part, a face, an edge, a group of parts or a mark: area, centre, normal, radius, volume, box; of a face or edge also a build123d selector that picks it now.
 - measure: one exact number: distance or angle between two ends, radius, diameter, wall thickness, area, volume, mass, bounding box.
