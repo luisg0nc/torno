@@ -5,20 +5,18 @@
     python3 app/scripts/readme-images.py docs/images/raw docs/images
 
 Each capture is the whole window at 1600 × 1000 with a `.json` beside it holding the boxes of the window's regions.
-The README's crops are made here (docs/images/README.md says which), every PNG is quantized to keep it small, and
-the social preview (1280 × 640: the logo, the name, the line and a crop of the hero) is composed from the hero.
+The README's crops are made here (docs/images/README.md says which), and every PNG is quantized to keep it small.
+The social preview is drawn, not composed from a capture: `app/scripts/social-preview.mjs`.
 """
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 raw, out = Path(sys.argv[1]), Path(sys.argv[2])
 out.mkdir(parents=True, exist_ok=True)
-repo = Path(__file__).resolve().parents[2]
 
 
 def box_of(name: str, *regions: str) -> tuple[int, int, int, int]:
@@ -50,33 +48,3 @@ save(Image.open(raw / "objects.png"), "objects.png")
 save(Image.open(raw / "export.png"), "export.png")
 # The first screen fills the window: the whole of it.
 save(Image.open(raw / "first-screen.png"), "first-screen.png")
-
-# The social preview: a light ground, the logo and the name at the left, the hero's view at the right.
-W, H = 1280, 640
-social = Image.new("RGB", (W, H), (242, 240, 236))
-logo_png = raw / "logo-256.png"
-subprocess.run(["resvg", "-w", "256", "-h", "256", str(repo / "scripts/torno.svg"), str(logo_png)], check=True)
-logo = Image.open(logo_png).convert("RGBA")
-social.paste(logo, (72, 96), logo)
-draw = ImageDraw.Draw(social)
-
-
-def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    for name in (["InstrumentSans-SemiBold.ttf", "DejaVuSans-Bold.ttf"] if bold else ["InstrumentSans-Regular.ttf", "DejaVuSans.ttf"]):
-        for folder in ("/usr/share/fonts", str(Path.home() / ".local/share/fonts"), str(repo / "app/src/renderer/fonts")):
-            found = list(Path(folder).rglob(name)) if Path(folder).exists() else []
-            if found:
-                return ImageFont.truetype(str(found[0]), size)
-    return ImageFont.load_default(size)
-
-
-draw.text((72, 380), "torno", fill=(28, 28, 32), font=font(72, bold=True))
-for n, line in enumerate(["CAD parts with an AI coding agent.", "You point at the part. Claude Code", "writes the model. torno builds it."]):
-    draw.text((72, 470 + n * 40), line, fill=(84, 84, 92), font=font(28))
-# The hero's view alone (the title bar, the rail, the card, the dock and the status line left out), scaled and let bleed off the bottom and the right.
-view = hero.crop(box_of("hero", "viewport"))
-scale = 0.84
-view = view.resize((round(view.width * scale), round(view.height * scale)), Image.LANCZOS)
-social.paste(view, (W - view.width + 80, 64))
-draw.rectangle((0, 0, W - 1, H - 1), outline=(214, 212, 206))
-save(social, "social-preview.png")
