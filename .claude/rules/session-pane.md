@@ -49,6 +49,9 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   as its description, a click opens it and, if it waits, shows the dock and `focusAsk`), the dock's toggle (same name, description and
   title as before, `.dock-toggle`), and `WindowControls` (46 x 40, `--muted` 10 px glyphs) only when `drawsControls()`. The first
   screen has no bar, only `BareControls`.
+- **The bar's menus and the sheets under them.** A sheet that hears keys before anything else (a capture listener on `window`) leaves a focused
+  menu its Escape (`ui/inMenu.ts`): the Brief's picture opened large closes the menu first, and the next Escape closes the picture
+  (`e2e/titlemenus.spec.ts`).
 - On the page of a new project the dock is hidden (`App.tsx`), and the preview is `DraftPane` on the page itself. The pane stays mounted under `hidden` and has no
   branch of its own for that page. The dock's toggle in the title bar is disabled there (its title says why), the dock key does nothing, and the stored
   choice is untouched, so the dock comes back as it was.

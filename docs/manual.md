@@ -284,7 +284,8 @@ menu with All projects at its head and then each project. At its right it shows 
 (`guitar-wall-stand is working`) or waits (`intake needs you`), two at most and then `+N`; a click opens that project and
 its question. The session pane's show and hide button is there too, before the window controls, which torno draws itself
 where the system gives none. On the page of projects only the folder shows, and on the page of a new project the second crumb reads
-"New project".
+"New project". With one of the bar's menus open over a picture of the Brief opened large, the first `Esc` closes the menu and the
+next one closes the picture.
 
 The projects of the folder are on the page of projects ("All projects `W`"
 in the project crumb's menu of the title bar, or `W`), and the crumb's menu lists them too, a dot on a row for a session that works or waits. When
