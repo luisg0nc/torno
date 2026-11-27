@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { BuildError, BuildReason, BuildState } from '../shared/build'
+import type { KeptCause } from '../shared/history'
 import type { Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
-import { Builds, NotBuilding, type OverridesPort, buildTimeout, watchFolder } from './builds'
+import { Builds, NotBuilding, type OverridesPort, buildTimeout, causeOfSave, watchFolder } from './builds'
 import { type KernelClient, KernelError, startKernel } from './kernel/client'
 import { probe } from '../test/diagnosisFixtures'
 import type { FilletDiagnosis } from '../shared/diagnosis'
@@ -100,24 +101,27 @@ const gear: ObjectInfo = { id: 'gear', name: 'gear', dir: '/ws/gear', model: 'ge
 
 const widget: ObjectInfo = { id: 'widget', name: 'widget', dir: '/ws/widget', model: 'widget.py' }
 
-function setup(over: { timeout?: number; exists?: (path: string) => boolean; overrides?: OverridesPort; working?: (id: string) => boolean } = {}) {
+function setup(over: { timeout?: number; exists?: (path: string) => boolean; overrides?: OverridesPort; working?: (id: string) => boolean; causeNow?: (id: string, path: string) => KeptCause } = {}) {
   const kernel = new FakeKernel()
   const watched = new Map<string, (paths?: string[]) => void>()
+  /** Each folder's watch as it hears one save, before its burst has settled. */
+  const seen = new Map<string, (path: string) => void>()
   let clock = 1000
   const builds = new Builds({
     kernel,
-    watch: (dir, onChange) => {
+    watch: (dir, onChange, onSeen) => {
       watched.set(dir, (paths = []) => onChange(paths))
+      seen.set(dir, (path) => onSeen?.(path))
       return () => watched.delete(dir)
     },
     now: () => clock,
     ...over
   })
   const states: BuildState[] = []
-  const scenes: Array<{ objectId: string; revision: number; scene: Scene; blob: Buffer; reason: BuildReason; wentBackTo?: string }> = []
+  const scenes: Array<{ objectId: string; revision: number; scene: Scene; blob: Buffer; reason: BuildReason; wentBackTo?: string; made?: KeptCause }> = []
   builds.on('build', (s) => states.push(s))
   builds.on('scene', (m) => scenes.push(m))
-  return { kernel, watched, builds, states, scenes, advance: (ms: number) => (clock += ms) }
+  return { kernel, watched, seen, builds, states, scenes, advance: (ms: number) => (clock += ms) }
 }
 
 describe('Builds.query', () => {
@@ -1174,6 +1178,18 @@ describe('watchFolder', () => {
     expect(paths().map((burst) => [...burst].sort())).toEqual([[join(dir, 'obj', 'model.py'), join(dir, 'obj', 'notes.txt')]])
   })
 
+  it('says each save as it hears it, before the burst has settled, and none of what it ignores', async () => {
+    const order: string[] = []
+    stop = watchFolder(join(dir, 'obj'), () => order.push('settled'), 150, undefined, (path) => order.push(`seen ${path.slice(join(dir, 'obj').length + 1)}`))
+    await sleep(process.platform === 'darwin' ? 850 : 150)
+    order.length = 0
+    writeFileSync(join(dir, 'obj', 'out', 'part.step'), 'a')
+    writeFileSync(join(dir, 'obj', 'model.py'), 'x = 5\n')
+    await expect.poll(() => order.includes('settled'), { timeout: 5000 }).toBe(true)
+    expect(order[0]).toBe('seen model.py')
+    expect(order).not.toContain('seen out/part.step')
+  })
+
   it('ignores what a model or a tool keeps in cache/, build/, dist/, node_modules/, .venv/ and .git/', async () => {
     for (const folder of ['cache', 'build', 'dist', 'node_modules', '.venv', '.git']) mkdirSync(join(dir, 'obj', folder))
     const { changes } = await watching(join(dir, 'obj'))
@@ -1487,5 +1503,109 @@ describe('Builds: only what is wanted is built on a save', () => {
     expect(builds.state('bracket')).toMatchObject({ status: 'ok', revision: 2, stale: true })
     builds.show('bracket')
     expect(kernel.calls.at(-1)).toMatchObject({ model: 'bracket.py' })
+  })
+})
+
+describe('whose save a build came of (#384)', () => {
+  const turn = { conversation: 'c1', prompt: 'u7' }
+  const claude: KeptCause = { cause: 'agent', turn }
+  /** A loop whose saves are Claude's when the file is named in `claudes`, as the ledger of its calls would say. */
+  function saving() {
+    const claudes = new Set<string>()
+    const l = setup({ causeNow: (_id, path) => causeOfSave(claudes.has(path) ? { turn } : undefined) })
+    const save = (path = '/ws/bracket/bracket.py') => l.watched.get('/ws/bracket')!([path])
+    const heard = (path = '/ws/bracket/bracket.py') => l.seen.get('/ws/bracket')!(path)
+    const made = () => l.builds.state('bracket')?.made
+    return { ...l, claudes, save, heard, made }
+  }
+  async function opened() {
+    const l = saving()
+    l.builds.open(bracket)
+    l.kernel.succeed(0)
+    await flush()
+    return l
+  }
+
+  it("says the person's of a save no tool accounts for, on the build's states and its scene, and Claude's with the prompt of one it does", async () => {
+    const l = await opened()
+    expect(l.made()).toBeUndefined()
+    l.save()
+    expect(l.made()).toEqual({ cause: 'person' })
+    l.kernel.succeed(1)
+    await flush()
+    expect(l.scenes[1]!.made).toEqual({ cause: 'person' })
+    l.claudes.add('/ws/bracket/bracket.py')
+    l.save()
+    l.kernel.succeed(2)
+    await flush()
+    expect(l.made()).toEqual(claude)
+    expect(l.scenes[2]!.made).toEqual(claude)
+    l.claudes.clear()
+    l.save()
+    l.kernel.fail(3, { kind: 'exception', message: 'boom' })
+    await flush()
+    expect(l.builds.state('bracket')).toMatchObject({ status: 'failed', made: { cause: 'person' } })
+  })
+
+  it("asks of each save as it is heard, and a burst with one of Claude's in it is Claude's", async () => {
+    const l = await opened()
+    l.claudes.add('/ws/bracket/gen.py')
+    l.heard('/ws/bracket/bracket.py')
+    l.heard('/ws/bracket/gen.py')
+    // What the ledger says later does not change what it said when the save was heard.
+    l.claudes.clear()
+    l.save()
+    expect(l.made()).toEqual(claude)
+  })
+
+  it('keeps the cause of a build that was started over before it ended', async () => {
+    const l = await opened()
+    l.claudes.add('/ws/bracket/bracket.py')
+    l.save()
+    l.claudes.clear()
+    l.save()
+    l.kernel.succeed(2)
+    await flush()
+    expect(l.scenes[1]!.made).toEqual(claude)
+    // And the next is judged anew.
+    l.save()
+    l.kernel.succeed(3)
+    await flush()
+    expect(l.scenes[2]!.made).toEqual({ cause: 'person' })
+  })
+
+  it('keeps the cause of a build displaced by another project\'s, which is started again', async () => {
+    const l = await opened()
+    l.claudes.add('/ws/bracket/bracket.py')
+    l.save()
+    l.claudes.clear()
+    l.builds.open(gear)
+    await flush()
+    l.kernel.succeed(2)
+    await flush()
+    l.kernel.succeed(3)
+    await flush()
+    expect(l.scenes.find((s) => s.objectId === 'bracket' && s.revision === 2)!.made).toEqual(claude)
+    expect(l.scenes.find((s) => s.objectId === 'gear')!.made).toBeUndefined()
+  })
+
+  it('takes the saves that changed which file is the model into the build of the new one', async () => {
+    const l = await opened()
+    l.claudes.add('/ws/bracket/other.py')
+    l.heard('/ws/bracket/other.py')
+    l.builds.update({ ...bracket, model: 'other.py' })
+    expect(l.made()).toEqual(claude)
+  })
+
+  it('leaves a save heard while a build runs, not yet settled, to the next build', async () => {
+    const l = await opened()
+    l.builds.rebuild('bracket')
+    l.claudes.add('/ws/bracket/bracket.py')
+    l.heard()
+    l.kernel.succeed(1)
+    await flush()
+    expect(l.scenes[1]!.made).toBeUndefined()
+    l.save()
+    expect(l.made()).toEqual(claude)
   })
 })

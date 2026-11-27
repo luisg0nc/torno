@@ -354,18 +354,19 @@ describe('History.thumbnail and dimensions', () => {
 })
 
 describe('keptCause', () => {
-  const session = (): { cause: 'agent'; turn: { prompt: string } } => ({ cause: 'agent', turn: { prompt: 'u1' } })
+  const claude = { cause: 'agent' as const, turn: { prompt: 'u1' } }
   it('is params for the person\'s overrides and goback, with the build restored, for a Go back', () => {
-    expect(keptCause('params', undefined, session)).toEqual({ cause: 'params' })
-    expect(keptCause('goback', 'h4', session)).toEqual({ cause: 'goback', wentBackTo: 'h4' })
-    expect(keptCause('goback', undefined, session)).toEqual({ cause: 'goback' })
+    expect(keptCause('params', undefined, claude)).toEqual({ cause: 'params' })
+    expect(keptCause('goback', 'h4', claude)).toEqual({ cause: 'goback', wentBackTo: 'h4' })
+    expect(keptCause('goback', undefined, claude)).toEqual({ cause: 'goback' })
   })
   it('is unknown for the first build of an opened project: the files may have changed while torno was closed', () => {
-    expect(keptCause('open', undefined, () => ({ cause: 'person' }))).toEqual({ cause: 'unknown' })
+    expect(keptCause('open', undefined, { cause: 'person' })).toEqual({ cause: 'unknown' })
   })
-  it('is what the session says for a change of the files and for the Rebuild button', () => {
-    expect(keptCause('watch', undefined, session)).toEqual(session())
-    expect(keptCause('rebuild', undefined, () => ({ cause: 'person' }))).toEqual({ cause: 'person' })
-    expect(keptCause(undefined, undefined, () => ({ cause: 'person' }))).toEqual({ cause: 'person' })
+  it('is whose the saves of the build were for a change of the files and for the Rebuild button, and the person where none was heard', () => {
+    expect(keptCause('watch', undefined, claude)).toEqual(claude)
+    expect(keptCause('rebuild', undefined, { cause: 'person' })).toEqual({ cause: 'person' })
+    expect(keptCause('rebuild', undefined, undefined)).toEqual({ cause: 'person' })
+    expect(keptCause(undefined, undefined, undefined)).toEqual({ cause: 'person' })
   })
 })

@@ -1991,6 +1991,113 @@ describe('the transcript of a chat session', () => {
     expect(c.items().find((i) => i.kind === 'tool')).toMatchObject({ result: 'allowed: {"command":"ls"}' })
   })
 
+  describe("which saves of a turn are Claude's (#384)", () => {
+    type Chat = Awaited<ReturnType<typeof start>>
+    const at = (c: Chat, name = 'part.py'): string => join(c.obj.dir, name)
+    const wrote = (c: Chat, name?: string) => tSessions.wroteBy(c.obj.id, at(c, name))
+    const tools = (c: Chat) => c.items().filter((i) => i.kind === 'tool')
+    /** The prompt `n` of the chat as a save names it. */
+    const promptOf = (c: Chat, n = 0) => {
+      const user = c.items().filter((i) => i.kind === 'user')[n] as Extract<ChatItem, { kind: 'user' }>
+      return { turn: { conversation: expect.stringMatching(UUID), prompt: user.id, text: user.text.slice(0, 200) } }
+    }
+    const over = (c: Chat, n: number) => expect.poll(() => c.turns(), { timeout: 5000 }).toBe(n)
+    const asked = async (c: Chat) => {
+      await expect.poll(() => c.items().some((i) => i.kind === 'ask' && i.state === 'open')).toBe(true)
+      return c.items().find((i) => i.kind === 'ask' && i.state === 'open') as Extract<ChatItem, { kind: 'ask' }>
+    }
+
+    it('is not one the person makes while the turn works, with a command that only reads under way', async () => {
+      const c = await start()
+      await c.send('work 2')
+      await expect.poll(() => tools(c).length).toBe(1)
+      writeFileSync(at(c), 'mine')
+      expect(tSessions.turnNow(c.obj.id)).toBeDefined()
+      expect(wrote(c)).toBeUndefined()
+      await over(c, 1)
+      expect(wrote(c)).toBeUndefined()
+    })
+
+    it('is one its Write or Edit made, with the prompt, until the person saves over it', async () => {
+      const c = await start()
+      await c.send('write part.py claude\nwrite extra.py x\nedit extra.py x y')
+      await over(c, 1)
+      expect(wrote(c)).toEqual(promptOf(c))
+      expect(wrote(c, 'extra.py')).toEqual(promptOf(c))
+      await new Promise((r) => setTimeout(r, 30))
+      writeFileSync(at(c), 'mine, after')
+      expect(wrote(c)).toBeUndefined()
+    })
+
+    it('is one a command of its that may write made, and not one made while that command waited to be allowed', async () => {
+      const c = await start()
+      await c.send('ask Bash {"command":"python gen.py"}')
+      const ask = await asked(c)
+      writeFileSync(at(c), 'mine, while the card waits')
+      expect(wrote(c)).toBeUndefined()
+      // Further from the answer than the slack an mtime is given.
+      await new Promise((r) => setTimeout(r, 50))
+      tSessions.respond(c.id, ask.requestId, { allow: true })
+      await over(c, 1)
+      expect(wrote(c)).toBeUndefined()
+      await c.send('bash printf generated > gen.py')
+      await over(c, 2)
+      expect(wrote(c, 'gen.py')).toEqual(promptOf(c, 1))
+    })
+
+    it('is not one made after a command of its that failed ended, which only its result says', async () => {
+      const c = await start()
+      await c.send('bash exit 1\nwork 2')
+      await expect.poll(() => tools(c).length).toBe(2)
+      await new Promise((r) => setTimeout(r, 50))
+      writeFileSync(at(c), 'mine')
+      expect(wrote(c)).toBeUndefined()
+    })
+
+    it('is not one made after a request the person refused', async () => {
+      const c = await start()
+      await c.send(`ask Edit ${JSON.stringify({ file_path: 'part.py', old_string: 'a', new_string: 'b' })}\nwork 2`)
+      tSessions.respond(c.id, (await asked(c)).requestId, { allow: false, message: '' })
+      await expect.poll(() => tools(c).length).toBe(2)
+      writeFileSync(at(c), 'mine')
+      expect(wrote(c)).toBeUndefined()
+    })
+
+    it('is one made by a call whose request the CLI gave up and then ran all the same (decided elsewhere)', async () => {
+      const c = await start()
+      await c.send('elsewhere printf generated > gen.py')
+      await over(c, 1)
+      expect(wrote(c, 'gen.py')).toEqual(promptOf(c))
+    })
+
+    it('is not one made while a request waited that the turn was stopped over', async () => {
+      const c = await start()
+      await c.send(`ask Edit ${JSON.stringify({ file_path: 'part.py', old_string: 'a', new_string: 'b' })}`)
+      await asked(c)
+      writeFileSync(at(c), 'mine')
+      await tSessions.control(c.id, { subtype: 'interrupt' })
+      await over(c, 1)
+      expect(wrote(c)).toBeUndefined()
+    })
+
+    it('is not one made after a Write of its that torno refused', async () => {
+      const c = await start()
+      await c.send('write brief.md claude')
+      await over(c, 1)
+      writeFileSync(at(c, 'brief.md'), 'mine')
+      expect(wrote(c, 'brief.md')).toBeUndefined()
+    })
+
+    it("names the prompt of a command's turn by the command", async () => {
+      const c = await start()
+      await c.send('say hello')
+      await over(c, 1)
+      await c.send('/skill\nwrite part.py claude')
+      await over(c, 2)
+      expect(wrote(c)).toEqual(promptOf(c, 1))
+    })
+  })
+
   it('takes the answers of a question from the window and nothing else of its input', async () => {
     const c = await start()
     const input = { questions: [{ question: 'Which wall?', header: 'Wall', multiSelect: false, options: [{ label: '2 mm', description: 'thin' }] }] }
@@ -2610,48 +2717,88 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(s.turnNow(obj.id)).toBeUndefined()
   })
 
-  it('says what caused a build: the person before the turn first edits, the agent after it, the person when no turn runs', async () => {
+  it("names the prompt of a terminal's write by its number and words, and claims nothing for a tool between whose hooks it was not", async () => {
     const { obj, post, sessions: s } = await begun({ grace: 200 })
     const conversation = '0a1b2c3d-0000-4000-8000-000000000001'
-    const edit = { tool_name: 'Edit', tool_use_id: 'toolu_c', tool_input: { file_path: join(obj.dir, 'part.py') } }
-    expect(s.causeOf(obj.id, Date.now())).toEqual({ cause: 'person' })
+    const part = join(obj.dir, 'part.py')
+    const edit = { tool_name: 'Edit', tool_use_id: 'toolu_c', tool_input: { file_path: part } }
+    writeFileSync(part, 'W = 1\n')
     await post('UserPromptSubmit', { prompt: 'make the lid taller', session_id: conversation })
-    // RF1: a build begun in the turn before its first edit's PreToolUse is the person's save.
-    const before = Date.now()
-    expect(s.causeOf(obj.id, before)).toEqual({ cause: 'person' })
-    await new Promise((r) => setTimeout(r, 5))
+    // A turn at work says nothing of who saved.
+    expect(s.wroteBy(obj.id, part)).toBeUndefined()
     await post('PreToolUse', edit)
-    expect(s.causeOf(obj.id, before)).toEqual({ cause: 'person' })
-    expect(s.causeOf(obj.id, Date.now() + 1)).toEqual({ cause: 'agent', turn: { conversation, prompt: `t-${conversation}-1`, text: 'make the lid taller' } })
-    // Another object has no turn of this one's.
-    expect(s.causeOf('nowhere', Date.now() + 1)).toEqual({ cause: 'person' })
-    const during = Date.now()
-    await new Promise((r) => setTimeout(r, 5))
+    expect(s.wroteBy(obj.id, part)).toEqual({ turn: { conversation, prompt: `t-${conversation}-1`, text: 'make the lid taller' } })
+    expect(s.wroteBy('nowhere', part)).toBeUndefined()
+    // A call that never says it ended (a terminal has no stream to say one failed) ends with the turn.
     await post('Stop', {})
-    // A build begun while the turn was on is its own though its scene lands after the Stop; one begun after the Stop is the person's.
-    const turn = { conversation, prompt: `t-${conversation}-1`, text: 'make the lid taller' }
-    expect(s.causeOf(obj.id, during)).toEqual({ cause: 'agent', turn })
-    expect(s.causeOf(obj.id, Date.now() + 1)).toEqual({ cause: 'person' })
-    // And one begun before the turn's first edit is not.
-    expect(s.causeOf(obj.id, before)).toEqual({ cause: 'person' })
+    writeFileSync(part, 'W = 1  # mine\n')
+    expect(s.wroteBy(obj.id, part)).toBeUndefined()
     // The next prompt is the next number, and its text is cut to what a line of the history holds.
     await post('UserPromptSubmit', { prompt: 'x'.repeat(300), session_id: conversation })
     await post('PreToolUse', edit)
-    expect(s.causeOf(obj.id, Date.now() + 1)).toEqual({ cause: 'agent', turn: { conversation, prompt: `t-${conversation}-2`, text: 'x'.repeat(200) } })
+    expect(s.wroteBy(obj.id, part)).toEqual({ turn: { conversation, prompt: `t-${conversation}-2`, text: 'x'.repeat(200) } })
   })
 
-  it('names the prompt of a chat turn by the id of its user item', async () => {
-    const { obj, post, sessionId, sessions: s } = await begun({ chat: true, grace: 200 })
-    const heard: string[] = []
-    s.on('context', (m) => heard.push(m.prompt ?? ''))
-    s.prompt(sessionId, [{ type: 'text', text: 'slow 3' }])
-    await expect.poll(() => heard.length).toBe(1)
-    await post('PreToolUse', { tool_name: 'Edit', tool_use_id: 'toolu_c', tool_input: { file_path: join(obj.dir, 'part.py') } })
-    const caused = s.causeOf(obj.id, Date.now() + 1)
-    expect(caused.cause).toBe('agent')
-    // The id of the prompt's item in the chat, as its log holds it.
-    expect(caused.turn).toMatchObject({ prompt: s.history(sessionId)!.items.find((i) => i.kind === 'user')!.id, text: 'slow 3' })
-    expect(caused.turn!.conversation).toMatch(UUID)
+  it.each([
+    ["the person's alone, which is then not the turn's", { made: { cause: 'person' as const } }, true],
+    ["of the person's Params", { reason: 'params' as const }, true],
+    ["Claude's", { made: { cause: 'agent' as const } }, undefined]
+  ])("keeps under a tool's card whether its build was %s", async (_which, whose, byPerson) => {
+    const { obj, sessionId, sessions: s } = await begun({ chat: true, grace: 3000 })
+    const part = join(obj.dir, 'part.py')
+    s.prompt(sessionId, [{ type: 'text', text: 'write part.py W' }])
+    // Written between the tool's hooks: the build begins while its `PostToolUse` waits for one.
+    await expect.poll(() => existsSync(part), { interval: 5 }).toBe(true)
+    land({ ...building(obj.id, 2), ...whose })
+    land({ ...ok(obj.id, 3), ...whose })
+    const put = () => s.history(sessionId)!.items.find((i) => i.kind === 'context' && i.forTool) as Extract<ChatItem, { kind: 'context' }> | undefined
+    await expect.poll(put, { timeout: 5000 }).toBeDefined()
+    expect(put()!.byPerson).toBe(byPerson)
+  })
+
+  it.each([
+    ["the next prompt of a terminal's", async (b: Awaited<ReturnType<typeof begun>>) => void (await b.post('UserPromptSubmit', { prompt: 'never mind' }))],
+    ['the end of the session', async (b: Awaited<ReturnType<typeof begun>>) => b.sessions.stop(b.sessionId)]
+  ])('ends a call that never said it ended (a terminal turn interrupted) at %s', async (_at, ends) => {
+    const b = await begun()
+    const part = join(b.obj.dir, 'part.py')
+    await b.post('UserPromptSubmit', { prompt: 'generate it' })
+    await b.post('PreToolUse', { tool_name: 'Bash', tool_use_id: 'b1', tool_input: { command: 'python gen.py' } })
+    await ends(b)
+    await new Promise((done) => setTimeout(done, 40))
+    writeFileSync(part, 'mine')
+    expect(b.sessions.wroteBy(b.obj.id, part)).toBeUndefined()
+  })
+
+  it("says whose a tool's build was from the build that tool's answer waited for, not one that landed while it was measured", async () => {
+    let landed: (() => void) | undefined
+    const { obj, sessionId, sessions: s } = await begun({ chat: true, grace: 3000, settled: async () => landed?.() })
+    const part = join(obj.dir, 'part.py')
+    // While the dimensions of Claude's build are measured, a save of the person's is built.
+    landed = () => {
+      landed = undefined
+      land({ ...building(obj.id, 3), made: { cause: 'person' } })
+      land({ ...ok(obj.id, 4), made: { cause: 'person' } })
+    }
+    s.prompt(sessionId, [{ type: 'text', text: 'write part.py W' }])
+    await expect.poll(() => existsSync(part), { interval: 5 }).toBe(true)
+    land({ ...building(obj.id, 2), made: { cause: 'agent' } })
+    land({ ...ok(obj.id, 3), made: { cause: 'agent' } })
+    const put = () => s.history(sessionId)!.items.find((i) => i.kind === 'context' && i.forTool) as Extract<ChatItem, { kind: 'context' }> | undefined
+    await expect.poll(put, { timeout: 5000 }).toBeDefined()
+    expect(put()!.byPerson).toBeUndefined()
+  })
+
+  it('takes a Bash that surely writes nothing for no change of the turn, whatever was saved while it ran', async () => {
+    let saved: number | null = 1000
+    const { obj, post } = await begun({ saved: async () => saved })
+    await post('UserPromptSubmit', { prompt: 'wait for me' })
+    await post('PreToolUse', { tool_name: 'Bash', tool_use_id: 'b1', tool_input: { command: 'sleep 5' } })
+    saved = 2000
+    land(building(obj.id, 1))
+    land(ok(obj.id, 2))
+    expect(await post('PostToolUse', { tool_name: 'Bash', tool_use_id: 'b1', tool_input: { command: 'sleep 5' } })).toEqual({})
+    expect(await post('Stop', {})).toEqual({})
   })
 
   it('answers an edit of the model with the build it started, once that build has ended', async () => {

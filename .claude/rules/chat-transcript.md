@@ -26,7 +26,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   CLI takes a prompt up in one of two ways, as measured on the real one: a `UserPromptSubmit` hook that names it
   (matched by text; else the oldest untaken that is not a command), which also folds a prompt sent while a tool
   ran into the running turn with no `init` and no result of its own; or, for a prompt beginning with `/`, an
-  `init` that no hook explains (`explained`). After a `result`, prompts still untaken are given 1.5 s
+  `init` that no hook explains (`explained`). A command taken up so, or by its lifecycle, is then `taken()`, which names
+  the turn's writes (`sessions`). After a `result`, prompts still untaken are given 1.5 s
   (`IDLE_GRACE_MS`) for their hook or `init` to come; if nothing came, the CLI is idle and they are taken
   (`idle()`), so nothing waits for good. The context of a `UserPromptSubmit` (`text`, `sentMarkIds`, and as data
   the build and selection) is put under the prompt that hook names; the window never parses text for it. Every

@@ -1,8 +1,32 @@
+import { readlinkSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { isInsideFolder, realPathOrNearest } from './inside'
 
 /** The tools that write a file, and the key of their input that names it. */
-const WRITERS: Record<string, string> = { Write: 'file_path', Edit: 'file_path', MultiEdit: 'file_path', NotebookEdit: 'notebook_path' }
+export const WRITERS: Record<string, string> = { Write: 'file_path', Edit: 'file_path', MultiEdit: 'file_path', NotebookEdit: 'notebook_path' }
+
+/** The most links followed one after another, as Linux does: a circle of links ends there. */
+const MOST_LINKS = 40
+
+/**
+ * Where a write of `path` lands, by real paths: a link as its last name is followed also when what it names is not
+ * there yet, since the write would make it.
+ */
+export function writtenAt(path: string): string {
+  let at = path
+  for (let hop = 0; hop < MOST_LINKS; hop++) {
+    const placed = join(realPathOrNearest(dirname(at)), basename(at))
+    let target: string
+    try {
+      target = readlinkSync(placed)
+    } catch {
+      // Not a link, or nothing there.
+      return realPathOrNearest(placed)
+    }
+    at = resolve(dirname(placed), target)
+  }
+  return at
+}
 
 /**
  * Why a tool of the agent is refused, or undefined when it may go on. A session writes only in its own project's

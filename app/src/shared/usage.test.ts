@@ -25,6 +25,14 @@ describe('usageFacts', () => {
 
 const u = (over: Partial<TurnUsage> = {}): TurnUsage => ({ input: 1, output: 10, cacheRead: 100, cacheCreation: 20, requests: 2, costUsd: 0.5, ...over })
 
+describe("a build under a tool's card that was the person's alone", () => {
+  it('is none of the turn (#384)', () => {
+    const theirs = { ...build('b2', 36, 'ok'), byPerson: true } as ChatItem
+    expect(usageFacts([build('b1', 34, 'ok'), theirs]).builds).toEqual({ count: 1, to: 34 })
+    expect(usageFacts([theirs]).builds).toEqual({ count: 0 })
+  })
+})
+
 describe('addUsage', () => {
   it('sums the tokens, the calls and the cost of two turns of one prompt', () => {
     expect(addUsage(u(), u({ costUsd: 0.25 }))).toEqual({ input: 2, output: 20, cacheRead: 200, cacheCreation: 40, requests: 4, costUsd: 0.75 })

@@ -1,6 +1,6 @@
 import { readFile, readdir, rm } from 'node:fs/promises'
 import { join, posix } from 'node:path'
-import { type BuildCause, type BuildTurn, type HistoryDimensions, type HistoryEntry, HISTORY_ID, HISTORY_KEPT, changeLine, drawable, sceneFacts } from '../shared/history'
+import { type HistoryDimensions, type HistoryEntry, type KeptCause, HISTORY_ID, HISTORY_KEPT, changeLine, drawable, sceneFacts } from '../shared/history'
 import type { BuildReason } from '../shared/build'
 import type { Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
@@ -31,23 +31,18 @@ export const MOST_COPY_BYTES = 2 * 1024 * 1024
 /** A picture larger than this is not kept (the cards' own is at most 512 KB, and a hundred of those are no small thing). */
 export const MOST_THUMB_BYTES = 160 * 1024
 
-/** What made a build, as main decides it (`Sessions.causeOf`, and the reason `Builds` started it for): never from the window or a tool. */
-export interface KeptCause {
-  cause: BuildCause
-  turn?: BuildTurn
-  wentBackTo?: string
-}
+export type { KeptCause }
 
 /**
  * What made a build: the reason `Builds` started it for when that says (the person's `Params`, a Go back; `open` is the
  * first build of a project just opened, of files that may have been changed while torno was closed, so no one's), else
- * what the session of the object says of the moment the build began (`bySession`).
+ * whose the saves were that it was made of (`made`, `BuildState.made`), and with none heard the person.
  */
-export function keptCause(reason: BuildReason | undefined, wentBackTo: string | undefined, bySession: () => KeptCause): KeptCause {
+export function keptCause(reason: BuildReason | undefined, wentBackTo: string | undefined, made: KeptCause | undefined): KeptCause {
   if (reason === 'params') return { cause: 'params' }
   if (reason === 'goback') return { cause: 'goback', ...(wentBackTo ? { wentBackTo } : {}) }
   if (reason === 'open') return { cause: 'unknown' }
-  return bySession()
+  return made ?? { cause: 'person' }
 }
 
 const causeFields = (c: KeptCause): Pick<HistoryEntry, 'cause' | 'turn' | 'wentBackTo'> => ({ cause: c.cause, ...(c.turn ? { turn: c.turn } : {}), ...(c.wentBackTo ? { wentBackTo: c.wentBackTo } : {}) })

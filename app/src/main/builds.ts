@@ -4,6 +4,7 @@ import { watch as chokidarWatch } from 'chokidar'
 import { type BuildError, type BuildReason, type BuildState, REBUILD_KEY } from '../shared/build'
 import { assumedAgainst, keepNotes } from '../shared/modelChecks'
 import { isBoolean } from '../shared/diagnosis'
+import type { BuildTurn, KeptCause } from '../shared/history'
 import type { Scene } from '../shared/scene'
 import type { ObjectInfo } from '../shared/workspace'
 import { type BuildResult, type KernelClient, KernelError, type TrialResult } from './kernel/client'
@@ -19,16 +20,31 @@ const IGNORED_FOLDERS = new Set(['out', FOLDER, '__pycache__', 'cache', 'build',
 
 /** Told the files that changed in a burst, as absolute paths. */
 export type OnChange = (paths: string[]) => void
+/** Told one file as its save is heard. */
+export type OnSeen = (path: string) => void
+
+/** What made a save: Claude, when one of its tool calls accounts for it (`Sessions.wroteBy`), else the person. */
+export function causeOfSave(claude: { turn?: BuildTurn } | undefined): KeptCause {
+  if (!claude) return { cause: 'person' }
+  return { cause: 'agent', ...(claude.turn ? { turn: { ...claude.turn } } : {}) }
+}
+
+/** Of two causes that fold into one build, Claude's is kept, whole (its prompt with it); else the one held. */
+function merged(held: KeptCause | undefined, more: KeptCause | undefined): KeptCause | undefined {
+  if (!more) return held
+  return held && (held.cause === 'agent' || more.cause !== 'agent') ? held : more
+}
 
 /**
  * Watch a folder and call `onChange` once per burst of changes, 300 ms after
  * the last one, with the paths that changed. Ignores dotfiles and the folders
  * named `out`, `.torno`, `__pycache__`, `cache`, `build`, `dist`,
  * `node_modules`, `.venv` and `.git`, at any depth. The folder need not exist
- * yet. `keep` names the paths that are watched all the same, though they lie in a folder that is ignored (the shelf watches a part's
+ * yet. `onSeen` is told of each of those changes as soon as it is heard, before the burst settles: whose a save was is
+ * asked then. `keep` names the paths that are watched all the same, though they lie in a folder that is ignored (the shelf watches a part's
  * `.torno/checked.json`; a project's builds pass none). Returns a function that stops the watch.
  */
-export function watchFolder(dir: string, onChange: OnChange, debounceMs: number = DEBOUNCE_MS, keep?: (path: string) => boolean): () => void {
+export function watchFolder(dir: string, onChange: OnChange, debounceMs: number = DEBOUNCE_MS, keep?: (path: string) => boolean, onSeen?: OnSeen): () => void {
   let timer: NodeJS.Timeout | undefined
   let changed = new Set<string>()
   const realDir = realPathOrNearest(dir)
@@ -47,6 +63,7 @@ export function watchFolder(dir: string, onChange: OnChange, debounceMs: number 
   watcher.on('all', (event, path) => {
     // FSEvents may tell of a change in a folder that was ignored, and of the watched folder itself.
     if (isIgnored(path) || (event === 'change' && (path === dir || path === realDir))) return
+    onSeen?.(path)
     changed.add(path)
     clearTimeout(timer)
     timer = setTimeout(() => {
@@ -93,7 +110,7 @@ export interface OverridesPort {
 
 export type { BuildReason }
 /** `reason` and `wentBackTo` say what the build was started for (`Builds.rebuild`), for whoever keeps it. */
-type SceneMessage = { objectId: string; revision: number; scene: Scene; blob: Buffer; reason: BuildReason; wentBackTo?: string }
+type SceneMessage = { objectId: string; revision: number; scene: Scene; blob: Buffer; reason: BuildReason; wentBackTo?: string; made?: KeptCause }
 type LastGood = { revision: number; scene: Scene; blob: Buffer }
 
 interface Entry {
@@ -107,6 +124,14 @@ interface Entry {
   wentBackTo?: string
   /** A Go back that is about to write the files: the next build the watcher starts is its, not the person's (`expect`). */
   expected?: { reason: BuildReason; wentBackTo?: string }
+  /**
+   * Whose the saves are, by what was asked as each was heard: `burst` those not settled yet, `pending` those that want
+   * the next build (a build takes them as it starts), `made` those of the build under way, and of the last that ended.
+   * A build that is started over, or displaced, keeps its own for the one that follows.
+   */
+  burst?: KeptCause
+  pending?: KeptCause
+  made?: KeptCause
   attempt: number // counts builds started; a result for an older attempt is dropped
   startedAt: number
   /** Something other than Python changed while it was building: build once more when that build ends. */
@@ -151,7 +176,8 @@ interface Entry {
  */
 export class Builds {
   private readonly kernel: KernelClient
-  private readonly watch: (dir: string, onChange: OnChange) => () => void
+  private readonly watch: (dir: string, onChange: OnChange, onSeen?: OnSeen) => () => void
+  private readonly causeNow: ((objectId: string, path: string) => KeptCause) | undefined
   private readonly now: () => number
   private readonly exists: (path: string) => boolean
   private readonly timeout: number | undefined
@@ -166,7 +192,9 @@ export class Builds {
 
   constructor(deps: {
     kernel: KernelClient
-    watch: (dir: string, onChange: OnChange) => () => void
+    watch: (dir: string, onChange: OnChange, onSeen?: OnSeen) => () => void
+    /** Whose the save of `path` just heard is: Claude's, by its tool calls, or the person's (`causeOfSave`). */
+    causeNow?: (objectId: string, path: string) => KeptCause
     now?: () => number
     exists?: (path: string) => boolean
     /** Seconds a build may take; the kernel's default when left out. */
@@ -182,6 +210,7 @@ export class Builds {
   }) {
     this.kernel = deps.kernel
     this.watch = deps.watch
+    this.causeNow = deps.causeNow
     this.now = deps.now ?? Date.now
     this.exists = deps.exists ?? existsSync
     this.timeout = deps.timeout
@@ -244,8 +273,12 @@ export class Builds {
         unwatch: []
       }
       this.entries.set(obj.id, entry)
-      const changed: OnChange = (paths) => this.changed(obj.id, paths)
-      entry.unwatch.push(this.watch(obj.dir, changed), this.watch(join(dirname(obj.dir), 'common'), changed))
+      const changed: OnChange = (paths) => {
+        this.settled(obj.id, paths)
+        this.changed(obj.id, paths)
+      }
+      const seen: OnSeen = (path) => this.heard(obj.id, path)
+      entry.unwatch.push(this.watch(obj.dir, changed, seen), this.watch(join(dirname(obj.dir), 'common'), changed, seen))
     }
     this.start(entry)
     return entry.state
@@ -275,9 +308,26 @@ export class Builds {
     entry.restoring = false
     entry.failure = undefined
     this.setReason(entry, 'watch')
+    // The saves that changed which file is the model, told here in place of the watch's `onChange`.
+    this.settled(obj.id, [])
     if (this.keepsFresh(entry)) this.start(entry)
     else this.markOutdated(entry)
     return true
+  }
+
+  /** One save was heard: whose it is is asked now, while what wrote it can still be told. */
+  private heard(objectId: string, path: string): void {
+    const entry = this.entries.get(objectId)
+    if (entry && this.causeNow) entry.burst = merged(entry.burst, this.causeNow(objectId, path))
+  }
+
+  /** A burst of saves settled: whose they were wants the next build, not one already on its way. A watch that told no save as it heard it has the burst asked of now. */
+  private settled(objectId: string, paths: string[]): void {
+    const entry = this.entries.get(objectId)
+    if (!entry || !this.causeNow) return
+    const burst = entry.burst ?? paths.reduce<KeptCause | undefined>((held, path) => merged(held, this.causeNow!(objectId, path)), undefined)
+    entry.burst = undefined
+    entry.pending = merged(entry.pending, burst)
   }
 
   /**
@@ -342,8 +392,8 @@ export class Builds {
   }
 
   /** What a build's states and scene say it was started for. */
-  private why(entry: Entry): { reason: BuildReason; wentBackTo?: string } {
-    return { reason: entry.reason, ...(entry.wentBackTo ? { wentBackTo: entry.wentBackTo } : {}) }
+  private why(entry: Entry): { reason: BuildReason; wentBackTo?: string; made?: KeptCause } {
+    return { reason: entry.reason, ...(entry.wentBackTo ? { wentBackTo: entry.wentBackTo } : {}), ...(entry.made ? { made: entry.made } : {}) }
   }
 
   close(objectId: string): void {
@@ -521,11 +571,15 @@ export class Builds {
     this.displaced.delete(id)
     entry.changedMeanwhile = false // this build sees whatever changed
     entry.outdated = false
+    // `made` is still held only when the build before never landed (started over, or displaced): its saves are in this one.
+    entry.made = merged(entry.made, entry.pending)
+    entry.pending = undefined
 
     if (obj.model === null) {
       const message = obj.problem ?? `no model file in ${obj.dir}`
       entry.restoring = false
       this.set(entry, { objectId: id, status: 'failed', revision, error: { kind: 'no_model', message }, stale: revision > 0, ...this.why(entry) })
+      entry.made = undefined
       this.abandon(id)
       return
     }
@@ -642,8 +696,11 @@ export class Builds {
     entry.failure = undefined
     entry.letGo = false
     this.watchUses(entry, scene.uses ?? [])
-    this.set(entry, { objectId: id, status: 'ok', revision, seconds: scene.seconds, stale: false, ...this.why(entry) })
-    for (const cb of this.sceneListeners) cb({ objectId: id, revision, scene, blob, ...this.why(entry) })
+    const why = this.why(entry)
+    // Spent: a listener may start the next build, which is not of these saves.
+    entry.made = undefined
+    this.set(entry, { objectId: id, status: 'ok', revision, seconds: scene.seconds, stale: false, ...why })
+    for (const cb of this.sceneListeners) cb({ objectId: id, revision, scene, blob, ...why })
   }
 
   /**
@@ -665,14 +722,23 @@ export class Builds {
     const watch = { files, folders: key, unwatch: [] as Array<() => void> }
     entry.usesWatch = watch
     const id = entry.obj.id
-    for (const dir of folders) watch.unwatch.push(this.watch(dir, (paths) => (paths.length === 0 || paths.some((path) => watch.files.has(path))) && this.changed(id, paths)))
+    for (const dir of folders) {
+      const changed: OnChange = (paths) => {
+        if (paths.length > 0 && !paths.some((path) => watch.files.has(path))) return
+        this.settled(id, paths.filter((path) => watch.files.has(path)))
+        this.changed(id, paths)
+      }
+      watch.unwatch.push(this.watch(dir, changed, (path) => watch.files.has(path) && this.heard(id, path)))
+    }
   }
 
   private failed(entry: Entry, error: BuildError): void {
     const revision = entry.state.revision
     const seconds = (this.now() - entry.startedAt) / 1000
     entry.failure = error
-    this.set(entry, { objectId: entry.obj.id, status: 'failed', revision, seconds, error, stale: revision > 0, ...this.why(entry) })
+    const why = this.why(entry)
+    entry.made = undefined
+    this.set(entry, { objectId: entry.obj.id, status: 'failed', revision, seconds, error, stale: revision > 0, ...why })
   }
 
   private set(entry: Entry, given: BuildState): void {
@@ -711,7 +777,10 @@ export class Builds {
       if (!this.keepsFresh(entry) && !entry.rebuilt) {
         entry.outdated = true
         entry.restoring = false
-        const { waiting: _waits, startedAt: _began, ...rest } = entry.state
+        // Not made: what it was to be made of waits for the build that is.
+        entry.pending = merged(entry.made, entry.pending)
+        entry.made = undefined
+        const { waiting: _waits, startedAt: _began, made: _made, ...rest } = entry.state
         this.set(entry, { ...rest, status: entry.lastGood ? 'ok' : 'idle', stale: entry.state.revision > 0 })
         continue
       }

@@ -40,6 +40,12 @@ describe('the account of a turn', () => {
     expect(summaryParts(turnSummary(itemsOfTurn(items, 't1')))).toEqual(['hollow.py edited ×2', 'r1 → r3 ok', 'resolved M1', 'added M5', 'M3 now passes'])
   })
 
+  it("leaves a build that was the person's alone out of the turn's builds and its dimensions (#384)", () => {
+    const theirs = { ...build('b2', 'e1', 'ok', 3, [{ id: 'M3', was: 'pass', now: 'fail' }]), byPerson: true } as ChatItem
+    const items: ChatItem[] = [user, prompt(1), tool('e1', 'Bash', { command: 'python gen.py' }), build('b1', 'e1', 'ok', 2), theirs, end]
+    expect(summaryParts(turnSummary(itemsOfTurn(items, 't1')))).toEqual(['r1 → r2 ok'])
+  })
+
   it('says the sketches it drew, and the ones it drew again', () => {
     const made = (id: string, n: number): ChatItem => tool(id, 'mcp__torno__add_sketch', { name: 'Hose' }, { result: `made in layout main: M${n} · sketch "Hose" · flow ⌀19 mm · 2 strokes on 1 plane · sent, drawn on build 3\nrevision r3` })
     const one = [user, prompt(1), made('s1', 9), end]

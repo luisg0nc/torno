@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { HistoryEntry } from '../../../shared/history'
 import type { ProjectUsage, UsageRow } from '../../../shared/usage'
-import { buildNamed, chipCost, groupCount, groupTitle, stripGroups, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
+import { buildNamed, chipCost, groupCount, groupTitle, liveBy, stripGroups, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
 
 let n = 0
 const entry = (id: string, extra: Partial<HistoryEntry> = {}): HistoryEntry => ({
@@ -18,6 +18,24 @@ const entry = (id: string, extra: Partial<HistoryEntry> = {}): HistoryEntry => (
   ...extra
 })
 const agent = (id: string, prompt: string, extra: Partial<HistoryEntry> = {}) => entry(id, { cause: 'agent', turn: { prompt }, ...extra })
+
+describe('what is said of the build that runs or just failed', () => {
+  const numbers = new Map([['u14', 14]])
+  const claude = { cause: 'agent' as const, turn: { prompt: 'u14' } }
+  it("is whose its saves were, as main says: never the last prompt's because a session works (#384)", () => {
+    expect(liveBy({ status: 'building', reason: 'watch', made: claude }, numbers)).toEqual({ cause: 'agent', prompt: 14 })
+    expect(liveBy({ status: 'failed', reason: 'watch', made: { cause: 'person' } }, numbers)).toEqual({ cause: 'person' })
+    expect(liveBy({ status: 'building', reason: 'watch', made: { cause: 'agent' } }, numbers)).toEqual({ cause: 'agent' })
+  })
+  it("is what it was started for where that says more, a save of the person's where no save was heard, and nothing otherwise", () => {
+    expect(liveBy({ status: 'building', reason: 'params', made: claude }, numbers)).toEqual({ cause: 'params' })
+    expect(liveBy({ status: 'building', reason: 'goback' }, numbers)).toEqual({ cause: 'goback' })
+    expect(liveBy({ status: 'building', reason: 'watch' }, numbers)).toEqual({ cause: 'person' })
+    expect(liveBy({ status: 'building', reason: 'open' }, numbers)).toEqual({})
+    expect(liveBy({ status: 'ok', reason: 'watch', made: claude }, numbers)).toEqual({})
+    expect(liveBy(undefined, numbers)).toEqual({})
+  })
+})
 const idle = (over: Partial<StripLive> = {}): StripLive => ({ status: 'ok', onShow: null, ...over })
 const numbering = new Map([['u13', 13], ['u14', 14], ['u15', 15]])
 const byId = (history: HistoryEntry[]) => new Map(history.map((e) => [e.id, e]))

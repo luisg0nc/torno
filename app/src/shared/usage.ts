@@ -56,7 +56,7 @@ export function usageFacts(items: readonly ChatItem[]): UsageFacts {
     else if (item.kind === 'tool') add(toolName(item.name), item.images.length)
     else if (item.kind === 'context' && !item.forTool) {
       if (from === undefined && item.revision !== undefined) from = item.revision
-    } else if (item.kind === 'context' && (item.buildState === 'ok' || item.buildState === 'failed')) {
+    } else if (item.kind === 'context' && !item.byPerson && (item.buildState === 'ok' || item.buildState === 'failed')) {
       count += 1
       if (item.buildState === 'ok' && item.revision !== undefined) to = item.revision
     }

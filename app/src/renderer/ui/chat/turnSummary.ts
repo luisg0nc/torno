@@ -83,7 +83,7 @@ export function turnSummary(items: readonly ChatItem[]): TurnSummary {
     if (item.kind === 'context' && !item.forTool) {
       // The build on show when the prompt was sent: the start of "r1 → r3".
       if (from === undefined && item.revision !== undefined) from = item.revision
-    } else if (item.kind === 'context') {
+    } else if (item.kind === 'context' && !item.byPerson) {
       if (item.buildState === 'ok') {
         built += 1
         lastFailed = false
@@ -175,7 +175,7 @@ export function partChanges(items: readonly ChatItem[]): PartChange[] {
   const last = new Map<string, DigestPart>()
   const inexact = new Set<string>()
   for (const item of items) {
-    if (item.kind !== 'context' || !item.forTool || item.buildState !== 'ok') continue
+    if (item.kind !== 'context' || !item.forTool || item.byPerson || item.buildState !== 'ok') continue
     for (const part of item.digest?.parts ?? []) {
       const key = `${part.layout}/${part.name}`
       if (!part.volume.exact) inexact.add(key)

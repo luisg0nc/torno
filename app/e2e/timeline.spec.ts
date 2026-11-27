@@ -67,14 +67,22 @@ test('the builds of a project are a folded bar under the view, a chip for each p
   await say(['edit hollow.py "wall: float = 2" "wall: float = 3"', 'work 4', 'edit hollow.py "wall: float = 3" "wall: float = 4"'])
   await expect.poll(() => builtBy('agent'), { timeout: 45_000 }).toBe(2)
   await expect(turns()).toHaveCount(1, { timeout: 30_000 })
-  await say(['edit hollow.py "wall: float = 4" "wall: float = 5"'])
+  // The second asks to run a command and waits for the answer: the turn is at work for as long as the spec likes.
+  await say(['edit hollow.py "wall: float = 4" "wall: float = 5"', 'ask Bash {"command":"python gen.py"}'])
   await expect.poll(() => builtBy('agent'), { timeout: 30_000 }).toBe(3)
-  await expect(turns()).toHaveCount(2, { timeout: 30_000 })
-  // Two saves of the person's in a row, the second putting the file back as it was.
+  const ask = dock().locator('.chat .chat-ask').last()
+  await expect(ask.getByRole('button', { name: 'Allow', exact: true })).toBeVisible()
+  // Two saves of the person's in a row, the first while Claude's turn is at work (only its tool calls make a save
+  // Claude's, #384), the second after it, putting the file back as it was.
   const was = readFileSync(model(), 'utf8')
   const saves = builtBy('person')
   writeFileSync(model(), `${was}\n# a note\n`)
   await expect.poll(() => builtBy('person'), { timeout: 30_000 }).toBe(saves + 1)
+  expect((await state()).sessions.hollow?.status).toBe('needs_input')
+  await ask.getByRole('button', { name: 'Allow', exact: true }).click()
+  await expect(turns()).toHaveCount(2, { timeout: 30_000 })
+  await expect.poll(async () => (await state()).sessions.hollow?.status, { timeout: 30_000 }).toBe('idle')
+  expect(builtBy('agent')).toBe(3)
   writeFileSync(model(), was)
   await expect.poll(() => builtBy('person'), { timeout: 30_000 }).toBe(saves + 2)
 

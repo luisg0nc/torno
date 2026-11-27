@@ -340,10 +340,10 @@ export class Transcript {
    * What the `PostToolUse` of an edit of the model was answered with (the build the edit started), under the card of
    * that tool, as a prompt's context is under the prompt. Null when the tool is not one of this transcript's.
    */
-  toolContext(c: { toolUseId?: string; text: string; revision?: number; buildState?: 'ok' | 'failed' | 'building'; seconds?: number; error?: string; digest?: BuildDigest; identity?: BuildIdentity }): ChatItem | null {
+  toolContext(c: { toolUseId?: string; text: string; byPerson?: true; revision?: number; buildState?: 'ok' | 'failed' | 'building'; seconds?: number; error?: string; digest?: BuildDigest; identity?: BuildIdentity }): ChatItem | null {
     const forItem = c.toolUseId === undefined ? undefined : this.tools.get(c.toolUseId)
     if (forItem === undefined || c.text.trim() === '') return null
-    const made: ChatItem = { kind: 'context', id: this.newId('i'), forUser: forItem, forTool: true, text: this.redact(c.text), marks: [], ...(c.revision !== undefined ? { revision: c.revision } : {}), ...(c.buildState ? { buildState: c.buildState } : {}), ...(c.seconds !== undefined ? { seconds: c.seconds } : {}), ...(c.error ? { error: this.redact(c.error) } : {}), ...(c.digest ? { digest: c.digest } : {}), ...(c.identity ? { identity: c.identity } : {}) }
+    const made: ChatItem = { kind: 'context', id: this.newId('i'), forUser: forItem, forTool: true, text: this.redact(c.text), marks: [], ...(c.byPerson ? { byPerson: true as const } : {}), ...(c.revision !== undefined ? { revision: c.revision } : {}), ...(c.buildState ? { buildState: c.buildState } : {}), ...(c.seconds !== undefined ? { seconds: c.seconds } : {}), ...(c.error ? { error: this.redact(c.error) } : {}), ...(c.digest ? { digest: c.digest } : {}), ...(c.identity ? { identity: c.identity } : {}) }
     this.run(() => this.put(made))
     return made
   }
@@ -366,9 +366,11 @@ export class Transcript {
     for (const [id, given] of this.uuids) {
       if (given !== uuid) continue
       if (!this.untaken.includes(id)) return
-      if (!this.isCommand(id)) this.waitForHook(id)
+      const command = this.isCommand(id)
+      if (!command) this.waitForHook(id)
       this.lifecycled.add(id)
-      this.take(id)
+      if (command) this.takeCommand(id)
+      else this.take(id)
       this.explain(id)
       return
     }
@@ -418,9 +420,15 @@ export class Transcript {
     if (item?.kind === 'user' && item.state === 'queued') this.takeUp(item)
   }
 
-  /** The prompt the last hook took up, for whoever says which prompt a turn is of; undefined before any. */
+  /** The prompt the last hook (or command) took up, for whoever says which prompt a turn is of; undefined before any. */
   taken(): { item: string; text: string } | undefined {
     return this.promptTaken
+  }
+
+  /** A command begins: it has no hook, so its turn is named by it here. */
+  private takeCommand(id: string): void {
+    this.take(id)
+    this.promptTaken = { item: id, text: (this.byId.get(id) as { text?: string } | undefined)?.text ?? '' }
   }
 
   /** The prompts the last hook took up, the one it is for last: none when it matched no prompt that waits. */
@@ -611,7 +619,7 @@ export class Transcript {
       // A hook has said what this `init` starts, or it is a command's (which has no hook): the oldest prompt not
       // taken up, if it begins with a slash.
       if (this.explained > 0) this.explained -= 1
-      else if (this.untaken.length > 0 && this.isCommand(this.untaken[0])) this.take(this.untaken[0])
+      else if (this.untaken.length > 0 && this.isCommand(this.untaken[0])) this.takeCommand(this.untaken[0])
       this.compactNoted = false
       if (this.turnStarted === null) this.turnStarted = this.now()
       const model = str(m.model)
