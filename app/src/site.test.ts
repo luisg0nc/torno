@@ -48,6 +48,13 @@ describe('site/index.html', () => {
     expect(links).toContain('https://github.com/luisg0nc/torno/issues')
   })
 
+  it('says who made torno, with a link to luisg.me, near the foot of the page', () => {
+    const section = /<section[^>]*\bid="author"[\s\S]*?<\/section>/.exec(html)?.[0] ?? ''
+    expect(section).toContain('Luis Goncalves')
+    expect(section).toContain('href="https://luisg.me/"')
+    expect(html.indexOf('id="author"')).toBeGreaterThan(html.indexOf('id="join"'))
+  })
+
   it('reduces motion when asked', () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/)
   })

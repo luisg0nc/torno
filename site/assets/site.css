@@ -209,6 +209,7 @@ pre { background: var(--panel); border: 1px solid var(--hairline); border-radius
 .join-card ul { padding-left: 1.1em; }
 .join-card li { margin-bottom: 6px; }
 .join-card .actions { margin-top: 20px; }
+.author p { margin: 14px 0 0; }
 .cmd { position: relative; }
 .cmd pre { padding-right: 84px; }
 .copy[hidden] { display: none !important; }
