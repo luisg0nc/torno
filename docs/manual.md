@@ -1077,14 +1077,29 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   project's fourth prompt on, has a short paragraph under its sentence: "Why this turn was large: 7.4 × this project's usual turn", then
   the facts from the conversation's log: the calls and the context each read again ("62 calls, and each read the whole conversation
   again: 159 k a call on average"), the pictures that came in and which tool brought them (a picture stays in the conversation, so every
-  call after it reads it too), and the builds that ran. It never says what share of the cost a picture or a build was: Claude Code
+  call after it reads it too), and the builds its edits and commands started. It never says what share of the cost a picture or a build was: Claude Code
   says what a turn cost, not what each thing in it cost. **Open in Usage** shows the conversation on the Usage page.
 - **Between turns.** What you did yourself shows as one quiet line between the turns: "You saved
   `common/fillets.py` in your editor · `h39`" for a build your own save made, "You set `wall` to `3` · not in the model yet · `h40`" for a
   value you set in Parameters (a value put back reads "You put `wall` back to the file's value"; a build kept before the values were
   kept still reads "You tried `wall`"). Several in a row, with no prompt between, are one line ("You saved 3 times in your editor ·
-  `h39` to `h41`"). torno says which build was whose when it keeps the build, so a save made while a turn runs is
-  yours, not the agent's.
+  `h39` to `h41`").
+- **Whose a build is.** A build is Claude's only when one of its tool calls made the save it was built from, so a save
+  you make in your editor while a turn runs is yours: it is `Saved by you` in the timeline, a line of its own between
+  the turns, and in no turn's builds or in Usage. torno goes by Claude Code's hooks:
+  - An edit (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`) accounts for its own file, while it runs and for as long as
+    the file stays as it left it. While a permission card waits for you, it accounts for nothing; one you refuse, or one
+    that fails, never does.
+  - A command (`Bash`) does not say what it writes, so any file saved while it runs is taken for Claude's, **yours
+    too**. A command that clearly only reads (`sleep`, `ls`, `cat`, `grep` and a few more, with no redirect) accounts
+    for nothing.
+  - A tool of an MCP server of your own accounts for the `.py` files its input names.
+  - What a command left running in the background writes after its call returned counts as yours.
+  - A build made of your save and Claude's together is Claude's: two saves within a third of a second, or yours while a
+    build of Claude's was still running, which then starts over.
+  - In a terminal session torno hears of no permission card and of no failed call. A call there accounts for saves while
+    its card waits, and one that fails goes on doing so until the turn ends.
+  - With no hooks at all, every save is yours.
 - **Go back to before this prompt.** On a turn that made builds, while the session is idle. It first says what it
   would do: the files it would write, the files it would delete (a `.py` file of this project first seen in a build after the one it goes back to), the files it leaves as they are (`common/` and other projects' files, which it never changes), the
   files you changed since (a save of yours among the builds it undoes counts: they are overwritten or deleted, and are named), your saves it undoes ("and your saves `h42`"), whether the Params you tried are put
@@ -3306,6 +3321,11 @@ With a real agent:
   held arrives with `stop_hook_active` and is held again for another reason is what the code assumes; the stand-in
   plays it as the documentation says. Whether the hooks of a `torno-reviewer`'s `look` arrive on the session's
   address (so that its look counts) has not been seen.
+- **Whose a build is, with the real Claude Code.** Have it edit the model, and save the file in your editor in the
+  middle of the same turn, once while it only talks and once while a permission card waits: both are `Saved by you`,
+  and the turn's builds and Usage count its own alone. Then run a skill by its command and have it edit: the build is
+  under the command's prompt. torno takes it from the documentation that `PreToolUse` comes before the permission
+  request, that both name the call by `tool_use_id`, and that a failed or denied call has no `PostToolUse`.
 - **`ask` with the real Claude Code.** (1) Ask it to call `mcp__torno__ask` and leave the card open for six minutes: it
   should still be open and the call not time out, because torno sends a progress notice every 30 s, but only when
   Claude Code sends a progress token with the call, and whether its 5-minute idle limit counts those notices is

@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
@@ -58,11 +58,20 @@ test('the end of a turn says what it took, from what Claude Code said', async ()
   await expect.poll(async () => (await state()).build?.status, { timeout: 30_000 }).toBe('ok')
   await newSession(dock())
   await expect(dock().locator('[data-chat-composer]')).toBeEnabled()
-  await dock().locator('[data-chat-composer]').focus()
-  await page.keyboard.type('say done')
-  await page.keyboard.press('Enter')
-  const line = dock().locator('.chat .chat-turn .chat-turn-usage')
-  await expect(line).toHaveText('$0 for 1 call: 0 of context read again, 1 new to it, 1 written.', { timeout: 30_000 })
+  // Claude edits once, then asks to run a command and waits: the person saves meanwhile, and that save is built.
+  const model = join(root, 'hollow', 'hollow.py')
+  await dock().locator('[data-chat-composer]').fill('edit hollow.py "wall: float = 2" "wall: float = 3"\nask Bash {"command":"python gen.py"}')
+  await dock().locator('[data-chat-composer]').press('Enter')
+  const ask = dock().locator('.chat .chat-ask').last()
+  await expect(ask.getByRole('button', { name: 'Allow', exact: true })).toBeVisible({ timeout: 30_000 })
+  await expect.poll(async () => (await state()).build?.revision, { timeout: 30_000 }).toBe(2)
+  writeFileSync(model, `${readFileSync(model, 'utf8')}\n# mine\n`)
+  await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok', revision: 3, made: { cause: 'person' } })
+  await ask.getByRole('button', { name: 'Allow', exact: true }).click()
+  const turn = dock().locator('.chat .chat-turn')
+  await expect(turn.locator('.chat-turn-usage')).toHaveText('$0 for 1 call: 0 of context read again, 1 new to it, 1 written.', { timeout: 30_000 })
+  // The turn's own build alone: not the one of the save made by hand, though it is under the command's card.
+  await expect(turn).toContainText('r1 → r2 ok')
 })
 
 test('the Usage page says the week in a sentence, its days, where the tokens went and the conversations', async () => {
@@ -93,6 +102,10 @@ test('a conversation opens to its prompts as a ledger, the large one with why, t
   await expect(usagePage().locator('.usage-ledger tr[data-prompt="u6"]')).toContainText('not known')
   await usagePage().locator('.usage-back').click()
   await expect(usagePage().locator('.usage-convs')).toBeVisible()
+  // The live conversation's one prompt built once: the save made by hand during its turn is not counted.
+  await usagePage().locator(`.usage-convs tbody tr:not([data-conversation="${EARLIER}"]) .usage-conv`).click()
+  await expect(usagePage().locator('.usage-ledger tbody tr[data-prompt] td:nth-child(5)')).toHaveText('1')
+  await usagePage().locator('.usage-back').click()
   await showModel(page)
   await expect(usagePage()).toHaveCount(0)
 })

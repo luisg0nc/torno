@@ -33,6 +33,13 @@ export interface BuildTurn {
   text?: string
 }
 
+/** What made a build, as main decides it (whose its saves were, `causeOfSave`, and the reason `Builds` started it for): never taken from the window or a tool. */
+export interface KeptCause {
+  cause: BuildCause
+  turn?: BuildTurn
+  wentBackTo?: string
+}
+
 /** One kept build, as `index.json` of the history holds it. */
 export interface HistoryEntry {
   id: string

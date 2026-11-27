@@ -7,6 +7,7 @@ paths:
   - "app/src/shared/chat.test.ts"
   - "app/src/shared/agents.ts"
   - "app/src/shared/agents.test.ts"
+  - "app/src/main/builds.ts"
 ---
 
 # Sessions: the agent, its view, the chat transport, mode, model and effort
@@ -67,6 +68,25 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   at it. Torno answers `initialize` (the commands and models, told to the window as a `capabilities` event),
   `interrupt`, `set_model`, which changes this session's model and nothing of the person's, and `apply_flag_settings`
   for its effort (below).
+- **Which saves are Claude's** (`writes.ts` `ClaudeWrites`, asked by `Sessions.wroteBy` for each save a project's
+  watcher hears; #384). Only a tool call accounts for one, never a turn at work. The manager tells the ledger of a
+  `PreToolUse` torno does not refuse (with the prompt it is made for, `turnOfWrite`: the transcript's `taken()`, which a
+  command, with no hook, sets by its `init` or lifecycle; in a terminal `t-<conversation>-<n>`), a request for it that
+  waits (`can_use_tool`, by `tool_use_id`: the hook comes before the request, and while it waits nothing is written),
+  the person's answer, its `PostToolUse`, its `tool_result` in the stream (which also ends one that failed or that the
+  CLI denied by itself), and the end of the turn (`result`, `Stop`, `StopFailure`) or of the session.
+  - `Write`, `Edit`, `MultiEdit`, `NotebookEdit`: that file's saves while the call runs, and after it while the file is
+    as the tool left it (mtime and size), however late the save is heard. A call that failed wrote nothing.
+  - `Bash` names no file, so any watched file whose mtime falls while the command runs is taken for Claude's (one that
+    is gone: heard while it runs or within 0.5 s). The person's save during such a command is counted as Claude's:
+    that is the price of not calling Claude's own the person's. A command that surely writes nothing
+    (`surelyWritesNothing`: no redirect or substitution, only programs that read) claims nothing, and `aroundBash`
+    takes it for no change. What a background command writes after its call returned is the person's, and so may be
+    what a background subagent writes in a call still under way when the main turn's `result` comes.
+  - A tool of an MCP server of the person's own counts as a writer of the `.py` files its input names, and of no other.
+    torno's own tools write none.
+  - A terminal has no stream: a call there is not known to wait or to have failed (no `PostToolUse`), and claims until
+    the turn's `Stop`. With no hooks (`NO_HOOKS`) every save is the person's.
 - **The mode of a session** (`MODES`, `isMode`, `MODE_NOTE` in `shared/chat.ts`; `ModeMenu`). The edits menu beside the
   model offers `default`, `acceptEdits` and `plan`. `Sessions.setMode` (`chat:setMode`, the mode checked by `isMode`
   first) sends the control request `set_permission_mode` and, once the CLI has answered, the transcript says it

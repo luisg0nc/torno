@@ -287,6 +287,20 @@ describe('what is sent', () => {
     expect(t.items().filter((i) => i.kind === 'user').map((i) => i.id)).toContain(t.taken()!.item)
   })
 
+  it.each([
+    ['an init', (t: Transcript) => t.message(init())],
+    ['the lifecycle the CLI says it started', (t: Transcript) => t.message({ type: 'command_lifecycle', command_uuid: 'uuid-2', state: 'started' })]
+  ])("names a command's turn by the command, which has no hook, taken up by %s", (_by, begins) => {
+    const t = new Transcript()
+    t.userSent(text('one'), false, 'uuid-1')
+    t.context({ text: '', sentMarkIds: [], prompt: 'one' })
+    t.message(init())
+    t.message(result())
+    const command = t.userSent(text('/my-skill'), false, 'uuid-2')
+    begins(t)
+    expect(t.taken()).toEqual({ item: command.id, text: '/my-skill' })
+  })
+
   it('says which prompts the last hook took up, and which still wait for theirs', () => {
     const t = new Transcript()
     expect(t.takenItems()).toEqual([])

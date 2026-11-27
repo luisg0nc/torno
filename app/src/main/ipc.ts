@@ -3,7 +3,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron'
-import { type BuildReason, type BuildState, errorLine } from '../shared/build'
+import { type BuildState, errorLine } from '../shared/build'
 import { EXPORT_FORMATS, EXTENSIONS, FORMAT_NAMES, type FileFormat, type ExportPlan, type ExportRequest, type ExportSaved, type ModelFormat } from '../shared/exportdata'
 import type { Described, MeasureProbe, MeasuredOnce } from '../shared/geometry'
 import type { BuildIdentity } from '../shared/git'
@@ -15,13 +15,13 @@ import type { SceneFile } from '../shared/scenefile'
 import type { ObjectCard, ThumbnailOf } from '../shared/show'
 import type { ViewState } from '../shared/view'
 import type { ObjectInfo, RecentFolder, WorkspaceInfo } from '../shared/workspace'
-import { Builds, buildTimeout, watchFolder } from './builds'
+import { Builds, buildTimeout, causeOfSave, watchFolder } from './builds'
 import { rebuildKept } from './oldbuild'
 import { BuildLog, sourcesHash } from './buildlog'
 import { RecentMeshes } from './meshes'
 import { type GoBackPlan, type GoBackResult, applyGoBack, entryBefore, planGoBack } from './goback'
 import { type PartSites, renamePart } from './rename'
-import { History, type KeptCause, keptCause, readHistory, readHistoryDrawnGone, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
+import { History, keptCause, readHistory, readHistoryDrawnGone, readHistoryScene, readHistorySource, readHistoryThumb } from './history'
 import { type HistoryEntry, type HistoryGhost, type HistoryList, drawable } from '../shared/history'
 import type { RenameResult } from '../shared/rename'
 import type { Verdict } from '../shared/sanity'
@@ -334,14 +334,22 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
     // first candidate added, the model renamed), so a change there is a reason
     // to choose again before building. The choice is `builds.choice`: an open
     // object keeps its model while that file exists.
-    watch: (dir, onChange) =>
-      watchFolder(dir, (paths) => {
-        void rescan(ws).then(() => {
-          if (current !== ws) return
-          const obj = ws.info.objects.find((o) => o.dir === dir)
-          if (!obj || !builds.update(obj)) onChange(paths)
-        })
-      })
+    watch: (dir, onChange, onSeen) =>
+      watchFolder(
+        dir,
+        (paths) => {
+          void rescan(ws).then(() => {
+            if (current !== ws) return
+            const obj = ws.info.objects.find((o) => o.dir === dir)
+            if (!obj || !builds.update(obj)) onChange(paths)
+          })
+        },
+        undefined,
+        undefined,
+        onSeen
+      ),
+    // A save is Claude's when a tool call of its session accounts for it (never by a turn being at work), else the person's.
+    causeNow: (id, path) => causeOfSave(sessions?.wroteBy(id, path))
   })
   // The parts shelf is read in a worker of this kernel, now and whenever `common/parts/` changes.
   shelf?.open(info.root, kernel)
@@ -359,7 +367,7 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
     onBuild?.(state)
     cardsChanged()
   })
-  builds.on('scene', ({ objectId, revision, scene, blob, reason, wentBackTo }) => {
+  builds.on('scene', ({ objectId, revision, scene, blob, reason, wentBackTo, made: by }) => {
     ws.meshes.keep(objectId, revision, { scene, blob })
     // Which build this scene came of: the one started last. A picture of it is no newer than the model was then.
     ws.builtFrom.set(objectId, { revision, startedMs: ws.started.get(objectId) })
@@ -369,7 +377,7 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
       const made = ws.buildLog.record(obj, revision, scene)
       void made.catch(() => {})
       // And the build is kept in the object's history (`.torno/history/`), in the order the builds landed.
-      void ws.history.keep(obj, made, scene, causeOfBuild(objectId, ws.started.get(objectId), reason, wentBackTo))
+      void ws.history.keep(obj, made, scene, keptCause(reason, wentBackTo, by))
     }
     broadcast('object:scene', { objectId, revision, scene, blob: toArrayBuffer(blob) })
   })
@@ -507,15 +515,6 @@ export async function openWorkspace(root: string, opts: { example?: boolean } = 
  * that fails leaves what was known.
  */
 /**
- * What made a build, kept with it: the reason `Builds` started it for when that says (the person's `Params`, a Go
- * back), else what the session of the object says of the moment the build began (`Sessions.causeOf`: the agent after
- * its turn's first edit, the person otherwise).
- */
-function causeOfBuild(objectId: string, startedMs: number | undefined, reason: BuildReason | undefined, wentBackTo: string | undefined): KeptCause {
-  return keptCause(reason, wentBackTo, () => sessions?.causeOf(objectId, startedMs ?? 0) ?? { cause: 'person' })
-}
-
-/**
  * The build of an object failed: it is kept in the history as a line (`History.keepFailed`), with the sources as
  * `BuildLog` hashes them (those of the last good build's `uses`). Not one the kernel's stopping or a cancel made: no
  * sources failed there.
@@ -525,9 +524,10 @@ function keepFailedBuild(ws: OpenWorkspace, state: BuildState): void {
   if (!error || error.kernelStderr || error.kind === 'cancelled' || error.kind === 'no_model') return
   const obj = ws.info.objects.find((o) => o.id === state.objectId)
   if (!obj) return
-  const startedMs = ws.started.get(state.objectId)
+  // Read now: the cause is of this build, whatever is built while the sources are hashed.
+  const cause = keptCause(state.reason, state.wentBackTo, state.made)
   void sourcesHash(obj.dir, ws.builds.scene(obj.id)?.scene.uses).then(
-    (sources) => ws.history.keepFailed(obj, { run: ws.buildLog.run, revision: state.revision, sources, ...(state.seconds !== undefined ? { seconds: state.seconds } : {}) }, errorLine(error), causeOfBuild(obj.id, startedMs, state.reason, state.wentBackTo)),
+    (sources) => ws.history.keepFailed(obj, { run: ws.buildLog.run, revision: state.revision, sources, ...(state.seconds !== undefined ? { seconds: state.seconds } : {}) }, errorLine(error), cause),
     () => null
   )
 }

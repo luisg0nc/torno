@@ -15,7 +15,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 ## Agents (`app/src/main`)
 
 - **The build after an edit, and the Stop of a turn** (`Sessions.toolHook`, `afterEdit`, `stopAnswer`). Tool hooks
-  are read (up to 8 MB; longer, or no JSON, is answered `{}`) only for the tool's name and `file_path`. The
+  are read (up to 8 MB; longer, or no JSON, is answered `{}`) only for the tool's name, its `tool_use_id` and its input. The
   `PostToolUse` of `Edit`, `Write` or `MultiEdit` of a source the build is made from (`ofSource`: a `.py` inside the object's folder or the workspace's `common/`, or a file the last build imported, `Scene.uses`, `Sessions` dep `uses`) waits for a build begun at
   or after that tool's `PreToolUse` (`Sessions.built`, fed every `BuildState` from `index.ts`), then, of a build
   that worked, for its marks to be checked against it and its dimensions measured (`Verdicts.settled`, 10 s at
@@ -33,7 +33,10 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`caused` in `stopAnswer`) only if it began at or after `TurnState.changedAt`: the `PreToolUse` of an `Edit`, `Write`
   or `MultiEdit` of a source the build is made from (`ofSource`), or the start of a `Bash` after which the newest `.py` directly in the object's
   folder or in `common/`, or the newest file the last build imported, is newer than before (`aroundBash`, `Sessions` dep `sourcesSaved`; the command's text is never read, and
-  a Bash that rewrites nothing is no change). The first build of an object just opened, a save of the person's before
+  a Bash that rewrites nothing is no change, and one that surely writes nothing (`surelyWritesNothing` of `writes.ts`) is not looked at).
+  This is what the Stop goes by, not whose a build is said to be (`sessions`, "Which saves are Claude's"). The build line the chat puts under a
+  tool's card is marked `byPerson` when that build was of the person's saves or Params alone (`BuildState.made`, `reason`): the agent is
+  told of it all the same, and the turn does not count it. The first build of an object just opened, a save of the person's before
   the turn's first edit, and every build of a turn with no edit are told as ever (digest, context) and never hold a
   Stop back, nor is waited for: every one of the five reasons looks only at a build the turn caused, and the hard-defect
   and dimension reasons then judge it against the build the turn began with. First it

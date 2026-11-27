@@ -38,6 +38,7 @@ import { agentEnv } from './agentEnv'
 import { findCommand } from './choice'
 import { killGroup } from './signals'
 import { SESSION_FILE, storeConversation, storedConversation, UUID } from './resume'
+import { type ClaudesSave, ClaudeWrites, surelyWritesNothing } from './writes'
 import { HOOK_EVENTS, reduceStatus } from './status'
 import type { AgentAsk, AgentMessage, AgentTransport, AskAnswer, PromptBlock } from './transport'
 import { Transcript } from './transcript'
@@ -95,7 +96,7 @@ interface Session {
   agent: AgentTransport | null
   /** A chat session: what it said and did, as the window draws it; kept after the session ends (`Sessions.history`). */
   chat: ChatRecord | null
-  /** How many `UserPromptSubmit` the session has had: a turn of a terminal session is named by it (`Sessions.causeOf`). */
+  /** How many `UserPromptSubmit` the session has had: a turn of a terminal session is named by it (`turnOf`). */
   prompts: number
   /** A chat session: what was written to the log, one write after another; and whether a write failed, after which none is tried. */
   logging: Promise<void>
@@ -129,8 +130,6 @@ interface Session {
   termTimer?: NodeJS.Timeout
   /** What the hooks of the turn under way said of the model: see `TurnState`. */
   turn?: TurnState
-  /** The last turn that ended after changing a source: a build it began may land after its `Stop` (`Sessions.causeOf`). */
-  lastTurn?: { changedAt: number; endedAt: number; turn: BuildTurn }
 }
 
 /**
@@ -296,6 +295,8 @@ export class Sessions {
   private readonly leftSilent = new Map<string, string>()
   /** The transcript of each chat session there is, and of the last one of each object that has ended. */
   private readonly records = new Map<string, ChatRecord>()
+  /** What the tool calls of every session wrote, so that a save can be said to be Claude's or the person's. */
+  private readonly writes = new ClaudeWrites()
   /** By object: when its latest build began, and the count of `finished` when its latest build ended. */
   private readonly buildStarts = new Map<string, number>()
   private readonly buildEnds = new Map<string, number>()
@@ -610,22 +611,23 @@ export class Sessions {
     for (const wake of waiting) wake()
   }
 
+  /** Whether the save of `path` just heard in an object is one of Claude's tool calls (`writes.ts`), and of which prompt; undefined for the person's. */
+  wroteBy(objectId: string, path: string): ClaudesSave | undefined {
+    return this.writes.by(objectId, path)
+  }
+
   /**
-   * What caused a build of an object that began at `startedMs` (ms epoch): the agent when a session of the object has
-   * a turn running that first changed a source at or before then (`TurnState.changedAt`), with the turn it is of; the
-   * person otherwise (a save before the turn's first edit, or no turn at all). The prompt is named by the id of the
-   * chat's `user` item (a chat), else by `t-<conversation>-<n>`, counted per `UserPromptSubmit` (a terminal). The caller
-   * lets the reason a build was started for (the person's `Params`, a Go back) win over this.
+   * The prompt a tool call is made for, as a build's turn names it: in a chat the one the CLI took up last, by its hook
+   * or, for a command, which has none, by its `init` or lifecycle (the id of its `user` item); in a terminal the turn's
+   * `t-<conversation>-<n>`, counted per `UserPromptSubmit`.
    */
-  causeOf(objectId: string, startedMs: number): { cause: 'agent' | 'person'; turn?: BuildTurn } {
-    const session = this.of(objectId)
-    if (!session) return { cause: 'person' }
-    const turn = session.turn
-    if (turn && turn.changedAt !== undefined && startedMs >= turn.changedAt) return { cause: 'agent', turn: turnOf(session, turn) }
-    // A build the turn began may land after its `Stop`: it began while the turn was on, and is the turn's.
-    const ended = session.lastTurn
-    if (ended && startedMs >= ended.changedAt && startedMs <= ended.endedAt) return { cause: 'agent', turn: ended.turn }
-    return { cause: 'person' }
+  private turnOfWrite(session: Session): BuildTurn | undefined {
+    const taken = session.chat?.transcript.taken()
+    if (taken) {
+      const text = taken.text.trim().slice(0, PROMPT_TEXT)
+      return { conversation: session.conversationId, prompt: taken.item, ...(text ? { text } : {}) }
+    }
+    return session.turn ? turnOf(session, session.turn) : undefined
   }
 
   /**
@@ -716,7 +718,10 @@ export class Sessions {
     const took = told.buildState === 'ok' && at?.status === 'ok' && at.revision === told.revision ? at.seconds : undefined
     const error = told.buildState === 'failed' && at?.status === 'failed' && at.error ? errorLine(at.error) : undefined
     const identity = told.revision === undefined ? undefined : this.deps.identity?.(objectId, told.revision)
-    session.chat?.transcript.toolContext({ toolUseId: session.turn?.lastToolUse, text: told.text, ...(told.revision !== undefined ? { revision: told.revision } : {}), ...(told.buildState ? { buildState: told.buildState } : {}), ...(took !== undefined ? { seconds: took } : {}), ...(error ? { error } : {}), ...(told.digest ? { digest: told.digest } : {}), ...(identity ? { identity } : {}) })
+    // The agent is told of the build whoever's it is; the chat keeps whether it was the person's alone, which is not the turn's.
+    const said = at && at.status !== 'building' ? at : ended
+    const byPerson = said?.reason === 'params' || said?.made?.cause === 'person'
+    session.chat?.transcript.toolContext({ toolUseId: session.turn?.lastToolUse, text: told.text, ...(byPerson ? { byPerson: true as const } : {}), ...(told.revision !== undefined ? { revision: told.revision } : {}), ...(told.buildState ? { buildState: told.buildState } : {}), ...(took !== undefined ? { seconds: took } : {}), ...(error ? { error } : {}), ...(told.digest ? { digest: told.digest } : {}), ...(identity ? { identity } : {}) })
     return { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: told.text } }
   }
 
@@ -954,7 +959,10 @@ export class Sessions {
     const s = this.chat(sessionId, 'answer')
     if (!s?.agent) return
     // Only a request that is open: one that was answered, or never made, writes nothing.
+    const toolUseId = s.asks.get(requestId)?.toolUseId
     if (!s.asks.delete(requestId)) return console.error(`session ${sessionId} has no open request ${requestId}`)
+    // Before the CLI is told: an allowed call may write as soon as it hears.
+    if (toolUseId !== undefined) this.writes[response.behavior === 'allow' ? 'allowed' : 'refused'](s.id, toolUseId)
     s.agent.answer(requestId, response)
     s.chat?.transcript.answered(requestId, response.behavior === 'allow' ? 'allowed' : 'denied', response.behavior === 'allow' ? answersText(response.updatedInput) : response.message)
     this.emit('asked', { sessionId, requestId, answered: true })
@@ -1137,13 +1145,17 @@ export class Sessions {
         // After the microtasks of this read, so that the answer to an interrupt that came in the same chunk has been
         // taken into account (`control`).
         queueMicrotask(() => this.afterResult(session))
+        this.writes.over(session.id)
       }
+      // A call's result ends it however it ended: one that failed, or that the CLI denied by itself, has no `PostToolUse`.
+      for (const result of toolResults(message)) this.writes.ended(session.id, result.id, result.ok)
       session.chat?.transcript.message(message)
       if (this.listeners.stream.length > 0) this.emit('stream', { sessionId: session.id, objectId: session.object.id, message })
     })
     agent.on('ask', (request) => {
       session.activity += 1
       session.asks.set(request.requestId, request)
+      if (request.toolUseId !== undefined) this.writes.waits(session.id, request.toolUseId)
       session.chat?.transcript.asked(request)
       this.advance(session, 'ask')
       this.emit('ask', { sessionId: session.id, objectId: session.object.id, ...request })
@@ -1167,7 +1179,8 @@ export class Sessions {
       // Nobody can answer what the agent was waiting for any more.
       for (const requestId of session.asks.keys()) this.emit('asked', { sessionId: session.id, requestId, answered: false })
       session.asks.clear()
-      const why = !asked || (code !== null && code !== 0) ? this.stoppedNote(session, code, signal) : 'The session was stopped.'
+      this.writes.over(session.id)
+      const why = !asked ||(code !== null && code !== 0) ? this.stoppedNote(session, code, signal) : 'The session was stopped.'
       if (!session.heard && why) {
         this.leftSilent.set(session.id, why)
         // Only the latest few are kept: a `began` comes moments after the start, if it comes at all.
@@ -1215,7 +1228,9 @@ export class Sessions {
 
   /** A request of the CLI's that waits for the person is given up: the card ends, and the status goes on from there. */
   private cancelAsk(session: Session, requestId: string): void {
+    const toolUseId = session.asks.get(requestId)?.toolUseId
     if (!session.asks.delete(requestId)) return
+    if (toolUseId !== undefined) this.writes.refused(session.id, toolUseId)
     session.chat?.transcript.cancelled(requestId)
     this.emit('asked', { sessionId: session.id, requestId, answered: false })
     if (session.asks.size === 0 && session.held === 0) this.advance(session, 'answered')
@@ -1385,7 +1400,7 @@ export class Sessions {
       turn.measuredAt = this.finished
       return {}
     }
-    if (name === 'Bash') return this.aroundBash(session, turn, event, useId)
+    if (name === 'Bash') return this.aroundBash(session, turn, event, useId, body.tool_input)
     if (!EDIT_TOOLS.has(name) || !this.ofSource(session, body.tool_input)) return {}
     if (event === 'PreToolUse') {
       const at = Date.now()
@@ -1405,9 +1420,10 @@ export class Sessions {
    * those of `common/`) is newer after it than before: the command text says nothing sure, and a build begun while
    * it ran may be the first build or a save of the person's.
    */
-  private async aroundBash(session: Session, turn: TurnState, event: string, useId: string): Promise<unknown> {
+  private async aroundBash(session: Session, turn: TurnState, event: string, useId: string, input: unknown): Promise<unknown> {
     const { sourcesSaved } = this.deps
-    if (!sourcesSaved) return {}
+    // A command that surely writes nothing changed nothing: what was saved while it ran is somebody else's (`writes.ts`).
+    if (!sourcesSaved || surelyWritesNothing((input as { command?: unknown } | null | undefined)?.command)) return {}
     const at = Date.now()
     const saved = await sourcesSaved(session.object.dir, session.object.id).catch(() => null)
     if (event === 'PreToolUse') {
@@ -1454,16 +1470,12 @@ export class Sessions {
     session.activity += 1
     if (req.method !== 'POST') return sendJson(res, 405, { error: 'POST only' })
 
-    // A tool hook says only that the agent is at work. Its body is the tool's input or result, which may
-    // be megabytes: it is neither read nor parsed, and never a reason to refuse the hook.
+    // A tool hook says that the agent is at work. Its body is the tool's input or result, which may be
+    // megabytes: it is never a reason to refuse the hook.
     if (TOOL_EVENTS.has(event)) {
       this.advance(session, event)
       if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}`)
-      if (!this.deps.build && event !== 'PreToolUse') {
-        req.resume()
-        return sendJson(res, 200, {})
-      }
-      // Read for the tool's name and the file it wrote: one longer than that, or no JSON, says neither.
+      // Read for the tool's name, its call and what it would write or wrote: one longer than that, or no JSON, says none of it.
       let tool: Record<string, unknown> = {}
       try {
         const parsed: unknown = JSON.parse(await readBody(req, TOOL_BODY_LIMIT))
@@ -1471,11 +1483,18 @@ export class Sessions {
       } catch {
         return sendJson(res, 200, {})
       }
+      const name = typeof tool.tool_name === 'string' ? tool.tool_name : ''
+      const useId = typeof tool.tool_use_id === 'string' ? tool.tool_use_id : undefined
       if (event === 'PreToolUse') {
-        const reason = refusalOf(session.object.dir, typeof tool.tool_name === 'string' ? tool.tool_name : '', tool.tool_input, { brief: session.turn?.briefOpen === true })
+        const reason = refusalOf(session.object.dir, name, tool.tool_input, { brief: session.turn?.briefOpen === true })
         if (reason) return sendJson(res, 200, deniedAnswer(reason))
-        if (!this.deps.build) return sendJson(res, 200, {})
-      }
+        // Kept before anything is awaited or answered: the tool runs only after.
+        if (useId !== undefined) {
+          const turn = this.turnOfWrite(session)
+          this.writes.began({ session: session.id, project: session.object.id, dir: session.object.dir, id: useId, tool: name, input: tool.tool_input, ...(turn ? { turn } : {}) })
+        }
+      } else if (useId !== undefined) this.writes.ended(session.id, useId, true)
+      if (!this.deps.build) return sendJson(res, 200, {})
       return sendJson(res, 200, await this.toolHook(session, event, tool))
     }
 
@@ -1512,7 +1531,8 @@ export class Sessions {
     if (event === 'PostCompact') session.compacted = true
     if (event !== 'SessionEnd') this.advance(session, event, fields)
     if (event === 'Stop' || event === 'StopFailure') {
-      if (session.turn?.changedAt !== undefined) session.lastTurn = { changedAt: session.turn.changedAt, endedAt: Date.now(), turn: turnOf(session, session.turn) }
+      // A terminal has no stream to say a call failed: the turn's end is what ends it.
+      this.writes.over(session.id)
       session.turn = undefined
     }
     // The number of the prompt and the turn it begins are taken now: the context is awaited below, and the turn is then the one to name it.
@@ -1597,6 +1617,16 @@ function turnOf(session: Session, turn: TurnState): BuildTurn {
 
 function started(s: Session): Started {
   return { sessionId: s.id, cols: s.cols, rows: s.rows, status: s.status, view: s.view }
+}
+
+/** The calls a `user` message of the stream carries the results of: each is over, and failed when its result is an error. */
+function toolResults(message: AgentMessage): Array<{ id: string; ok: boolean }> {
+  if (message.type !== 'user') return []
+  const content = (message.message as { content?: unknown } | null | undefined)?.content
+  return (Array.isArray(content) ? content : []).flatMap((block) => {
+    const { type, tool_use_id: id, is_error: failed } = (block ?? {}) as { type?: unknown; tool_use_id?: unknown; is_error?: unknown }
+    return type === 'tool_result' && typeof id === 'string' ? [{ id, ok: failed !== true }] : []
+  })
 }
 
 /** What `initialize` answered, read for the commands and models it names, and nothing else. */

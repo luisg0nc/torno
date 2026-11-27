@@ -19,7 +19,8 @@ with tokens beside, a turn is large at 3 × the project's median turn cost and n
 are on the local branch `design/usage`. The reader is in `chat-log-and-undo` (`chat:usage`), the turn's end there too.
 
 - **Only the CLI's numbers.** Every cost, count of tokens and of calls is the `usage` a turn item carries (the `result`'s,
-  `TurnUsage`, #356) or a sum of them; pictures and builds are counts of the log's own items (`usageFacts`). Nothing is
+  `TurnUsage`, #356) or a sum of them; pictures and builds are counts of the log's own items (`usageFacts`; a build
+  line marked `byPerson`, of the person's saves alone, is not the turn's: `stop-hook`, #384). Nothing is
   estimated, and a turn's cost is never split by cause (no dollars per picture). The first turn after a resume has tokens
   and no `costUsd`: it is said as "not known", never worked out from `sessionCostUsd`. A terminal's prompt is "not
   recorded". Numbers through `shared/format.ts`: `dollars` (to the cent, whole from $100, `under $0.01`), `tokens` (three

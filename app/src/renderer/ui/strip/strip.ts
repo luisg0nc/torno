@@ -1,3 +1,4 @@
+import type { BuildState } from '../../../shared/build'
 import { causeOf, type BuildCause, type HistoryEntry } from '../../../shared/history'
 import { dollars } from '../../../shared/format'
 import { largeTimes, type ProjectUsage } from '../../../shared/usage'
@@ -42,6 +43,21 @@ export interface StripLive {
   prompt?: number
   /** What started the running (or just failed) build, as far as the window can say. */
   cause?: BuildCause
+}
+
+/**
+ * What the window can say of the build that runs or just failed, as main will say when it keeps it: what it was started
+ * for where that says (the person's Parameters, a going back), else whose its saves were (`BuildState.made`, with the
+ * number of the prompt a save of Claude's was made for, `numbering`), else a save of the person's. Nobody's to say for an
+ * opening or a Rebuild with no save heard, which are kept only when the sources changed meanwhile.
+ */
+export function liveBy(build: Pick<BuildState, 'status' | 'reason' | 'made'> | undefined, numbering: ReadonlyMap<string, number>): Pick<StripLive, 'cause' | 'prompt'> {
+  if (build?.status !== 'building' && build?.status !== 'failed') return {}
+  const { reason, made } = build
+  if (reason === 'params' || reason === 'goback') return { cause: reason }
+  if (!made) return reason === 'watch' ? { cause: 'person' } : {}
+  const prompt = made.turn ? numbering.get(made.turn.prompt) : undefined
+  return { cause: made.cause, ...(prompt !== undefined ? { prompt } : {}) }
 }
 
 const promptBy = (n: number | undefined): string => (n === undefined ? '' : `Prompt ${n}`)

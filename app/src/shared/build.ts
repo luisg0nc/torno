@@ -1,4 +1,5 @@
 import type { BuildDiagnosis } from './diagnosis'
+import type { KeptCause } from './history'
 
 export type BuildStatus = 'idle' | 'building' | 'ok' | 'failed'
 export interface BuildError {
@@ -29,6 +30,8 @@ export interface BuildState {
   reason?: BuildReason
   /** For the reason `goback`: the id of the kept build it restores. */
   wentBackTo?: string
+  /** Whose the saves were that the build is of: Claude's, by its tool calls, or the person's. Absent for a build of no save heard (an opening, a Rebuild). Main's. */
+  made?: KeptCause
 }
 
 /** The key of "Rebuild", written out: main's sentences name it and do not carry the table of keys (`keys.test.ts` holds it to the table). */

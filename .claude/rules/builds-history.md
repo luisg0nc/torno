@@ -71,9 +71,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   is of its run and is told beside it. A build made from the sources the newest entry was made from is not kept again, and the newest entry takes the run and revision of that build, so the window finds it as the build on show (#234: else no node is on show after a restart and Compare has nothing to draw against) (unless the person's
   `Params` made it: the files are the same and the shape is not). **What caused each build, and its prompt, are main's alone** (`cause`, `turn`,
   `wentBackTo`: never from the window or a tool): `Builds` says what it started a build for (`BuildReason`: `watch`, `params`, `rebuild`,
-  `goback`, `open`, on the `build` and `scene` events), `params` and `goback` are the cause as they are, and else `Sessions.causeOf(objectId,
-  startedMs)` says `agent` (a session of the object has a turn running whose first edit, `TurnState.changedAt`, was at or before the build began;
-  a build begun between the prompt and that edit is the person's) with the turn (`conversation`, `prompt`: the id of the prompt's `user` item as the chat's log holds it, or `t-<conversation>-<n>` in a terminal, `text`: its first 200 characters), or `person`; a build begun while the turn was on is still its own when its scene lands after the `Stop` (`Session.lastTurn`). A build that **failed** is kept too
+  `goback`, `open`, on the `build` and `scene` events), `params` and `goback` are the cause as they are, and else it is whose the saves were that
+  the build is of (`made` on the same events, `keptCause`; `person` where none was heard). `Builds` asks of each save as the watcher hears it, with its
+  file (`causeNow`, `watchFolder`'s `onSeen`; `causeOfSave` of `Sessions.wroteBy`): `agent` only when one of Claude's tool calls accounts for that
+  save (rule `sessions`), with the turn (`conversation`, `prompt`: the id of the prompt's `user` item as the chat's log holds it, or
+  `t-<conversation>-<n>` in a terminal, `text`: its first 200 characters), else `person`, also while a turn works. A burst's cause wants the next build
+  once it settles (`Entry.burst`, `pending`), and a build takes what wants it as it starts: a save heard after that is for the next. Causes that fold
+  into one build keep Claude's, whole; so does a build started over before it ended, or displaced and made later (`Entry.made`). A build that **failed** is kept too
   (`History.keepFailed`, from `ipc.ts` on the `build` event): a line with `failed`, `error` (`errorLine`), `files: []`, the revision of the last
   good build, no folder; the same failure of the same sources as the newest's is not kept again; not for a cancel, a stopped kernel or a project
   with no model. `thumbnail` and `dimensions` never go to a failed entry. Pruning lets go of the oldest failed entries before any build, and never
@@ -176,7 +180,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
 - The rules are `strip.ts`, pure and held by `strip.test.ts`: `stripNodes(history, live, numbering)` (oldest to newest: every kept build, a failed one `after`
   the build before it, a failure the history has not kept yet as one more node, the build that runs last; `cause` and `by`, the label: `Prompt 14` for a
   build of a numbered prompt, `Manual edit` for `params`, `Saved by you` for `person`, `Went back`, `Earlier` for `unknown`, `Claude Code` for a prompt with no
-  number; the running or just failed build takes `StripLive.cause`, which `useStripNodes` finds from the prompt while a session works and else `BuildState.reason`),
+  number; the running or just failed build takes `StripLive.cause` and `prompt` from `liveBy`: `BuildState.reason` for Parameters and a going back, else
+  `BuildState.made`, never the last prompt because a session works),
   `stripGroups(nodes)` (consecutive nodes of one prompt are one group, and so are consecutive ones of one cause that is not a prompt's, the person's Parameters
   between two prompts among them; every `goback` is its own; one nobody can say yet is `Building` or `Failed build`; a group shows its last build and
   `groupCount`), `groupTitle(group, entries)` (two lines: the prompt's words, `turn.text`, or what the Parameters set, `saveWords`, or `Went back to h3`; then
@@ -198,8 +203,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   element that stands for it (`strip/failedAnchor.ts`: its build or its group's pile in the open drawer, its group's chip while the drawer is folded) is what
   `BuildErrorSheet` stands from, wherever it is opened (`BuildStatus` draws it, from that element, or from the status line when the timeline is not drawn). A
   failed build that is not the latest opens `BuildErrorSheet` with `old` from `NodePopover`: its line (`entry.error`) and Copy, nobody told.
-- The build on show is the kept build of this run whose revision is the store's `build.revision` (`useStripNodes`). The prompt number of the running build is the
-  last prompt's, only while a session works. Nothing draws per frame in React.
+- The build on show is the kept build of this run whose revision is the store's `build.revision` (`useStripNodes`). The prompt number of the running build is
+  that of the prompt its saves were made for (`liveBy`). Nothing draws per frame in React.
 - The status line's ticks (`BuildStatus`, `.status-ticks`) are `ticksOf` of the same nodes; they replace the History button, and "h41 built in 51 s" names the build on show.
 
 ## What a save builds (`app/src/main`)
