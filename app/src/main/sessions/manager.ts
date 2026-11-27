@@ -1456,12 +1456,20 @@ export class Sessions {
     return this.afterEdit(session, was.at)
   }
 
-  /** A turn begins: the builds ended so far are not its, and the build it begins with, and what its dimensions say of it, is what it is held to. */
-  private beginTurn(session: Session): TurnState {
+  /**
+   * A turn begins: the builds ended so far are not its, and the build it begins with, and what its dimensions say of it,
+   * is what it is held to. `unstopped` is a terminal's turn this one replaces before its `Stop` (#399): its prompts go on
+   * into this one, so that a build of theirs still to end counts. One that had already ended is still owed an answer, so
+   * with such a build this turn also begins where that one did and keeps its looks. The holds are made anew.
+   */
+  private beginTurn(session: Session, unstopped?: TurnState): TurnState {
     const objectId = session.object.id
     const before = this.deps.scene?.(objectId)
     const beforeVerdicts = before ? this.deps.verdicts?.(objectId, before.revision) : undefined
-    return { startedAt: Date.now(), since: this.finished, prompts: new Set(), lookedAt: this.finished, measuredAt: this.finished, ...(before ? { before } : {}), ...(beforeVerdicts ? { beforeVerdicts } : {}), held: new Set(), holds: 0, editing: new Map(), bashing: new Map() }
+    const turn: TurnState = { startedAt: Date.now(), since: this.finished, prompts: new Set(unstopped?.prompts), lookedAt: this.finished, measuredAt: this.finished, before, beforeVerdicts, held: new Set(), holds: 0, editing: new Map(), bashing: new Map() }
+    if (!unstopped || !this.claudes.judged(objectId, unstopped)) return turn
+    const { startedAt, since, lookedAt, measuredAt } = unstopped
+    return { ...turn, startedAt, since, lookedAt, measuredAt, before: unstopped.before, beforeVerdicts: unstopped.beforeVerdicts }
   }
 
   /**
@@ -1561,9 +1569,10 @@ export class Sessions {
     if (event === 'UserPromptSubmit' && !session.agent) this.writes.over(session.id)
     // A prompt the CLI folded into a chat's turn under way (an `init` and no `result` yet) begins none: the turn keeps its
     // start, the build and verdicts it is held to, its edits and what it was held for. A terminal cannot tell one from the
-    // prompt after an interrupt, which has no `Stop`: each of its prompts begins a turn.
+    // prompt after an interrupt, which has no `Stop`: each of its prompts begins a turn, and one that replaces a turn
+    // with no `Stop` takes over what that one has to answer for. A chat's turn the person interrupted is over.
     const folded = session.chat?.transcript.underWay() === true
-    if (event === 'UserPromptSubmit' && !(folded && session.turn)) session.turn = this.beginTurn(session)
+    if (event === 'UserPromptSubmit' && !(folded && session.turn)) session.turn = this.beginTurn(session, session.agent ? undefined : session.turn)
     const turn = session.turn
     // The build current as this prompt was sent, a folded one too (`startedFrom`).
     const sentOn = event === 'UserPromptSubmit' ? this.deps.scene?.(session.object.id)?.revision : undefined

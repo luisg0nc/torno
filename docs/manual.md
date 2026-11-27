@@ -1508,9 +1508,12 @@ holds nothing back either. A command of Claude's takes the saves made while it r
 its own, so a save of yours then counts as Claude's. In the chat, a prompt that
 Claude Code takes into a turn already at work does not start the turn over: what
 the turn built before it still counts, and so do the holds already made. In a
-terminal torno cannot tell such a prompt from a new turn, and counts from it. It
-first waits, up to twenty seconds, for a build of Claude's that is still running
-and for the dimensions to be measured. Then it looks at the newest build of
+terminal torno cannot tell a prompt typed while Claude works from one typed
+after you interrupted it, so when the turn before had no `Stop`, what it built
+still counts, judged against the build that turn began with, and the holds start
+over. A build the agent had already looked at is not held for as unlooked.
+torno first waits, up to twenty seconds, for a build of Claude's that is still
+running and for the dimensions to be measured. Then it looks at the newest build of
 Claude's, whatever was built since, and by the first that applies:
 
 1. A build of Claude's is still running. It is asked to read the result with
