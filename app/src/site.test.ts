@@ -48,6 +48,22 @@ describe('site/index.html', () => {
     expect(links).toContain('https://github.com/luisg0nc/torno/issues')
   })
 
+  it('says who made torno, with a link to luisg.me, near the foot of the page', () => {
+    const section = /<section[^>]*\bid="author"[\s\S]*?<\/section>/.exec(html)?.[0] ?? ''
+    expect(section).toContain('Luis Goncalves')
+    expect(section).toContain('href="https://luisg.me/"')
+    expect(html.indexOf('id="author"')).toBeGreaterThan(html.indexOf('id="join"'))
+  })
+
+  it('links pino, with its mark from a local file and a line on what it is', () => {
+    const section = /<section[^>]*\bid="author"[\s\S]*?<\/section>/.exec(html)?.[0] ?? ''
+    expect(section).toContain('href="https://pino.luisg.me/"')
+    expect(section).toContain('src="assets/pino.svg"')
+    expect(section.replace(/\s+/g, ' ')).toContain('Claude Code designs the board from a Python file')
+    expect(existsSync(join(site, 'assets/pino.svg'))).toBe(true)
+    expect(readFileSync(join(site, 'assets/pino.svg'), 'utf8')).not.toMatch(/<script|<foreignObject|\bon\w+=|href=/i)
+  })
+
   it('reduces motion when asked', () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/)
   })

@@ -209,6 +209,10 @@ pre { background: var(--panel); border: 1px solid var(--hairline); border-radius
 .join-card ul { padding-left: 1.1em; }
 .join-card li { margin-bottom: 6px; }
 .join-card .actions { margin-top: 20px; }
+.author p { margin: 14px 0 0; }
+.sibling { max-width: 560px; margin-top: 36px; background: var(--panel); border: 1px solid var(--hairline); border-radius: 10px; padding: clamp(20px, 3vw, 32px); }
+.sibling h3 { display: flex; align-items: center; gap: 12px; }
+.sibling .actions { margin-top: 20px; }
 .cmd { position: relative; }
 .cmd pre { padding-right: 84px; }
 .copy[hidden] { display: none !important; }
