@@ -36,6 +36,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   current as each prompt was sent). An interrupted turn has no `Stop`, and its `result` ends it, so the next prompt begins
   anew. A terminal has no stream to tell the two apart: each of its `UserPromptSubmit` begins a turn, a prompt typed
   while it works too.
+  A command has no hook, and in the transcript it may go on awaiting one after its turn. That puts it in no later
+  turn: `TurnState.prompts` has only `taken()` at each call, never the prompts a hook passed over (#400).
   What the answer to an edit waits for is what changed the model: the `PreToolUse` and `PostToolUse` of an `Edit`,
   `Write` or `MultiEdit` of a source the build is made from (`ofSource`), or a `Bash` after which the newest `.py`
   directly in the object's folder or in `common/`, or the newest file the last build imported, is newer than before

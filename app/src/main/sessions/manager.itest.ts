@@ -2941,6 +2941,33 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(t.holds).toEqual([])
   })
 
+  // #400: a command has no hook, so the transcript goes on waiting for one after its turn. A turn's prompts are only
+  // those its tool calls were made for, so the next turn does not count the command's.
+  it("holds nothing in the next turn for a command's build that ends during it (#400)", async () => {
+    const b = await begun({ chat: true, grace: 3000, wait: 300, stop: 100 })
+    const holds: string[] = []
+    b.sessions.on('stream', ({ message }) => {
+      if (message.type === 'system' && message.subtype === 'hook_response' && message.hook_event === 'Stop') holds.push(String(message.output))
+    })
+    const turns = () => b.sessions.history(b.sessionId)!.items.filter((i) => i.kind === 'turn').length
+    b.sessions.prompt(b.sessionId, [{ type: 'text', text: '/skill\nwrite part.py W' }])
+    await expect.poll(() => existsSync(join(b.obj.dir, 'part.py')), { interval: 5 }).toBe(true)
+    const own = b.saved()
+    expect(own.turn).toBeDefined()
+    land(of(own, building(b.obj.id, 2)))
+    await expect.poll(turns, { timeout: 8000 }).toBe(1)
+    // The command's own turn is held for its build, still running.
+    expect(holds).toEqual([expect.stringContaining('still running (r3)')])
+    // It ends in the next turn, after that turn made a call of its own: only the prompts tell whose it is.
+    const done = join(b.obj.dir, '..', `${b.obj.id}-done`)
+    b.sessions.prompt(b.sessionId, [{ type: 'text', text: `tool Read {}\nhold ${done}` }])
+    await expect.poll(() => b.sessions.history(b.sessionId)!.items.some((i) => i.kind === 'tool' && i.name === 'Read' && i.state === 'done'), { timeout: 8000 }).toBe(true)
+    land(of(own, ok(b.obj.id, 3)))
+    writeFileSync(done, '')
+    await expect.poll(turns, { timeout: 8000 }).toBe(2)
+    expect(holds).toHaveLength(1)
+  })
+
   /** What made a build of a prompt before the turn's, as a save heard late still says. */
   const earlier: KeptCause = { cause: 'agent', turn: { conversation: 'c', prompt: 'an-earlier-one' } }
 
