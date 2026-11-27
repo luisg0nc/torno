@@ -2941,6 +2941,124 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(t.holds).toEqual([])
   })
 
+  // #400: a command has no hook, so the transcript goes on waiting for one after its turn. A turn's prompts are only
+  // those its tool calls were made for, so the next turn does not count the command's.
+  it("holds nothing in the next turn for a command's build that ends during it (#400)", async () => {
+    const b = await begun({ chat: true, grace: 3000, wait: 300, stop: 100 })
+    const holds: string[] = []
+    b.sessions.on('stream', ({ message }) => {
+      if (message.type === 'system' && message.subtype === 'hook_response' && message.hook_event === 'Stop') holds.push(String(message.output))
+    })
+    const turns = () => b.sessions.history(b.sessionId)!.items.filter((i) => i.kind === 'turn').length
+    b.sessions.prompt(b.sessionId, [{ type: 'text', text: '/skill\nwrite part.py W' }])
+    await expect.poll(() => existsSync(join(b.obj.dir, 'part.py')), { interval: 5 }).toBe(true)
+    const own = b.saved()
+    expect(own.turn).toBeDefined()
+    land(of(own, building(b.obj.id, 2)))
+    await expect.poll(turns, { timeout: 8000 }).toBe(1)
+    // The command's own turn is held for its build, still running.
+    expect(holds).toEqual([expect.stringContaining('still running (r3)')])
+    // It ends in the next turn, after that turn made a call of its own: only the prompts tell whose it is.
+    const done = join(b.obj.dir, '..', `${b.obj.id}-done`)
+    b.sessions.prompt(b.sessionId, [{ type: 'text', text: `tool Read {}\nhold ${done}` }])
+    await expect.poll(() => b.sessions.history(b.sessionId)!.items.some((i) => i.kind === 'tool' && i.name === 'Read' && i.state === 'done'), { timeout: 8000 }).toBe(true)
+    land(of(own, ok(b.obj.id, 3)))
+    writeFileSync(done, '')
+    await expect.poll(turns, { timeout: 8000 }).toBe(2)
+    expect(holds).toHaveLength(1)
+  })
+
+  // #399: a terminal has no stream, so a prompt that replaces a turn with no `Stop` may have been typed while Claude
+  // worked. What that turn had to answer for goes on into the new one.
+  describe('a prompt in a terminal before the turn had its Stop (#399)', () => {
+    const conversation = '0a1b2c3d-0000-4000-8000-000000000004'
+    const prompt = (post: (event: string, body: unknown) => Promise<unknown>, text: string): Promise<unknown> => post('UserPromptSubmit', { prompt: text, session_id: conversation })
+
+    it('holds once at the end for what Claude built before it, never looked at', async () => {
+      const { obj, post, changes, saved } = await begun()
+      await prompt(post, 'make it thicker')
+      await changes()
+      const own = saved()
+      land(of(own, building(obj.id, 7)))
+      land(of(own, ok(obj.id, 8)))
+      await prompt(post, 'and round the edges')
+      expect(await post('Stop', {})).toEqual(UNLOOKED(8))
+      expect(await post('Stop', { stop_hook_active: true })).toEqual({})
+    })
+
+    it("holds for a build of the earlier prompt's that is still running when it comes", async () => {
+      const { obj, post, changes, saved } = await begun({ stop: 100 })
+      await prompt(post, 'make it thicker')
+      await changes()
+      const own = saved()
+      land(of(own, building(obj.id, 7)))
+      await prompt(post, 'and round the edges')
+      land(of(own, ok(obj.id, 8)))
+      expect(await post('Stop', {})).toEqual(UNLOOKED(8))
+    })
+
+    it('goes on through a second such prompt', async () => {
+      const { obj, post, changes } = await begun()
+      await prompt(post, 'make it thicker')
+      await changes()
+      builds(obj.id, 7, 8)
+      await prompt(post, 'and round the edges')
+      await prompt(post, 'and thank you')
+      expect(await post('Stop', {})).toEqual(UNLOOKED(8))
+    })
+
+    it('holds nothing for a build looked at before it', async () => {
+      const { obj, post, changes } = await begun()
+      await prompt(post, 'make it thicker')
+      await changes()
+      builds(obj.id, 7, 8)
+      await looks(post)
+      await prompt(post, 'and round the edges')
+      expect(await post('Stop', {})).toEqual({})
+    })
+
+    it('holds for a defect against the build the earlier turn began with, though that turn had its holds', async () => {
+      let kept: { revision: number; scene: Scene } = { revision: 7, scene: sceneOf() }
+      const { obj, post, changes } = await begun({ scene: () => kept })
+      await prompt(post, 'cut it')
+      await changes()
+      kept = { revision: 8, scene: sceneOf({ solids: 2 }) }
+      builds(obj.id, 7, 8)
+      expect(await post('Stop', {})).toMatchObject({ reason: expect.stringContaining('plate is 2 solids (was 1)') })
+      await prompt(post, 'wait, keep the tab')
+      expect(await post('Stop', {})).toMatchObject({ reason: expect.stringContaining('plate is 2 solids (was 1)') })
+    })
+
+    // A turn with no build of Claude's has nothing to answer for: what the person saved before the next prompt is not
+    // held against it.
+    it('begins from the build there is when the turn before it had built nothing', async () => {
+      let kept: { revision: number; scene: Scene } = { revision: 7, scene: sceneOf() }
+      const { obj, post, changes } = await begun({ scene: () => kept })
+      await prompt(post, 'what is it?')
+      await changes()
+      kept = { revision: 8, scene: sceneOf({ solids: 2 }) }
+      saves(obj.id, 7, 8)
+      await prompt(post, 'paint it')
+      await changes()
+      kept = { revision: 9, scene: sceneOf({ solids: 2, volume: 790 }) }
+      builds(obj.id, 8, 9)
+      await looks(post)
+      expect(await post('Stop', {})).toEqual({})
+    })
+
+    it('carries nothing from a turn that had its Stop', async () => {
+      const { obj, post, changes, saved } = await begun({ stop: 100 })
+      await prompt(post, 'make it thicker')
+      await changes()
+      const own = saved()
+      expect(await post('Stop', {})).toEqual({})
+      await prompt(post, 'what is it?')
+      land(of(own, building(obj.id, 7)))
+      land(of(own, ok(obj.id, 8)))
+      expect(await post('Stop', {})).toEqual({})
+    })
+  })
+
   /** What made a build of a prompt before the turn's, as a save heard late still says. */
   const earlier: KeptCause = { cause: 'agent', turn: { conversation: 'c', prompt: 'an-earlier-one' } }
 
@@ -3286,7 +3404,9 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     kept = { revision: 7, scene: sceneOf({ volume: 700, faceCount: 7, hash: 'hole moved', loc: { t: [5, 0, 0], q: [0, 0, 0, 1] } }) }
     builds(obj.id, 6, 7)
     expect(await post('Stop', {})).toEqual(UNLOOKED(7))
-    // A turn that began with no build has nothing to compare to: it looks.
+    // A turn that began with no build has nothing to compare to: it looks. The one before is over first: a held `Stop`
+    // is posted again, and a turn with none would go on into this one (#399).
+    expect(await post('Stop', { stop_hook_active: true })).toEqual({})
     kept = undefined as never
     await post('UserPromptSubmit', { prompt: 'first build' })
     await changes()

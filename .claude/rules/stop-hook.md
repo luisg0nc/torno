@@ -35,7 +35,13 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   that stands, the holds made too, and only the prompt the turn is named by changes (`startedFrom` still keeps the build
   current as each prompt was sent). An interrupted turn has no `Stop`, and its `result` ends it, so the next prompt begins
   anew. A terminal has no stream to tell the two apart: each of its `UserPromptSubmit` begins a turn, a prompt typed
-  while it works too.
+  while it works too. One that replaces a turn that had no `Stop` (`beginTurn`'s `unstopped`; a `StopFailure` counts as
+  a `Stop`) may be either, so torno errs toward holding (#399): the old turn's prompts go into the new one, and when
+  the old turn has a build of Claude's to judge (`ClaudesBuilds.judged`) the new one also takes its `startedAt`,
+  `since`, `lookedAt`, `measuredAt`, `before` and `beforeVerdicts`, as that build had ended already and would not count
+  otherwise. With no such build it begins from the build there is now. The holds (`held`, `holds`) are made anew.
+  A command has no hook, and in the transcript it may go on awaiting one after its turn. That puts it in no later
+  turn: `TurnState.prompts` has only `taken()` at each call, never the prompts a hook passed over (#400).
   What the answer to an edit waits for is what changed the model: the `PreToolUse` and `PostToolUse` of an `Edit`,
   `Write` or `MultiEdit` of a source the build is made from (`ofSource`), or a `Bash` after which the newest `.py`
   directly in the object's folder or in `common/`, or the newest file the last build imported, is newer than before
