@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import { hint, pressed } from '../../../shared/keys'
 import type { Stroke } from '../../state/onboard'
 import { Confirm } from '../Confirm'
+import { inMenu } from '../inMenu'
 import { TYPING } from '../typing'
 import { ERASER_WIDTH, GRID_STEP, PEN_WIDTHS, addPoint, paintBackground, paintStroke, paintStrokes, straighten, type Backdrop, type InkLook } from './strokes'
 
@@ -162,9 +163,9 @@ export function InkPad({ title, label, hint: words, size, ground, background, gr
     const before = document.activeElement
     sheet.current?.focus()
     // Before anything else hears of the key, so that no tool of the view under the board gets Ctrl+Z. A question
-    // asked in the board has its own keys.
+    // asked in the board has its own keys, and so has a menu of the title bar for its Escape.
     const onKey = (e: KeyboardEvent): void => {
-      if (askingNow.current) return
+      if (askingNow.current || (inMenu(e) && pressed(e, 'sheet.close'))) return
       const field = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-board-field]') : null
       if (field && pressed(e, 'sheet.close')) {
         // Esc in a field of the sheet is the field's: the keys are the sheet's again; the next Esc leaves.

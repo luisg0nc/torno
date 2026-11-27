@@ -2,13 +2,14 @@ import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } f
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
+import type { TornoState } from '../src/renderer/state/store'
 import { png } from '../src/test/pngFixtures'
-import { showBrief } from './helpers'
+import { newSession, showBrief, showModel } from './helpers'
 import { newFromList, openListed } from './objects'
 
-// A menu of the title bar, opened while a sheet is up (the Brief's picture opened large): it is drawn over the sheet,
-// and an Escape with the focus in it is the menu's; the next one is the sheet's. The window is hidden: everything is
-// read from the DOM.
+// A menu of the title bar, opened while a sheet is up (the Brief's picture opened large, the ink pad and the reduced
+// sheet of a view note): it is drawn over the sheet, and an Escape with the focus in it is the menu's; the next one is
+// the sheet's. The window is hidden: everything is read from the DOM and the store.
 const appDir = resolve(__dirname, '..')
 const fixtures = resolve(appDir, '../kernel/tests/fixtures/ws')
 const fakeAgent = resolve(appDir, 'test/fake-agent.mjs')
@@ -36,7 +37,8 @@ test.afterAll(async () => {
   rmSync(root, { recursive: true, force: true })
 })
 
-const folderButton = (): Locator => page.locator('.title-row').getByRole('button', { name: /^Folder / })
+const state = (): Promise<TornoState> => page.evaluate(() => window.__tornoTest!.state())
+const folderButton =(): Locator => page.locator('.title-row').getByRole('button', { name: /^Folder / })
 const projectButton = (): Locator => page.locator('.title-row').getByRole('button', { name: /^Project / })
 
 /** Whether a menu is the topmost thing over the whole of its box: sampled in a grid, just inside its rounded edge. */
@@ -71,4 +73,39 @@ test('over a Brief picture opened large, Escape closes a title bar menu first, t
     await expect(picture).toBeVisible()
     await menuFirst(button, name, picture, () => expect(picture).toHaveCount(0))
   }
+})
+
+test('over the sheet of "Draw on view", a title bar menu is seen whole and Escape closes it first; the same over a note whose picture is gone', async () => {
+  await openListed(page, 'bracket')
+  await showModel(page)
+  await expect.poll(async () => (await state()).build, { timeout: 30_000 }).toMatchObject({ status: 'ok' })
+  const dock = page.locator('[data-region="session"]')
+  await newSession(dock)
+  await expect(dock.locator('[data-chat-composer]')).toBeEnabled()
+  const drawing = page.getByRole('dialog', { name: 'Drawing on the view' })
+  for (const [button, name] of [[folderButton(), 'Folders'], [projectButton(), 'Projects']] as const) {
+    await dock.getByRole('button', { name: 'Draw on view' }).click()
+    await expect(drawing).toBeVisible()
+    await menuFirst(button, name, drawing, () => expect(drawing).toHaveCount(0))
+  }
+
+  // A note with a comment alone, then its plain picture taken from the disk: it reopens as the reduced sheet.
+  await dock.getByRole('button', { name: 'Draw on view' }).click()
+  await drawing.getByRole('textbox', { name: 'Comment' }).fill('thicker')
+  await drawing.getByRole('button', { name: 'Done' }).click()
+  await expect(drawing).toHaveCount(0)
+  const note = (await state()).marks.find((m) => m.kind === 'note')!
+  rmSync(join(root, 'bracket', '.torno', 'notes'), { recursive: true })
+  const reduced = page.getByRole('dialog', { name: 'Editing the view note' })
+  await page.evaluate((id) => window.__tornoTest!.openNote('bracket', id), note.id)
+  await expect(reduced).toBeVisible()
+  await menuFirst(projectButton(), 'Projects', reduced, () => expect(reduced).toHaveCount(0))
+})
+
+test('over the doodle board of a new project, the folder menu is seen whole and Escape closes it first, then the board', async () => {
+  await newFromList(page)
+  await page.getByRole('button', { name: /^Sketch it/ }).click()
+  const board = page.getByRole('dialog', { name: 'Doodle board' })
+  await expect(board).toBeVisible()
+  await menuFirst(folderButton(), 'Folders', board, () => expect(board).toHaveCount(0))
 })

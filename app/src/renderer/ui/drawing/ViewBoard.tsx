@@ -4,6 +4,7 @@ import type { NoteLabel, NoteMark } from '../../../shared/marks'
 import { type Board, drawingActions, useDrawing } from '../../state/drawing'
 import { Confirm } from '../Confirm'
 import { InkPad } from '../ink/InkPad'
+import { inMenu } from '../inMenu'
 import { changeOf } from './change'
 import { Labels } from './Labels'
 import { References } from './References'
@@ -129,7 +130,7 @@ function TextSheet({ board }: { board: Board }) {
     const before = document.activeElement
     sheet.current?.focus()
     const onKey = (e: KeyboardEvent): void => {
-      if (!pressed(e, 'sheet.close') || document.querySelector('[role="alertdialog"]')) return
+      if (!pressed(e, 'sheet.close') || inMenu(e) || document.querySelector('[role="alertdialog"]')) return
       e.preventDefault()
       e.stopPropagation()
       if (e.target instanceof HTMLElement && e.target.closest('[data-board-field]')) {
