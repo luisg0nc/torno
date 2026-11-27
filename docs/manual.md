@@ -1479,8 +1479,8 @@ M4 thickness 2 mm wall, along the normal, tub/F2 at (30, 0, -10) (expected 3 ± 
   and the tool to read it with. The first build of a run has only `Check`.
 - A part that is not valid, has a solid inside out, came apart into more solids
   or has a mesh that disagrees with it, where the build the turn began with did
-  not, holds Claude Code back once when it would stop, if the turn caused that
-  build (see below): it is asked
+  not, holds Claude Code back once when it would stop, if Claude caused that
+  build in the turn (see below): it is asked
   to mend the model or to say why that is meant. A change of volume alone never
   does.
 - The chat shows it under the edit's card (the build slip: the dimensions that
@@ -1489,30 +1489,35 @@ M4 thickness 2 mm wall, along the normal, tub/F2 at (30, 0, -10) (expected 3 ± 
 
 When Claude Code would stop, torno holds it back for what the turn itself did:
 once for each reason, and twice in a turn at most. Every reason is for a build
-the turn caused: one that began after the turn first
-changed a source, by an edit of a `.py` of the project or a Bash command after
-which one is newer. The first build of a project you have just opened, a save of
-yours in your own editor before the agent's first edit, and any build in a turn
-that changed no source are told to the agent as ever but never hold it back. In
-the chat, a prompt that Claude Code takes into a turn already at work does not
-start the turn over: what the turn built before it still counts, and so do the
-holds already made. In a terminal torno cannot tell such a prompt from a new
-turn, and counts from it. It
-first waits, up to twenty seconds, for such a build that is still running and
-for the dimensions to be measured. Then, by the first that applies:
+Claude caused in the turn: one made of a save that one of the turn's tool calls
+accounts for (an edit of the file, or a command while it ran; the same rule that
+says whose a build is, in the chat's turn line and the history). When a build is
+made does not matter. Your own saves, in the middle of a turn too, even one that
+fails to build, never hold it back, and neither does the first build of a project
+you have just opened or a build an earlier prompt's work made. They are told to
+the agent as ever. A command of Claude's takes the saves made while it runs for
+its own, so a save of yours then counts as Claude's. In the chat, a prompt that
+Claude Code takes into a turn already at work does not start the turn over: what
+the turn built before it still counts, and so do the holds already made. In a
+terminal torno cannot tell such a prompt from a new turn, and counts from it. It
+first waits, up to twenty seconds, for a build of Claude's that is still running
+and for the dimensions to be measured. Then it looks at the newest build of
+Claude's, whatever was built since, and by the first that applies:
 
-1. The build is still running. It is asked to read the result with `scene` and
-   to look.
-2. The build after the one on show failed (`The build after r7 failed: ...`), and
-   it is asked to fix it or say it is still broken.
+1. A build of Claude's is still running. It is asked to read the result with
+   `wait_build` and to look.
+2. It failed (`The build after r7 failed: ...`), and no build since has worked:
+   the agent is asked to fix it or say it is still broken.
 3. A part has a defect the build the turn began with had not (above).
-4. A dimension that passed on the build the turn began with fails on the latest:
+4. A dimension that passed on the build the turn began with fails on it:
    `M4 passed on r7 and fails on r9 (6 mm, expected 8 ± 0.05). Fix it, or say
    why it must change.` A dimension that already failed when the turn began
-   never holds it back; the agent may rightly stop to ask about it.
-5. A build the turn caused ended after its last `look`: `r9 was built during
-   this turn, and you have not looked at it since.` This is however the file was
-   written, by the agent's editing tool or through Bash. A
+   never holds it back; the agent may rightly stop to ask about it. Here and for
+   a defect, what a later build mended is let go, and what only a later build of
+   yours broke is not the agent's.
+5. It ended after the agent's last `look`: `r9 was built during this turn, and
+   you have not looked at it since.` This is however the file was written, by the
+   agent's editing tool or through Bash. A
    `look` by the reviewer counts. When nothing in the parts changed since the
    turn began (a comment, a rename: every part is the same shape, by the
    kernel's hash of it, in the same place), there is nothing to look at and it
@@ -3321,7 +3326,7 @@ With a real agent:
 - **The holds of a `Stop` with the real Claude Code.** Have it edit the model and say it is done without a `look`
   (once through its editing tool, once with `cat > model.py` in Bash): the `Stop` is held with the reason about the
   build "built during this turn", the agent looks, and the turn ends. Open a project and ask something that
-  changes nothing while its first build runs, then save the file in your editor in the middle of a turn: neither holds it. Pin a dimension, then have it change the model
+  changes nothing while its first build runs, then save the file in your editor in the middle of a turn, also one that fails to build: neither holds it. Pin a dimension, then have it change the model
   so that it fails: it is held once and names it. Let a build run for twenty seconds while it would stop: the `Stop`
   waits, and the hook's 25 s limit is enough (the stand-in cannot tell). Whether the second `Stop` of a turn that was
   held arrives with `stop_hook_active` and is held again for another reason is what the code assumes; the stand-in

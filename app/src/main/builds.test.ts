@@ -1574,6 +1574,30 @@ describe('whose save a build came of (#384)', () => {
     expect(l.scenes[2]!.made).toEqual({ cause: 'person' })
   })
 
+  // The Stop goes by the prompt a build names (#397): an earlier prompt's must not hide the one whose save came after.
+  it("names the later prompt of two of Claude's saves that one build is made of", async () => {
+    let prompt = 'u6'
+    const l = setup({ causeNow: () => causeOfSave({ turn: { conversation: 'c1', prompt } }) })
+    l.builds.open(bracket)
+    l.kernel.succeed(0)
+    await flush()
+    const save = () => l.watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
+    // A build of u6's, started over by a save of u7's.
+    save()
+    prompt = 'u7'
+    save()
+    l.kernel.succeed(2)
+    await flush()
+    expect(l.scenes[1]!.made).toEqual({ cause: 'agent', turn: { conversation: 'c1', prompt: 'u7' } })
+    // Two saves of one burst.
+    prompt = 'u8'
+    l.seen.get('/ws/bracket')!('/ws/bracket/bracket.py')
+    prompt = 'u9'
+    l.seen.get('/ws/bracket')!('/ws/bracket/gen.py')
+    save()
+    expect(l.builds.state('bracket')!.made).toEqual({ cause: 'agent', turn: { conversation: 'c1', prompt: 'u9' } })
+  })
+
   it('keeps the cause of a build displaced by another project\'s, which is started again', async () => {
     const l = await opened()
     l.claudes.add('/ws/bracket/bracket.py')

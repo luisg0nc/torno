@@ -29,10 +29,13 @@ export function causeOfSave(claude: { turn?: BuildTurn } | undefined): KeptCause
   return { cause: 'agent', ...(claude.turn ? { turn: { ...claude.turn } } : {}) }
 }
 
-/** Of two causes that fold into one build, Claude's is kept, whole (its prompt with it); else the one held. */
-function merged(held: KeptCause | undefined, more: KeptCause | undefined): KeptCause | undefined {
-  if (!more) return held
-  return held && (held.cause === 'agent' || more.cause !== 'agent') ? held : more
+/**
+ * Of the causes of two saves that fold into one build, Claude's is kept, whole (its prompt with it); of two that rank
+ * alike the later save's: the `Stop` goes by the prompt a build names, and an earlier one must not hide it (#397).
+ */
+function merged(earlier: KeptCause | undefined, later: KeptCause | undefined): KeptCause | undefined {
+  if (!later) return earlier
+  return earlier?.cause === 'agent' && later.cause !== 'agent' ? earlier : later
 }
 
 /**

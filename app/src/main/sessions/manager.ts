@@ -38,6 +38,7 @@ import { agentEnv } from './agentEnv'
 import { findCommand } from './choice'
 import { killGroup } from './signals'
 import { SESSION_FILE, storeConversation, storedConversation, UUID } from './resume'
+import { ClaudesBuilds, claudesIn } from './claudes'
 import { type ClaudesSave, ClaudeWrites, surelyWritesNothing } from './writes'
 import { HOOK_EVENTS, reduceStatus } from './status'
 import type { AgentAsk, AgentMessage, AgentTransport, AskAnswer, PromptBlock } from './transport'
@@ -133,15 +134,15 @@ interface Session {
 }
 
 /**
- * What a turn did to the model, as its hooks said, for the `Stop` that ends it: when it began and the count of builds
- * ended before it began (`Sessions.finished`, so that a build of an earlier turn is not held against it), the count
- * at its last `look`, the last successful build and what the dimensions said of it when it began, the reasons a
- * `Stop` was held back for already and how many holds that makes, the `PreToolUse` times of the edits under way, by
- * tool use, and when the turn first changed a source (`changedAt`).
+ * What a turn did to the model, as its hooks said, for the `Stop` that ends it: when it began and the prompts its
+ * calls were made for (which say what builds are its, `claudes.ts`), the count of builds ended at its last `look`, the
+ * last successful build and what the dimensions said of it when it began, the reasons a `Stop` was held back for
+ * already and how many holds that makes, and the `PreToolUse` times of the edits under way, by tool use.
  */
 interface TurnState {
-  since: number
   startedAt: number
+  /** The prompts its tool calls were made for, as a build's cause names one: more than one when prompts were folded into it. */
+  prompts: Set<string>
   /** The count of builds ended (`Sessions.finished`) when the turn last looked at the model: a build that ended after it was not looked at. */
   lookedAt: number
   /** The same count at the turn's last `measure`, `check` or `features`: after a small change, a number is a look (`smallChange`). */
@@ -154,12 +155,6 @@ interface TurnState {
   held: Set<StopReason>
   holds: number
   editing: Map<string, number>
-  /**
-   * When the turn first changed a source of the object (ms epoch): the `PreToolUse` of an edit of a `.py` of the
-   * object, or of a `Bash` after which the newest source was newer than before. A build begun at or after it is the
-   * turn's (`stopAnswer`); one begun before it, or in a turn with none, is not, and no `Stop` is held back for it.
-   */
-  changedAt?: number
   /** The prompt of this turn asked Claude, once, to move its old sections out of `brief.md` (#341): its `Edit` or `Write` of the file is let through. */
   briefOpen?: true
   /** The prompt the turn answers, as the history names it (`BuildTurn`, without its conversation): set once its hook has been answered. */
@@ -297,11 +292,13 @@ export class Sessions {
   private readonly records = new Map<string, ChatRecord>()
   /** What the tool calls of every session wrote, so that a save can be said to be Claude's or the person's. */
   private readonly writes = new ClaudeWrites()
-  /** By object: when its latest build began, and the count of `finished` when its latest build ended. */
+  /** By object: when its latest build began, and how its latest build ended, so that the same told again is not a build. */
   private readonly buildStarts = new Map<string, number>()
-  private readonly buildEnds = new Map<string, number>()
-  /** Builds that ended, of any object, counted: a turn knows which came after it began. */
+  private readonly lastEnd = new Map<string, string>()
+  /** Builds that ended, of any object, counted: a `look` knows which came before it. */
   private finished = 0
+  /** The builds Claude caused, which are what a `Stop` is held for. */
+  private readonly claudes = new ClaudesBuilds()
   /** By the id a turn's prompt has in the history, the revision of the build that was current when it was sent (the newest few hundred): what Go back goes to when no build was kept before the prompt. */
   private readonly promptStarts = new Map<string, number>()
   /** Who waits for the next change of a build. */
@@ -605,8 +602,19 @@ export class Sessions {
 
   /** A build of an object began or ended: an edit's answer may be waiting for it. */
   built(state: BuildState): void {
-    if (state.status === 'building') this.buildStarts.set(state.objectId, state.startedAt ?? Date.now())
-    else if (state.status === 'ok' || state.status === 'failed') this.buildEnds.set(state.objectId, ++this.finished)
+    const id = state.objectId
+    if (state.status === 'building') {
+      this.buildStarts.set(id, state.startedAt ?? Date.now())
+      this.lastEnd.delete(id)
+    } else if (state.status === 'ok' || state.status === 'failed') {
+      // A state told again (it fell out of date, the kernel let it go) is no new build.
+      const end = `${state.status} ${state.revision} ${state.error?.message ?? ''}`
+      if (this.lastEnd.get(id) !== end) {
+        this.lastEnd.set(id, end)
+        const scene = state.status === 'ok' ? this.deps.scene?.(id) : undefined
+        this.claudes.landed({ ...state, status: state.status }, { startedAt: this.buildStarts.get(id) ?? Date.now(), ended: ++this.finished, ...(scene?.revision === state.revision ? { scene: { revision: scene.revision, scene: scene.scene } } : {}) })
+      }
+    }
     const waiting = this.buildWaiters
     this.buildWaiters = new Set()
     for (const wake of waiting) wake()
@@ -669,9 +677,10 @@ export class Sessions {
   private notLookedAt(session: Session, told: PromptContext): string {
     const turn = session.turn
     const objectId = session.object.id
-    if (!turn || turn.changedAt === undefined || told.buildState !== 'ok' || told.revision === undefined) return ''
-    const last = this.deps.scene?.(objectId)
-    if (!last || last.revision !== told.revision) return ''
+    if (!turn || told.buildState !== 'ok' || told.revision === undefined) return ''
+    // Said only of a build the Stop would hold for: Claude's, of this turn.
+    const last = this.claudes.of(objectId, turn, told.revision)?.scene
+    if (!last) return ''
     const defects = hardDefects(sanity(turn.before, last))
     if (turn.before && partsUnchanged(turn.before.scene, last.scene) && defects.length === 0) return ''
     const toolName = this.deps.adapter.toolName
@@ -728,20 +737,20 @@ export class Sessions {
 
   /**
    * What a `Stop` is held back with: a reason the turn has not been held back for yet, and never a third hold in a
-   * turn. First it waits (up to `STOP_WAIT_MS`) for a build the turn caused that is still running, and for the
-   * dimensions to be measured on it, then judges on the result, by the first of these. A build is the turn's own
-   * (`caused`) only if it began after the turn first changed a source (`TurnState.changedAt`); the first build of an
-   * object just opened, a save of the person's before the agent's first edit, or any build in a turn with no edit
-   * is told to the agent but holds nothing back, for any of the five reasons:
-   * - the build the turn caused is still running (`running`);
-   * - the latest build, caused by the turn and ended in it, failed (`failed`);
-   * - the last successful build, caused by the turn, has a hard defect (`hardDefects`: not valid, inside out, more
-   *   solids than before, a mesh that disagrees with its volume) that the build the turn began with had not
-   *   (`defect`), which the agent may answer is meant;
-   * - a dimension that passed on the build the turn began with fails on the latest, which the turn caused (`dimension`);
-   * - a build the turn caused ended after its last `look`, however the file was written (`unlooked`), unless the digest
-   *   says nothing in the parts changed since the build the turn began with (`partsUnchanged`: the same shapes, by
-   *   hash, in the same places; a volume or a count alone would miss a moved hole).
+   * turn. Only the builds Claude caused in the turn count (`claudes.ts`, by their cause): the first build of an object
+   * just opened, a save of the person's whenever it was made and a build of an earlier prompt's are told to the agent
+   * but hold nothing back. First it waits (up to `STOP_WAIT_MS`) for such a build that is still running, and for the
+   * dimensions to be measured on the newest that ended, then judges by the first of these:
+   * - a build of Claude's is still running (`running`);
+   * - its newest failed, and no build since has worked (`failed`);
+   * - its newest has a hard defect (`hardDefects`: not valid, inside out, more solids than before, a mesh that
+   *   disagrees with its volume) that the build the turn began with had not (`defect`), which the agent may answer is
+   *   meant; one a later build mended is let go;
+   * - a dimension that passed on the build the turn began with fails on its newest (`dimension`); one that passes
+   *   again on a later build is let go;
+   * - its newest ended after the turn's last `look`, however the file was written (`unlooked`), unless nothing in the
+   *   parts changed since the build the turn began with (`partsUnchanged`: the same shapes, by hash, in the same
+   *   places; a volume or a count alone would miss a moved hole).
    * A hold for a defect or a dimension that finds the build unlooked says so, and counts for that reason too.
    * A dimension that failed when the turn began holds nothing back: the agent may rightly stop to ask about it. Nor
    * does a change of volume alone. Null to let it go.
@@ -752,14 +761,16 @@ export class Sessions {
     const { build } = this.deps
     if (!turn || !build || turn.holds >= (this.deps.mostHolds ?? MOST_HOLDS) || this.deps.holdStops === false) return null
     const deadline = Date.now() + (this.deps.editTiming?.stopMs ?? STOP_WAIT_MS)
-    // The build there is is the turn's only if it began after the turn first changed a source: a first build, a save of the person's, a build of before the edit is not.
-    const caused = (): boolean => turn.changedAt !== undefined && (this.buildStarts.get(objectId) ?? -Infinity) >= turn.changedAt
-    const runs = (): boolean => build(objectId)?.status === 'building' && caused()
+    // A build of Claude's at work: the person's, or an earlier prompt's, is neither waited for nor held for.
+    const runs = (): boolean => {
+      const state = build(objectId)
+      return state?.status === 'building' && claudesIn(state.made, this.buildStarts.get(objectId) ?? -Infinity, turn)
+    }
     // Nothing is waited for that a reason already held would have waited for: it was told, and the next Stop is let go at once.
     if (!turn.held.has('running')) while (runs() && Date.now() < deadline) await this.nextBuild(deadline)
-    // Judged on the build there is once it has ended, with its dimensions measured as far as they are in the time left.
-    const ended = build(objectId)
-    if (!turn.held.has('dimension') && caused() && ended?.status === 'ok' && (this.buildEnds.get(objectId) ?? 0) > turn.since && turn.beforeVerdicts && [...turn.beforeVerdicts.values()].includes('pass')) {
+    // Judged on Claude's newest build once it has ended, with its dimensions measured as far as they are in the time left.
+    const ended = this.claudes.newest(objectId, turn)
+    if (!turn.held.has('dimension') && ended?.status === 'ok' && turn.beforeVerdicts && [...turn.beforeVerdicts.values()].includes('pass')) {
       await this.deps.settled?.(objectId, ended.revision, deadline)
     }
     const state = build(objectId)
@@ -771,44 +782,48 @@ export class Sessions {
       turn.holds += 1
       return { decision: 'block', reason: text }
     }
-    if (state.status === 'building' && runs()) {
+    if (runs()) {
       return hold('running', `A build begun in this turn is still running (r${state.revision + 1}). Call ${toolName('wait_build')} for its result, then ${toolName('look')}, before finishing.`)
     }
-    const builtInTurn = (this.buildEnds.get(objectId) ?? 0) > turn.since
-    if (!builtInTurn) return null
-    // A build the turn did not cause holds nothing back, for any reason: it is told to the agent, which may have been asked a question.
-    if (!caused()) return null
-    if (state.status === 'failed') {
-      return hold('failed', `The ${failedAfter(state.revision)} failed: ${(state.error?.message ?? 'no reason was given').trim()}. Fix it, or say it is still broken.`)
+    const own = this.claudes.newest(objectId, turn)
+    if (!own) return null
+    if (own.status === 'failed') {
+      // A failure that a later build has drawn past is nothing of Claude's to mend any more.
+      return own.redrawn ? null : hold('failed', `The ${failedAfter(own.revision)} failed: ${(own.error ?? 'no reason was given').trim()}. Fix it, or say it is still broken.`)
     }
-    if (state.status !== 'ok') return null
-    const last = this.deps.scene?.(objectId)
-    const digest = last && last.revision === state.revision ? sanity(turn.before, last) : undefined
-    const defects = digest ? hardDefects(digest) : []
+    const last = own.scene
+    const digest = last ? sanity(turn.before, last) : undefined
+    const found = digest ? hardDefects(digest) : []
     // Nothing in the parts changed since the turn began (a comment, a rename: the same shapes in the same places): there is nothing to look at.
-    const nothingChanged = last !== undefined && last.revision === state.revision && turn.before !== undefined && partsUnchanged(turn.before.scene, last.scene) && defects.length === 0
+    const nothingChanged = last !== undefined && turn.before !== undefined && partsUnchanged(turn.before.scene, last.scene) && found.length === 0
     // A small change confirmed by a number (a fit of 0.2 mm, then `measure`) was looked at as far as it needs.
-    const measured = digest !== undefined && smallChange(digest) && this.buildEnds.get(objectId)! <= turn.measuredAt
-    const unlooked = this.buildEnds.get(objectId)! > turn.lookedAt && !nothingChanged && !measured && !turn.held.has('unlooked')
+    const measured = digest !== undefined && smallChange(digest) && own.ended <= turn.measuredAt
+    const unlooked = own.ended > turn.lookedAt && !nothingChanged && !measured && !turn.held.has('unlooked')
+    // A later build may have mended what Claude's broke: only what the last good build still has is held for.
+    const now = this.deps.scene?.(objectId)
+    const later = now && own.redrawn && now.revision > own.revision ? now : undefined
+    const still = later ? new Set(hardDefects(sanity(turn.before, later)).map((d) => `${d.kind} ${d.part}`)) : undefined
+    const defects = still ? found.filter((d) => still.has(`${d.kind} ${d.part}`)) : found
     // A look still lacking is said with a hold for something else, which the cap would leave no room to ask for after.
     const lacking = unlooked ? ` You have not looked at it either: call ${toolName('look')}.` : ''
     const alongside: StopReason[] = unlooked ? ['unlooked'] : []
     if (defects.length > 0 && !turn.held.has('defect')) {
-      return hold('defect', `r${last!.revision}, built in this turn, has what a sound part never has: ${defects.map((d) => d.text).join('; ')}. Mend the model, or say why it is meant.${lacking}`, ...alongside)
+      return hold('defect', `r${own.revision}, built in this turn, has what a sound part never has: ${defects.map((d) => d.text).join('; ')}. Mend the model, or say why it is meant.${lacking}`, ...alongside)
     }
-    const broken = verdictChanges(turn.beforeVerdicts, this.deps.verdicts?.(objectId, state.revision)).filter((c) => c.was === 'pass' && c.now === 'fail')
+    const since = later ? this.deps.verdicts?.(objectId, later.revision) : undefined
+    const broken = verdictChanges(turn.beforeVerdicts, this.deps.verdicts?.(objectId, own.revision)).filter((c) => c.was === 'pass' && c.now === 'fail' && since?.get(c.id) !== 'pass')
     if (broken.length > 0 && !turn.held.has('dimension')) {
       const named = await Promise.all(
         broken.slice(0, MOST_BROKEN_NAMED).map(async (c) => {
-          const detail = await this.deps.dimensionDetail?.(objectId, c.id, state.revision).catch(() => undefined)
-          return `${c.id} passed on r${turn.before!.revision} and fails on r${state.revision}${detail ? ` (${detail})` : ''}`
+          const detail = await this.deps.dimensionDetail?.(objectId, c.id, own.revision).catch(() => undefined)
+          return `${c.id} passed on r${turn.before!.revision} and fails on r${own.revision}${detail ? ` (${detail})` : ''}`
         })
       )
       const more = broken.length > named.length ? `; ${broken.length - named.length} more` : ''
       const one = broken.length === 1
       return hold('dimension', `${named.join('; ')}${more}. Fix ${one ? 'it' : 'them'}, or say why ${one ? 'it' : 'they'} must change.${lacking}`, ...alongside)
     }
-    if (unlooked) return hold('unlooked', `r${state.revision} was built during this turn, and you have not looked at it since. Call ${toolName('look')} before finishing.`)
+    if (unlooked) return hold('unlooked', `r${own.revision} was built during this turn, and you have not looked at it since. Call ${toolName('look')} before finishing.`)
     return null
   }
 
@@ -1407,14 +1422,11 @@ export class Sessions {
     if (name === 'Bash') return this.aroundBash(session, turn, event, useId, body.tool_input)
     if (!EDIT_TOOLS.has(name) || !this.ofSource(session, body.tool_input)) return {}
     if (event === 'PreToolUse') {
-      const at = Date.now()
-      turn.editing.set(useId, at)
-      turn.changedAt ??= at
+      turn.editing.set(useId, Date.now())
       return {}
     }
     const since = turn.editing.get(useId) ?? Date.now()
     turn.editing.delete(useId)
-    turn.changedAt ??= since
     turn.lastToolUse = useId || undefined
     return this.afterEdit(session, since)
   }
@@ -1437,7 +1449,6 @@ export class Sessions {
     const was = turn.bashing.get(useId)
     turn.bashing.delete(useId)
     if (!was || saved === null || (was.saved !== null && saved <= was.saved)) return {}
-    turn.changedAt ??= was.at
     turn.lastToolUse = useId || undefined
     // The build the command started, if one did, is told as an edit's is: at once, or that it is still running.
     return this.afterEdit(session, was.at)
@@ -1448,7 +1459,7 @@ export class Sessions {
     const objectId = session.object.id
     const before = this.deps.scene?.(objectId)
     const beforeVerdicts = before ? this.deps.verdicts?.(objectId, before.revision) : undefined
-    return { since: this.finished, startedAt: Date.now(), lookedAt: this.finished, measuredAt: this.finished, ...(before ? { before } : {}), ...(beforeVerdicts ? { beforeVerdicts } : {}), held: new Set(), holds: 0, editing: new Map(), bashing: new Map() }
+    return { startedAt: Date.now(), prompts: new Set(), lookedAt: this.finished, measuredAt: this.finished, ...(before ? { before } : {}), ...(beforeVerdicts ? { beforeVerdicts } : {}), held: new Set(), holds: 0, editing: new Map(), bashing: new Map() }
   }
 
   /**
@@ -1495,6 +1506,8 @@ export class Sessions {
         // Kept before anything is awaited or answered: the tool runs only after.
         if (useId !== undefined) {
           const turn = this.turnOfWrite(session)
+          // The prompt a build of this call's save will name is one of this turn's.
+          if (turn) (session.turn ??= this.beginTurn(session)).prompts.add(turn.prompt)
           this.writes.began({ session: session.id, project: session.object.id, dir: session.object.dir, id: useId, tool: name, input: tool.tool_input, ...(turn ? { turn } : {}) })
         }
       } else if (useId !== undefined) this.writes.ended(session.id, useId, true)
