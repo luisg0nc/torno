@@ -192,6 +192,23 @@ describe('a Bash, whose files cannot be read from its command', () => {
     expect(by()).toEqual({ turn })
   })
 
+  // A real file's times have fractions of a millisecond, and the ledger's clock has none.
+  it('wrote a file changed in the millisecond it ended', () => {
+    writes.began(bash('python gen.py'))
+    time += 2000
+    save('generated', time - 1000, board, time + 0.4)
+    writes.ended('s1', 't1', true)
+    time += 100
+    expect(by()).toEqual({ turn })
+  })
+
+  it('did not write a file changed in the millisecond after it ended', () => {
+    writes.began(bash('python gen.py'))
+    writes.ended('s1', 't1', true)
+    save('mine', time - 1000, board, time + 1)
+    expect(by()).toBeUndefined()
+  })
+
   it('did not write a file that was last saved before it began', () => {
     save('mine', time - 500)
     writes.began(bash('python gen.py'))

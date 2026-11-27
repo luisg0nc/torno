@@ -29,7 +29,12 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (`aroundBash`, below) is answered the same way (`afterEdit` from the command's start): the build the command started is told as an edit's is.
   A `Stop` (`stopAnswer`, `claude.ts` gives it a 25 s timeout) is judged from what the turn did (`TurnState`, made at
   its `UserPromptSubmit` by `beginTurn`: the count of builds ended, the last successful build and what the dimensions
-  said of it, the last `look`, the reasons already held, when the turn first changed a source). A build is the turn's
+  said of it, the last `look`, the reasons already held, when the turn first changed a source). A prompt the CLI folds into a
+  chat's turn under way (its hook comes between the turn's `init` and `result`, `Transcript.underWay`) begins none: all of
+  that stands, the holds made too, and only the prompt the turn is named by changes (`startedFrom` still keeps the build
+  current as each prompt was sent). An interrupted turn has no `Stop`, and its `result` ends it, so the next prompt begins
+  anew. A terminal has no stream to tell the two apart: each of its `UserPromptSubmit` begins a turn, a prompt typed
+  while it works too. A build is the turn's
   (`caused` in `stopAnswer`) only if it began at or after `TurnState.changedAt`: the `PreToolUse` of an `Edit`, `Write`
   or `MultiEdit` of a source the build is made from (`ofSource`), or the start of a `Bash` after which the newest `.py` directly in the object's
   folder or in `common/`, or the newest file the last build imported, is newer than before (`aroundBash`, `Sessions` dep `sourcesSaved`; the command's text is never read, and

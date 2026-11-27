@@ -1493,7 +1493,11 @@ the turn caused: one that began after the turn first
 changed a source, by an edit of a `.py` of the project or a Bash command after
 which one is newer. The first build of a project you have just opened, a save of
 yours in your own editor before the agent's first edit, and any build in a turn
-that changed no source are told to the agent as ever but never hold it back. It
+that changed no source are told to the agent as ever but never hold it back. In
+the chat, a prompt that Claude Code takes into a turn already at work does not
+start the turn over: what the turn built before it still counts, and so do the
+holds already made. In a terminal torno cannot tell such a prompt from a new
+turn, and counts from it. It
 first waits, up to twenty seconds, for such a build that is still running and
 for the dimensions to be measured. Then, by the first that applies:
 

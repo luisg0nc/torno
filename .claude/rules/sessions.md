@@ -81,7 +81,7 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   - `Write`, `Edit`, `MultiEdit`, `NotebookEdit`: that file's saves while the call runs, and after it while the file is
     as the tool left it (mtime and size), however late the save is heard. A call that failed wrote nothing.
   - `Bash` names no file, so any watched file whose mtime or ctime (the later: `cp -p`, `tar x`, `unzip` and `mv` keep
-    an older mtime) falls while the command runs is taken for Claude's (one that is gone: heard while it runs or within
+    an older mtime; counted in whole ms, as the ledger's clock is, so the ms it ended in is still its) falls while the command runs is taken for Claude's (one that is gone: heard while it runs or within
     0.5 s). The person's save during such a command is counted as Claude's:
     that is the price of not calling Claude's own the person's. A command that surely writes nothing
     (`surelyWritesNothing`: no redirect or substitution, only programs that read) claims nothing, and `aroundBash`

@@ -1544,8 +1544,14 @@ export class Sessions {
     // A terminal turn the person interrupted has no `Stop` and its call no `PostToolUse`: the next prompt ends it. Not
     // in a chat, whose stream ends every call, and where a prompt folds into a turn whose calls may still run.
     if (event === 'UserPromptSubmit' && !session.agent) this.writes.over(session.id)
-    if (event === 'UserPromptSubmit') session.turn = this.beginTurn(session)
+    // A prompt the CLI folded into a chat's turn under way (an `init` and no `result` yet) begins none: the turn keeps its
+    // start, the build and verdicts it is held to, its edits and what it was held for. A terminal cannot tell one from the
+    // prompt after an interrupt, which has no `Stop`: each of its prompts begins a turn.
+    const folded = session.chat?.transcript.underWay() === true
+    if (event === 'UserPromptSubmit' && !(folded && session.turn)) session.turn = this.beginTurn(session)
     const turn = session.turn
+    // The build current as this prompt was sent, a folded one too (`startedFrom`).
+    const sentOn = event === 'UserPromptSubmit' ? this.deps.scene?.(session.object.id)?.revision : undefined
 
     if (event !== 'UserPromptSubmit') {
       if (this.deps.debug) console.error(`[torno] session ${session.id} hook ${event}`)
@@ -1588,8 +1594,8 @@ export class Sessions {
       const taken = session.chat?.transcript.taken()
       const said = (taken?.text ?? (typeof fields.prompt === 'string' ? fields.prompt : '')).trim()
       turn.prompt = { conversation: session.conversationId, prompt: taken?.item ?? `t-${session.conversationId}-${promptNo}`, text: said.slice(0, PROMPT_TEXT) }
-      if (turn.before) {
-        this.promptStarts.set(turn.prompt.prompt, turn.before.revision)
+      if (sentOn !== undefined) {
+        this.promptStarts.set(turn.prompt.prompt, sentOn)
         for (const old of [...this.promptStarts.keys()].slice(0, Math.max(0, this.promptStarts.size - MAX_PROMPT_STARTS))) this.promptStarts.delete(old)
       }
     }

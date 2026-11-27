@@ -2880,6 +2880,58 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(await post('Stop', {})).toEqual({})
   })
 
+  /** A chat of the stand-in with what its Stops were held back with, and a first edit of the model that is built (r3), never looked at. */
+  async function edited(then: string, command = '') {
+    const b = await begun({ chat: true, grace: 3000 })
+    const holds: string[] = []
+    b.sessions.on('stream', ({ message }) => {
+      if (message.type === 'system' && message.subtype === 'hook_response' && message.hook_event === 'Stop') holds.push(String(message.output))
+    })
+    const items = () => b.sessions.history(b.sessionId)!.items
+    const turns = () => items().filter((i) => i.kind === 'turn').length
+    b.sessions.prompt(b.sessionId, [{ type: 'text', text: `${command}write part.py W\n${then}` }])
+    await expect.poll(() => existsSync(join(b.obj.dir, 'part.py')), { interval: 5 }).toBe(true)
+    builds(b.obj.id, 2, 3)
+    /** The tool after the write runs: a prompt sent now is folded into the turn. */
+    const working = () => expect.poll(() => items().some((i) => i.kind === 'tool' && i.name === 'Bash' && i.state === 'running'), { timeout: 8000 }).toBe(true)
+    return { ...b, holds, turns, working }
+  }
+
+  it.each([
+    ["a prompt's", ''],
+    ["a command's, which has no hook of its own", '/skill\n']
+  ])('holds a Stop for what a turn (%s) built before a prompt was folded into it (#395)', async (_whose, command) => {
+    const t = await edited('work 1', command)
+    await t.working()
+    t.sessions.prompt(t.sessionId, [{ type: 'text', text: 'say and also this' }])
+    await expect.poll(t.turns, { timeout: 8000 }).toBe(1)
+    expect(t.holds).toEqual([UNLOOKED(3).reason])
+  })
+
+  it('begins a turn anew with the prompt after one the person interrupted, which had no Stop', async () => {
+    const t = await edited('work 5')
+    await t.working()
+    await t.sessions.control(t.sessionId, { subtype: 'interrupt' })
+    await expect.poll(t.turns, { timeout: 8000 }).toBe(1)
+    t.sessions.prompt(t.sessionId, [{ type: 'text', text: 'say never mind' }])
+    await expect.poll(t.turns, { timeout: 8000 }).toBe(2)
+    expect(t.holds).toEqual([])
+  })
+
+  // torno's Stop goes by the latest build and when it began, not by which prompt caused it: pino's first fault of #395 is not here.
+  it("holds for the turn's edit when a build said to be of an earlier prompt lands after it", async () => {
+    const { obj, post, changes, edit } = await begun()
+    await post('UserPromptSubmit', { prompt: 'make it thicker' })
+    await changes()
+    const own = edit()
+    builds(obj.id, 7, 8)
+    await own
+    const earlier = { cause: 'agent' as const, turn: { conversation: 'c', prompt: 'an-earlier-one' } }
+    land({ ...building(obj.id, 8), made: earlier })
+    land({ ...ok(obj.id, 9), made: earlier })
+    expect(await post('Stop', {})).toEqual(UNLOOKED(9))
+  })
+
   it('holds a Stop back after an edit no look has seen, and lets it go after a look', async () => {
     const { obj, post, edit } = await begun()
     await post('UserPromptSubmit', { prompt: 'make it' })
