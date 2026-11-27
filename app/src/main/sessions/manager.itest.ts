@@ -2063,6 +2063,23 @@ describe('the transcript of a chat session', () => {
       expect(wrote(c)).toBeUndefined()
     })
 
+    it('is one made by a call whose request the CLI gave up and then ran all the same (decided elsewhere)', async () => {
+      const c = await start()
+      await c.send('elsewhere printf generated > gen.py')
+      await over(c, 1)
+      expect(wrote(c, 'gen.py')).toEqual(promptOf(c))
+    })
+
+    it('is not one made while a request waited that the turn was stopped over', async () => {
+      const c = await start()
+      await c.send(`ask Edit ${JSON.stringify({ file_path: 'part.py', old_string: 'a', new_string: 'b' })}`)
+      await asked(c)
+      writeFileSync(at(c), 'mine')
+      await tSessions.control(c.id, { subtype: 'interrupt' })
+      await over(c, 1)
+      expect(wrote(c)).toBeUndefined()
+    })
+
     it('is not one made after a Write of its that torno refused', async () => {
       const c = await start()
       await c.send('write brief.md claude')
@@ -2737,6 +2754,39 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     const put = () => s.history(sessionId)!.items.find((i) => i.kind === 'context' && i.forTool) as Extract<ChatItem, { kind: 'context' }> | undefined
     await expect.poll(put, { timeout: 5000 }).toBeDefined()
     expect(put()!.byPerson).toBe(byPerson)
+  })
+
+  it.each([
+    ["the next prompt of a terminal's", async (b: Awaited<ReturnType<typeof begun>>) => void (await b.post('UserPromptSubmit', { prompt: 'never mind' }))],
+    ['the end of the session', async (b: Awaited<ReturnType<typeof begun>>) => b.sessions.stop(b.sessionId)]
+  ])('ends a call that never said it ended (a terminal turn interrupted) at %s', async (_at, ends) => {
+    const b = await begun()
+    const part = join(b.obj.dir, 'part.py')
+    await b.post('UserPromptSubmit', { prompt: 'generate it' })
+    await b.post('PreToolUse', { tool_name: 'Bash', tool_use_id: 'b1', tool_input: { command: 'python gen.py' } })
+    await ends(b)
+    await new Promise((done) => setTimeout(done, 40))
+    writeFileSync(part, 'mine')
+    expect(b.sessions.wroteBy(b.obj.id, part)).toBeUndefined()
+  })
+
+  it("says whose a tool's build was from the build that tool's answer waited for, not one that landed while it was measured", async () => {
+    let landed: (() => void) | undefined
+    const { obj, sessionId, sessions: s } = await begun({ chat: true, grace: 3000, settled: async () => landed?.() })
+    const part = join(obj.dir, 'part.py')
+    // While the dimensions of Claude's build are measured, a save of the person's is built.
+    landed = () => {
+      landed = undefined
+      land({ ...building(obj.id, 3), made: { cause: 'person' } })
+      land({ ...ok(obj.id, 4), made: { cause: 'person' } })
+    }
+    s.prompt(sessionId, [{ type: 'text', text: 'write part.py W' }])
+    await expect.poll(() => existsSync(part), { interval: 5 }).toBe(true)
+    land({ ...building(obj.id, 2), made: { cause: 'agent' } })
+    land({ ...ok(obj.id, 3), made: { cause: 'agent' } })
+    const put = () => s.history(sessionId)!.items.find((i) => i.kind === 'context' && i.forTool) as Extract<ChatItem, { kind: 'context' }> | undefined
+    await expect.poll(put, { timeout: 5000 }).toBeDefined()
+    expect(put()!.byPerson).toBeUndefined()
   })
 
   it('takes a Bash that surely writes nothing for no change of the turn, whatever was saved while it ran', async () => {

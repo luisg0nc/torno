@@ -53,6 +53,8 @@
 //                                 `denied: <message>`, an error, with none
 //       bash <command>            a `Bash` tool that really runs the command with `sh -c` between its hooks; one that
 //                                 fails is an error result, with no PostToolUse (as a file tool that fails has none)
+//       elsewhere <command>       a `bash` whose `can_use_tool` the CLI gives up at once (`control_cancel_request`, as
+//                                 when something else decided it) and which runs all the same
 //       slow <seconds>            a word every 100 ms for that long
 //       hold <file>               nothing until that file is there (or the turn is interrupted): a turn the test ends
 //                                 when it is done with it, for what must be checked while the agent works
@@ -282,7 +284,13 @@ async function streamMode() {
     // As the CLI orders them: the hook comes before any request for permission.
     const hooked = { tool_name: name, tool_use_id: id, tool_input: input }
     await post('PreToolUse', hooked)
-    if (asked) {
+    if (asked === 'elsewhere') {
+      // A request decided elsewhere (a hook of the person's): the CLI gives its own request up and runs the tool.
+      const requestId = next('req_perm')
+      out({ type: 'control_request', request_id: requestId, request: { subtype: 'can_use_tool', tool_name: name, input, tool_use_id: id, display_name: name } })
+      out({ type: 'control_cancel_request', request_id: requestId })
+      await pause(100)
+    } else if (asked) {
       const requestId = next('req_perm')
       const wait = new Promise((resolve) => answers.set(requestId, resolve))
       pending.add(requestId)
@@ -403,8 +411,8 @@ async function streamMode() {
     } else if (command === 'edit') {
       const [file, old, replacement] = words(rest)
       await edit(file ?? '', old ?? '', replacement ?? '')
-    } else if (command === 'bash') {
-      await tool('Bash', { command: rest }, false, 0, () => spawnSync('sh', ['-c', rest], { stdio: 'ignore' }).status)
+    } else if (command === 'bash' || command === 'elsewhere') {
+      await tool('Bash', { command: rest }, command === 'elsewhere' && 'elsewhere', 0, () => spawnSync('sh', ['-c', rest], { stdio: 'ignore' }).status)
     } else if (command === 'work') {
       await tool('Bash', { command: `sleep ${rest}` }, false, Number(rest) * 1000)
     } else if (command === 'hold') {

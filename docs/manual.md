@@ -1097,8 +1097,10 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   - What a command left running in the background writes after its call returned counts as yours.
   - A build made of your save and Claude's together is Claude's: two saves within a third of a second, or yours while a
     build of Claude's was still running, which then starts over.
-  - In a terminal session torno hears of no permission card and of no failed call. A call there accounts for saves while
-    its card waits, and one that fails goes on doing so until the turn ends.
+  - In a terminal session torno hears of no permission card, no failed call and no interrupt. A call there accounts for
+    saves while its card waits, and one that fails or that you interrupt (Esc) goes on doing so until the turn ends,
+    your next prompt or the end of the session, whichever comes first. After an interrupt, which ends no turn, that is
+    your next prompt or the end of the session.
   - With no hooks at all, every save is yours.
 - **Go back to before this prompt.** On a turn that made builds, while the session is idle. It first says what it
   would do: the files it would write, the files it would delete (a `.py` file of this project first seen in a build after the one it goes back to), the files it leaves as they are (`common/` and other projects' files, which it never changes), the

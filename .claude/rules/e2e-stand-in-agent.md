@@ -40,7 +40,7 @@ is said as a `system`/`hook_response`; `edit <file> <old> <new>` plays an `Edit`
 `new_string`; the words are bare or JSON strings, `edit part.py "W = 2" "W = 3"`), replacing `old` by `new` in the
 file between the hooks. As the real CLI orders them, every tool's `PreToolUse` comes before any permission request, tool
 hooks carry `tool_name`, `tool_use_id` and `tool_input`, and a tool that is denied or fails has no `PostToolUse`.
-`bash <command>` really runs the command. A prompt whose first line is `/skill` is a command that reaches the model: no
+`bash <command>` really runs the command, and `elsewhere <command>` does so after giving up its own permission request. A prompt whose first line is `/skill` is a command that reaches the model: no
 `UserPromptSubmit`, and the lines after it are its script. A `PreToolUse` that torno answers with `permissionDecision: deny` writes nothing: the tool's result is the reason, an error. A `Stop` torno answers with `decision: block` is not the end of the turn: the
 stand-in says the reason as a `hook_response` of the `Stop` and posts it again with `stop_hook_active`, as the CLI does. `FAKE_AGENT_FAIL=<text>` makes it write that to stderr and exit 1
 at once; `FAKE_AGENT_INIT_ERROR=<text>` makes it answer `initialize` with that error; `FAKE_AGENT_AUTH_ERROR=<text>` makes its first

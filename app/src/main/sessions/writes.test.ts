@@ -1,5 +1,6 @@
 // Which saves are Claude's: told by its tool calls, never by the clock of its turn.
-import { mkdtempSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -16,15 +17,28 @@ beforeEach(() => {
   dir = realpathSync(mkdtempSync(join(tmpdir(), 'torno-writes-')))
   board = join(dir, 'board.py')
   time = 1_800_000_000_000
-  writes = new ClaudeWrites(() => time)
+  changed.clear()
+  writes = new ClaudeWrites(() => time, statAsTold)
   save('first', time - 60_000)
 })
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
-/** The file as saved by somebody at `at`. */
-function save(content: string, at = time, file = board): void {
+/** When each file was last put there or changed (its ctime), by the ledger's clock: a real one cannot be set. */
+const changed = new Map<string, number>()
+const statAsTold = (path: string) => {
+  try {
+    const { mtimeMs, size } = statSync(path)
+    return { mtimeMs, size, ctimeMs: changed.get(path) ?? mtimeMs }
+  } catch {
+    return undefined
+  }
+}
+
+/** The file as saved by somebody at `at`; `put` is when it came to be there, for one that keeps an older mtime. */
+function save(content: string, at = time, file = board, put = at): void {
   writeFileSync(file, content)
   utimesSync(file, at / 1000, at / 1000)
+  changed.set(file, put)
 }
 
 const call = (tool: string, input: unknown, id = 't1'): ToolCall => ({ session: 's1', project: 'p1', dir, id, tool, input, turn })
@@ -194,6 +208,30 @@ describe('a Bash, whose files cannot be read from its command', () => {
     expect(by()).toEqual({ turn })
     save('mine', time)
     expect(by()).toBeUndefined()
+  })
+
+  it('wrote a file it put there with an older mtime (cp -p, tar x, mv), while it runs and after', () => {
+    writes.began(bash('cp -p old.py board.py'))
+    time += 100
+    save('copied', time - 86_400_000, board, time)
+    expect(by()).toEqual({ turn })
+    time += 100
+    writes.ended('s1', 't1', true)
+    time += 10_000
+    expect(by()).toEqual({ turn })
+  })
+
+  it('did so with the real clock and a real cp -p', async () => {
+    const real = new ClaudeWrites()
+    const old = join(dir, 'old.py')
+    writeFileSync(old, 'old')
+    utimesSync(old, 1_000_000, 1_000_000)
+    await new Promise((done) => setTimeout(done, 40))
+    real.began(bash('cp -p old.py board.py'))
+    expect(spawnSync('cp', ['-p', old, board]).status).toBe(0)
+    expect(real.by('p1', board)).toEqual({ turn })
+    real.ended('s1', 't1', true)
+    expect(real.by('p1', board)).toEqual({ turn })
   })
 
   it('may have removed a file that goes while it runs or just after, not one that goes later', () => {

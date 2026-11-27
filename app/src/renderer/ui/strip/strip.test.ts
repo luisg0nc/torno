@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { HistoryEntry } from '../../../shared/history'
 import type { ProjectUsage, UsageRow } from '../../../shared/usage'
-import { buildNamed, chipCost, groupCount, groupTitle, liveBy,stripGroups, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
+import { buildNamed, chipCost, groupCount, groupTitle, liveBy, stripGroups, stripNodes, stripSays, ticksOf, type StripLive, type StripNode } from './strip'
 
 let n = 0
 const entry = (id: string, extra: Partial<HistoryEntry> = {}): HistoryEntry => ({

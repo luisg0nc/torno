@@ -88,20 +88,27 @@ function filesOf(tool: string, input: unknown): string[] | undefined {
   return typeof named === 'string' && named !== '' ? [named] : []
 }
 
-/** The file as it stands: when it was saved and how long it is; undefined for one that is not there. */
-function statOf(path: string): { mtimeMs: number; size: number } | undefined {
+/** A file as it stands: when its content was saved, when it was last changed in any way (put there too), how long it is. */
+export interface FileStat {
+  mtimeMs: number
+  ctimeMs: number
+  size: number
+}
+
+/** Undefined for a file that is not there. */
+function statOf(path: string): FileStat | undefined {
   try {
-    const { mtimeMs, size } = statSync(path)
-    return { mtimeMs, size }
+    const { mtimeMs, ctimeMs, size } = statSync(path)
+    return { mtimeMs, ctimeMs, size }
   } catch {
     return undefined
   }
 }
 
-const stampOf = (path: string): string => {
-  const stat = statOf(path)
-  return stat ? `${stat.mtimeMs}:${stat.size}` : ''
-}
+const stampOf = (stat: FileStat | undefined): string => (stat ? `${stat.mtimeMs}:${stat.size}` : '')
+
+/** When a command could have written it: a copy, an archive or a move may keep an older mtime, and none keeps its ctime. */
+const writtenWhen = (stat: FileStat): number => Math.max(stat.mtimeMs, stat.ctimeMs)
 
 const keyOf = (project: string, file: string): string => `${project}\n${file}`
 
@@ -113,7 +120,10 @@ export class ClaudeWrites {
   /** The commands that ended, oldest first. */
   private runs: Run[] = []
 
-  constructor(private readonly now: () => number = Date.now) {}
+  constructor(
+    private readonly now: () => number = Date.now,
+    private readonly stat: (path: string) => FileStat | undefined = statOf
+  ) {}
 
   /** A tool is about to run. One that can write no file is of no account. */
   began(call: ToolCall): void {
@@ -152,7 +162,7 @@ export class ClaudeWrites {
       this.runs = [...this.runs, { ...call, end: this.now() }].slice(-KEPT_RUNS)
     } else if (ok) {
       // A tool that names its files and failed wrote nothing.
-      for (const file of call.files) this.left.set(keyOf(call.project, file), { stamp: stampOf(file), ...(call.turn ? { turn: call.turn } : {}) })
+      for (const file of call.files) this.left.set(keyOf(call.project, file), { stamp: stampOf(this.stat(file)),...(call.turn ? { turn: call.turn } : {}) })
     }
   }
 
@@ -164,16 +174,16 @@ export class ClaudeWrites {
   /** Whether the save of `path` just heard is Claude's, and of which prompt; undefined for one that is the person's. */
   by(project: string, path: string): ClaudesSave | undefined {
     const file = writtenAt(path)
-    const stat = statOf(file)
+    const stat = this.stat(file)
     const claude = (turn: BuildTurn | undefined): ClaudesSave => (turn ? { turn } : {})
     for (const call of this.running.values()) {
       if (call.project !== project || call.waiting) continue
       if (call.files?.includes(file)) return claude(call.turn)
-      if (call.files === undefined && (!stat || stat.mtimeMs >= call.since - MTIME_SLACK_MS)) return claude(call.turn)
+      if (call.files === undefined && (!stat || writtenWhen(stat) >= call.since - MTIME_SLACK_MS)) return claude(call.turn)
     }
     const left = this.left.get(keyOf(project, file))
-    if (left && stat && left.stamp === `${stat.mtimeMs}:${stat.size}`) return claude(left.turn)
-    const run = this.runs.findLast((one) => one.project === project && (stat ? stat.mtimeMs >= one.since - MTIME_SLACK_MS && stat.mtimeMs <= one.end : this.now() <= one.end + REMOVED_HEARD_MS))
+    if (left && stat && left.stamp === stampOf(stat)) return claude(left.turn)
+    const run = this.runs.findLast((one) => one.project === project && (stat ? writtenWhen(stat) >= one.since - MTIME_SLACK_MS && writtenWhen(stat) <= one.end : this.now() <= one.end + REMOVED_HEARD_MS))
     return run ? claude(run.turn) : undefined
   }
 }

@@ -547,6 +547,7 @@ export class Sessions {
       clearTimeout(session.killTimer)
       this.sessions.delete(id)
       this.release(session)
+      this.writes.over(id)
       this.advance(session, 'exit')
       ended()
     })
@@ -718,9 +719,9 @@ export class Sessions {
     const took = told.buildState === 'ok' && at?.status === 'ok' && at.revision === told.revision ? at.seconds : undefined
     const error = told.buildState === 'failed' && at?.status === 'failed' && at.error ? errorLine(at.error) : undefined
     const identity = told.revision === undefined ? undefined : this.deps.identity?.(objectId, told.revision)
-    // The agent is told of the build whoever's it is; the chat keeps whether it was the person's alone, which is not the turn's.
-    const said = at && at.status !== 'building' ? at : ended
-    const byPerson = said?.reason === 'params' || said?.made?.cause === 'person'
+    // The agent is told of the build whoever's it is; the chat keeps whether it was the person's alone, which is not the
+    // turn's. Of the build this answer waited for: one that landed while it was measured does not change whose it was.
+    const byPerson = ended?.reason === 'params' || ended?.made?.cause === 'person'
     session.chat?.transcript.toolContext({ toolUseId: session.turn?.lastToolUse, text: told.text, ...(byPerson ? { byPerson: true as const } : {}), ...(told.revision !== undefined ? { revision: told.revision } : {}), ...(told.buildState ? { buildState: told.buildState } : {}), ...(took !== undefined ? { seconds: took } : {}), ...(error ? { error } : {}), ...(told.digest ? { digest: told.digest } : {}), ...(identity ? { identity } : {}) })
     return { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: told.text } }
   }
@@ -1140,12 +1141,13 @@ export class Sessions {
       // The CLI gave up a request of its own (the turn was stopped while a card was open): it is not to be answered.
       if (message.type === 'control_cancel_request' && typeof message.request_id === 'string') this.cancelAsk(session, message.request_id)
       if (message.type === 'result') {
+        // Before the requests are given up below: a call still waiting as the turn ends never ran.
+        this.writes.over(session.id)
         // Whatever is still asked when a turn is over is asked no more.
         for (const requestId of [...session.asks.keys()]) this.cancelAsk(session, requestId)
         // After the microtasks of this read, so that the answer to an interrupt that came in the same chunk has been
         // taken into account (`control`).
         queueMicrotask(() => this.afterResult(session))
-        this.writes.over(session.id)
       }
       // A call's result ends it however it ended: one that failed, or that the CLI denied by itself, has no `PostToolUse`.
       for (const result of toolResults(message)) this.writes.ended(session.id, result.id, result.ok)
@@ -1180,7 +1182,7 @@ export class Sessions {
       for (const requestId of session.asks.keys()) this.emit('asked', { sessionId: session.id, requestId, answered: false })
       session.asks.clear()
       this.writes.over(session.id)
-      const why = !asked ||(code !== null && code !== 0) ? this.stoppedNote(session, code, signal) : 'The session was stopped.'
+      const why = !asked || (code !== null && code !== 0) ? this.stoppedNote(session, code, signal) : 'The session was stopped.'
       if (!session.heard && why) {
         this.leftSilent.set(session.id, why)
         // Only the latest few are kept: a `began` comes moments after the start, if it comes at all.
@@ -1230,7 +1232,9 @@ export class Sessions {
   private cancelAsk(session: Session, requestId: string): void {
     const toolUseId = session.asks.get(requestId)?.toolUseId
     if (!session.asks.delete(requestId)) return
-    if (toolUseId !== undefined) this.writes.refused(session.id, toolUseId)
+    // Given up is not refused: what decided it elsewhere (a `PermissionRequest` hook of the person's) may let the call
+    // run. One that does not run ends with its result, an error.
+    if (toolUseId !== undefined) this.writes.allowed(session.id, toolUseId)
     session.chat?.transcript.cancelled(requestId)
     this.emit('asked', { sessionId: session.id, requestId, answered: false })
     if (session.asks.size === 0 && session.held === 0) this.advance(session, 'answered')
@@ -1537,6 +1541,9 @@ export class Sessions {
     }
     // The number of the prompt and the turn it begins are taken now: the context is awaited below, and the turn is then the one to name it.
     const promptNo = event === 'UserPromptSubmit' ? (session.prompts += 1) : session.prompts
+    // A terminal turn the person interrupted has no `Stop` and its call no `PostToolUse`: the next prompt ends it. Not
+    // in a chat, whose stream ends every call, and where a prompt folds into a turn whose calls may still run.
+    if (event === 'UserPromptSubmit' && !session.agent) this.writes.over(session.id)
     if (event === 'UserPromptSubmit') session.turn = this.beginTurn(session)
     const turn = session.turn
 
