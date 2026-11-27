@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { pressed } from '../../../shared/keys'
+import { inMenu } from '../inMenu'
 
 /**
- * A picture of the board opened large, over the board: Esc, the button or a click outside it puts it away. The keys are
- * its own while it is up (the board under it hears none), and the focus goes back to what had it.
+ * A picture of the board opened large, over the board: Esc, the button or a click outside it puts it away. Esc is its
+ * own while it is up (the board under it does not hear it), but for a menu that has the focus, and the focus goes back to
+ * what had it.
  */
 export function PictureView({ url, label, onClose }: { url: string; label: string; onClose: () => void }) {
   const sheet = useRef<HTMLElement>(null)
@@ -13,7 +15,7 @@ export function PictureView({ url, label, onClose }: { url: string; label: strin
     const before = document.activeElement
     sheet.current?.focus()
     const onKey = (e: KeyboardEvent): void => {
-      if (!pressed(e, 'sheet.close')) return
+      if (!pressed(e, 'sheet.close') || inMenu(e)) return
       e.preventDefault()
       e.stopPropagation()
       close.current()

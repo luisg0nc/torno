@@ -51,7 +51,8 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   events and canvas only (no React state per move). A thin and a thick pen and an eraser; Undo takes the last
   stroke, Clear all of them; Done gives back the strokes and the PNG, Cancel and Esc leave, asking "Discard this
   doodle?" when the strokes are other than it was opened with, or the photo it is drawn over is (`InkPad`'s `changed`). Its keys (Esc is `sheet.close`, Ctrl+Z `board.undo`)
-  are heard in the capture phase before anything else, so that no tool under the board gets them. The PNG is made
+  are heard in the capture phase before anything else, so that no tool under the board gets them (but an Escape in a menu of the title bar
+  is the menu's, see `session-pane`). The PNG is made
   by `strokes.ts` with a white ground and dark ink whatever the theme: what is drawn on screen follows the theme,
   what Claude receives does not (`PNG_GROUND`). A doodle can be drawn over one of the draft's photos
   ("Draw over", `InkPad`'s `background`): the photo is fitted whole on the white ground (`fitBackground`, letterboxed), there is

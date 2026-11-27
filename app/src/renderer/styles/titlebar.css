@@ -20,6 +20,12 @@
   -webkit-app-region: drag;
 }
 
+/* While a menu of the bar is open it is drawn over the ink pad too (`.board-layer`, 30), which would cover it whole: the menu's own
+   z-index counts only within the bar's. Still under the window's questions (35), the picker and the keyboard (40). */
+.title-row:has([role='menu']) {
+  z-index: 31;
+}
+
 /* macOS draws its traffic lights at the left (`data-platform` is set on <html> from the preload), whatever the env says. */
 :root[data-platform='darwin'] .title-row {
   padding-left: max(78px, env(titlebar-area-x, 0px));
