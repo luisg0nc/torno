@@ -29,10 +29,19 @@ export function causeOfSave(claude: { turn?: BuildTurn } | undefined): KeptCause
   return { cause: 'agent', ...(claude.turn ? { turn: { ...claude.turn } } : {}) }
 }
 
-/** Of two causes that fold into one build, Claude's is kept, whole (its prompt with it); else the one held. */
+/**
+ * Of two causes that fold into one build, Claude's is kept, whole (its prompt with it); else the one held. Of two of
+ * Claude's the one held names the build, and the other's prompts go with it (`also`, `unnamed`): the `Stop` goes by all
+ * of them, so that no prompt hides another in whatever order the saves are heard (#397).
+ */
 function merged(held: KeptCause | undefined, more: KeptCause | undefined): KeptCause | undefined {
   if (!more) return held
-  return held && (held.cause === 'agent' || more.cause !== 'agent') ? held : more
+  if (!held || (held.cause !== 'agent' && more.cause === 'agent')) return more
+  if (held.cause !== 'agent' || more.cause !== 'agent') return held
+  const also = new Set([...(held.also ?? []), ...(more.turn ? [more.turn.prompt] : []), ...(more.also ?? [])])
+  if (held.turn) also.delete(held.turn.prompt)
+  const unnamed = held.unnamed || more.unnamed || !held.turn !== !more.turn
+  return { ...held, ...(also.size > 0 ? { also: [...also] } : {}), ...(unnamed ? { unnamed: true as const } : {}) }
 }
 
 /**

@@ -2,6 +2,7 @@
 paths:
   - "app/src/main/sessions/manager.ts"
   - "app/src/main/sessions/manager.itest.ts"
+  - "app/src/main/sessions/claudes.ts"
   - "app/src/main/sessions/status.ts"
   - "app/src/main/sessions/status.test.ts"
   - "app/src/main/verdicts.ts"
@@ -28,41 +29,54 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   (rN); call wait_build …` (`claude.ts` gives `PostToolUse` a 60 s timeout). The `PostToolUse` of a `Bash` after which a source is newer than before it
   (`aroundBash`, below) is answered the same way (`afterEdit` from the command's start): the build the command started is told as an edit's is.
   A `Stop` (`stopAnswer`, `claude.ts` gives it a 25 s timeout) is judged from what the turn did (`TurnState`, made at
-  its `UserPromptSubmit` by `beginTurn`: the count of builds ended, the last successful build and what the dimensions
-  said of it, the last `look`, the reasons already held, when the turn first changed a source). A prompt the CLI folds into a
+  its `UserPromptSubmit` by `beginTurn`: when it began, the prompts its calls were made for, the last successful build
+  and what the dimensions said of it, the last `look`, the reasons already held). A prompt the CLI folds into a
   chat's turn under way (its hook comes between the turn's `init` and `result`, `Transcript.underWay`) begins none: all of
   that stands, the holds made too, and only the prompt the turn is named by changes (`startedFrom` still keeps the build
   current as each prompt was sent). An interrupted turn has no `Stop`, and its `result` ends it, so the next prompt begins
   anew. A terminal has no stream to tell the two apart: each of its `UserPromptSubmit` begins a turn, a prompt typed
-  while it works too. A build is the turn's
-  (`caused` in `stopAnswer`) only if it began at or after `TurnState.changedAt`: the `PreToolUse` of an `Edit`, `Write`
-  or `MultiEdit` of a source the build is made from (`ofSource`), or the start of a `Bash` after which the newest `.py` directly in the object's
-  folder or in `common/`, or the newest file the last build imported, is newer than before (`aroundBash`, `Sessions` dep `sourcesSaved`; the command's text is never read, and
-  a Bash that rewrites nothing is no change, and one that surely writes nothing (`surelyWritesNothing` of `writes.ts`) is not looked at).
-  This is what the Stop goes by, not whose a build is said to be (`sessions`, "Which saves are Claude's"). The build line the chat puts under a
-  tool's card is marked `byPerson` when that build was of the person's saves or Params alone (`BuildState.made`, `reason`): the agent is
-  told of it all the same, and the turn does not count it. The first build of an object just opened, a save of the person's before
-  the turn's first edit, and every build of a turn with no edit are told as ever (digest, context) and never hold a
-  Stop back, nor is waited for: every one of the five reasons looks only at a build the turn caused, and the hard-defect
-  and dimension reasons then judge it against the build the turn began with. First it
-  waits, up to `STOP_WAIT_MS` (20 s), for a build the turn caused that is still running and, when a dimension passed
-  when the turn began, for the dimensions to be measured on the build that ended, if the turn caused it (`Verdicts.settled`, to the same
-  deadline). Then it is held back (`decision: block`) for the first of these five reasons: the build the turn caused is still running; the latest build, caused
-  and ended in the turn, failed (said as "The build after rN failed", `failedAfter`: a revision names a build that worked, and a
-  failure has no number of its own); the last successful build, caused by the turn, has a hard defect (`hardDefects`) that the
-  last successful build when the turn began (`TurnState.before`) had not, and the reason says the agent may answer
-  that it is meant; a dimension that passed on that build fails on the latest, which the turn caused (`verdictChanges` of `verdicts.ts`,
-  kept `pass` to `fail`; the reason names it with `valueAgainstExpected`); a build the turn caused, ended
-  after the turn's last `look` (`TurnState.lookedAt`, the count of builds ended at the `PostToolUse` of a `look`, one
-  of a subagent too), however the model was written, unless nothing in the parts changed since the build the turn
-  began with (`partsUnchanged` of `sanity.ts`: the same parts, each with the same `hash` and the same `loc` and
+  while it works too.
+  What the answer to an edit waits for is what changed the model: the `PreToolUse` and `PostToolUse` of an `Edit`,
+  `Write` or `MultiEdit` of a source the build is made from (`ofSource`), or a `Bash` after which the newest `.py`
+  directly in the object's folder or in `common/`, or the newest file the last build imported, is newer than before
+  (`aroundBash`, `Sessions` dep `sourcesSaved`; the command's text is never read, a Bash that rewrites nothing is no
+  change, and one that surely writes nothing (`surelyWritesNothing` of `writes.ts`) is not looked at). The Stop does not
+  go by that: a build is the turn's only by its cause (`sessions/claudes.ts`, `claudesIn`; #397). Claude made it
+  (`BuildState.made` is `agent`: one of its tool calls accounts for the save, `sessions`, "Which saves are Claude's"),
+  for a prompt a call of the turn was made for (`TurnState.prompts`, added at each `PreToolUse` the ledger is told of, so
+  that a folded prompt keeps the ones before it), whenever it began; one whose saves name no prompt, or in part none, can
+  also be the turn's by having begun since the turn did. Whatever it names, a build that had ended before the turn began
+  is not the turn's (`TurnState.since`, a count of builds ended: a resumed terminal conversation names its prompts anew).
+  The person's save mid-turn, a build with no cause (the opening one) and one of an earlier prompt's are told as ever
+  (digest, context) and are neither waited for nor held for. Of Claude's saves that fold into one build, one cause names
+  it, in the history too, and the other prompts go with it in memory (`KeptCause.also`, `unnamed`; `merged` in
+  `builds.ts`), so that none hides another in whatever order the saves are heard. `ClaudesBuilds` keeps the last 20 of
+  Claude's builds of each object as each ends, with its scene and whether a later build, whoever's, worked (`redrawn`); a
+  state told again (stale, let go) is no new build. So an earlier prompt's later build hides none of the turn's, and the
+  Stop judges Claude's newest, not the latest there is (`ClaudesBuilds.judged`, `own`): where that one failed and a later
+  build worked, the failure is let go and `own` is Claude's newest of the turn that worked. A build the kernel stopped in
+  (`failed` with no cause) is nobody's and holds nothing. The build line the chat puts under
+  a tool's card is marked `byPerson` when that build was of the person's saves or Params alone (`BuildState.made`,
+  `reason`): the agent is told of it all the same, and the turn does not count it. First the Stop waits, up to
+  `STOP_WAIT_MS` (20 s), for a build of Claude's that is still running and, when a dimension passed when the turn began,
+  for the dimensions to be measured on `own` (`Verdicts.settled`, to the same deadline). A save heard that no build has
+  started for yet is not waited for (the answer to the edit waited for its build). Then it is held back
+  (`decision: block`) for the first of these five reasons: a build of Claude's is still running; `own` failed, which it
+  does only when no later build worked (said as "The build after rN failed", `failedAfter`: a revision names a build that worked, and a
+  failure has no number of its own); `own` has a hard defect (`hardDefects`) that the last successful build when the turn
+  began (`TurnState.before`) had not, and the reason says the agent may answer that it is meant; a dimension that passed
+  on that build fails on `own` (`verdictChanges` of `verdicts.ts`, kept `pass` to `fail`; the reason names it with
+  `valueAgainstExpected`); when a later build has drawn, a defect it no longer has (by flag and part) and a dimension
+  that passes on it are let go, and what only it has is never held for; `own` ended after the turn's last `look`
+  (`TurnState.lookedAt`, the count of builds ended at the `PostToolUse` of a `look`, one of a subagent too), however the
+  model was written, unless nothing in the parts changed since the build the turn began with (`partsUnchanged` of `sanity.ts`: the same parts, each with the same `hash` and the same `loc` and
   `arranged`; the digest's `changed` is not enough, a moved hole keeps every count and size; the turn began with no
   build, or a scene that is not the latest's: it looks). A reason already held is not waited for again: a Stop after
   one held for a running build does not wait for the build, one after a dimension hold does not wait for the
   measuring. A reason is held once
   (`TurnState.held`) and a turn is held twice at most (`holds`): `stop_hook_active` is no guard of its own, the ledger
-  is. The answer to the edit says it first (`notLookedAt` in `Sessions`, #227): its last line is `Not yet looked at: rN was built in this turn. Call look before you write your summary; …` when the build is the turn's, worked, and changed the parts (`partsUnchanged`) or has a hard defect. A `measure`, `check` or `features` after the build (`TurnState.measuredAt`, `NUMBER_TOOLS`) counts as a look for a small change only (`smallChange` of `sanity.ts`: no part added or removed, no face or edge count changed, no hard defect). A hold for a defect or a dimension that finds the build unlooked says so, and counts for that reason too. The
-  reasons say "built during this turn", never "you edited": the person's own edit also ends a build. Never for a
+  is. The answer to the edit says it first (`notLookedAt` in `Sessions`, #227): its last line is `Not yet looked at: rN was built in this turn. Call look before you write your summary; …` when the build is the turn's by the same cause, worked, and changed the parts (`partsUnchanged`) or has a hard defect. A `measure`, `check` or `features` after the build (`TurnState.measuredAt`, `NUMBER_TOOLS`) counts as a look for a small change only (`smallChange` of `sanity.ts`: no part added or removed, no face or edge count changed, no hard defect). A hold for a defect or a dimension that finds the build unlooked says so, and counts for that reason too. The
+  reasons say "built during this turn", never "you edited": a command's time may take in a save of the person's. Never for a
   dimension that failed when the turn began, never for a change of volume alone. A Stop held back moves no status
   and ends no turn.
 - **Each build's verdicts** (`src/main/verdicts.ts`, `Verdicts`, in memory only, 16 builds an object). Recorded
