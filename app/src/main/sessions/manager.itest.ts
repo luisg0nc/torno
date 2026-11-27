@@ -2962,6 +2962,57 @@ describe('the build, told by the hooks of a turn (Claude Code)', () => {
     expect(await post('Stop', {})).toEqual(held)
   })
 
+  it.each([
+    ['names it among the others', (own: string): KeptCause => ({ ...earlier, also: [own] })],
+    ['has a save with no prompt to name besides', (): KeptCause => ({ ...earlier, unnamed: true })]
+  ])("holds for a build filed under an earlier prompt when it %s", async (_how, merged) => {
+    const { obj, post, changes, saved } = await begun()
+    await post('UserPromptSubmit', { prompt: 'make it' })
+    await changes()
+    const made = merged(saved().turn!.prompt)
+    land(of(made, building(obj.id, 7)))
+    land(of(made, ok(obj.id, 8)))
+    expect(await post('Stop', {})).toEqual(UNLOOKED(8))
+  })
+
+  // A terminal names its prompts `t-<conversation>-<n>`, counted anew by each session, so a resumed one names them again.
+  it("holds nothing for a build that ended before the turn began, though it names a prompt of the turn's", async () => {
+    const { obj, post } = await begun()
+    const conversation = '0a1b2c3d-0000-4000-8000-000000000003'
+    const before: KeptCause = { cause: 'agent', turn: { conversation, prompt: `t-${conversation}-1` } }
+    land(of(before, building(obj.id, 7)))
+    land(of(before, failed(obj.id, 7)))
+    await post('UserPromptSubmit', { prompt: 'what is it?', session_id: conversation })
+    await post('PreToolUse', { tool_name: 'Read', tool_use_id: 'r1', tool_input: { file_path: join(obj.dir, 'part.py') } })
+    await post('PostToolUse', { tool_name: 'Read', tool_use_id: 'r1', tool_input: { file_path: join(obj.dir, 'part.py') } })
+    expect(await post('Stop', {})).toEqual({})
+  })
+
+  it("holds for Claude's last build that worked when the failure after it was drawn past", async () => {
+    let kept: { revision: number; scene: Scene } = { revision: 7, scene: sceneOf() }
+    const { obj, post, changes } = await begun({ scene: () => kept })
+    await post('UserPromptSubmit', { prompt: 'drill it' })
+    await changes()
+    kept = { revision: 8, scene: sceneOf({ faceCount: 9 }) }
+    builds(obj.id, 7, 8)
+    land(building(obj.id, 8))
+    land(failed(obj.id, 8))
+    // The person mends the typo: what Claude changed is on screen, and nobody looked at it.
+    kept = { revision: 9, scene: sceneOf({ faceCount: 9, volume: 790 }) }
+    saves(obj.id, 8, 9)
+    expect(await post('Stop', {})).toEqual(UNLOOKED(8))
+  })
+
+  it("holds nothing for a failure of Claude's drawn past when no build of Claude's worked in the turn", async () => {
+    const { obj, post, changes } = await begun()
+    await post('UserPromptSubmit', { prompt: 'make it' })
+    await changes()
+    land(building(obj.id, 7))
+    land(failed(obj.id, 7))
+    saves(obj.id, 7, 8)
+    expect(await post('Stop', {})).toEqual({})
+  })
+
   it("holds nothing for a build of an earlier prompt's alone, and does not wait for one that runs", async () => {
     const { obj, post, changes } = await begun({ stop: 5000 })
     await post('UserPromptSubmit', { prompt: 'what is it?' })

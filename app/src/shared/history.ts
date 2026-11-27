@@ -37,6 +37,10 @@ export interface BuildTurn {
 export interface KeptCause {
   cause: BuildCause
   turn?: BuildTurn
+  /** For Claude's: the ids of the other prompts whose saves are in the same build. The Stop's, never kept: the history names `turn` alone. */
+  also?: string[]
+  /** For Claude's: a save with no prompt to name is in it besides those named. The Stop's, never kept. */
+  unnamed?: true
   wentBackTo?: string
 }
 

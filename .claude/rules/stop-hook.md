@@ -35,23 +35,34 @@ Moved as written from the folder `CLAUDE.md` files; each heading names the folde
   that stands, the holds made too, and only the prompt the turn is named by changes (`startedFrom` still keeps the build
   current as each prompt was sent). An interrupted turn has no `Stop`, and its `result` ends it, so the next prompt begins
   anew. A terminal has no stream to tell the two apart: each of its `UserPromptSubmit` begins a turn, a prompt typed
-  while it works too. A build is the turn's only by its cause (`sessions/claudes.ts`, `claudesIn`; #397): Claude made it
+  while it works too.
+  What the answer to an edit waits for is what changed the model: the `PreToolUse` and `PostToolUse` of an `Edit`,
+  `Write` or `MultiEdit` of a source the build is made from (`ofSource`), or a `Bash` after which the newest `.py`
+  directly in the object's folder or in `common/`, or the newest file the last build imported, is newer than before
+  (`aroundBash`, `Sessions` dep `sourcesSaved`; the command's text is never read, a Bash that rewrites nothing is no
+  change, and one that surely writes nothing (`surelyWritesNothing` of `writes.ts`) is not looked at). The Stop does not
+  go by that: a build is the turn's only by its cause (`sessions/claudes.ts`, `claudesIn`; #397). Claude made it
   (`BuildState.made` is `agent`: one of its tool calls accounts for the save, `sessions`, "Which saves are Claude's"),
   for a prompt a call of the turn was made for (`TurnState.prompts`, added at each `PreToolUse` the ledger is told of, so
-  that a folded prompt keeps the ones before it), whenever it began; one with no prompt to name must have begun since the
-  turn did. Never by when a build began alone: the person's save mid-turn, a build with no cause (the opening one) and
-  one of an earlier prompt's are told as ever (digest, context) and are neither waited for nor held for. Of two of
-  Claude's saves that fold into one build the later one's prompt is named (`merged` in `builds.ts`). `ClaudesBuilds`
-  keeps the last 20 of Claude's builds of each object as each ends, with its scene and whether a later build, whoever's,
-  worked (`redrawn`); a state told again (stale, let go) is no new build. So an earlier prompt's later build hides none
-  of the turn's, and the Stop judges Claude's newest (`own`), not the latest there is. The build line the chat puts under
+  that a folded prompt keeps the ones before it), whenever it began; one whose saves name no prompt, or in part none, can
+  also be the turn's by having begun since the turn did. Whatever it names, a build that had ended before the turn began
+  is not the turn's (`TurnState.since`, a count of builds ended: a resumed terminal conversation names its prompts anew).
+  The person's save mid-turn, a build with no cause (the opening one) and one of an earlier prompt's are told as ever
+  (digest, context) and are neither waited for nor held for. Of Claude's saves that fold into one build, one cause names
+  it, in the history too, and the other prompts go with it in memory (`KeptCause.also`, `unnamed`; `merged` in
+  `builds.ts`), so that none hides another in whatever order the saves are heard. `ClaudesBuilds` keeps the last 20 of
+  Claude's builds of each object as each ends, with its scene and whether a later build, whoever's, worked (`redrawn`); a
+  state told again (stale, let go) is no new build. So an earlier prompt's later build hides none of the turn's, and the
+  Stop judges Claude's newest, not the latest there is (`ClaudesBuilds.judged`, `own`): where that one failed and a later
+  build worked, the failure is let go and `own` is Claude's newest of the turn that worked. A build the kernel stopped in
+  (`failed` with no cause) is nobody's and holds nothing. The build line the chat puts under
   a tool's card is marked `byPerson` when that build was of the person's saves or Params alone (`BuildState.made`,
   `reason`): the agent is told of it all the same, and the turn does not count it. First the Stop waits, up to
   `STOP_WAIT_MS` (20 s), for a build of Claude's that is still running and, when a dimension passed when the turn began,
   for the dimensions to be measured on `own` (`Verdicts.settled`, to the same deadline). A save heard that no build has
   started for yet is not waited for (the answer to the edit waited for its build). Then it is held back
-  (`decision: block`) for the first of these five reasons: a build of Claude's is still running; `own` failed and no
-  later build worked (said as "The build after rN failed", `failedAfter`: a revision names a build that worked, and a
+  (`decision: block`) for the first of these five reasons: a build of Claude's is still running; `own` failed, which it
+  does only when no later build worked (said as "The build after rN failed", `failedAfter`: a revision names a build that worked, and a
   failure has no number of its own); `own` has a hard defect (`hardDefects`) that the last successful build when the turn
   began (`TurnState.before`) had not, and the reason says the agent may answer that it is meant; a dimension that passed
   on that build fails on `own` (`verdictChanges` of `verdicts.ts`, kept `pass` to `fail`; the reason names it with

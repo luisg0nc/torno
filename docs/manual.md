@@ -1116,6 +1116,12 @@ is a new line, and a prompt sent while the agent is at work waits its turn
   writes nothing then. That request is for the latest turn only; a file over 200 KB or too many lines is named without
   its lines, and a file you saved after the turn is said to have changed. It is a request, not a restore: it can be
   done wrongly. Nothing is kept of a turn of an earlier session for it.
+  One build can be made of the saves of two prompts, when a save restarts a build
+  that an earlier one had not finished. It is listed under one of the two, as a rule
+  the one whose save torno heard first. Going back from that prompt undoes
+  both prompts' changes in it. The other prompt does not have that build: going
+  back from it is refused if it has no other, and otherwise goes to the build
+  before its next one, which may keep what it changed in the shared one.
 - **Refs are live.** `M4`, `T1` (a tracing: a click opens it in the Tracing view), `lid/F12`, `lid/E3`, `lid/@top` (a name the model
   gives a face or an edge) and `#deck` (a named set of yours) in the agent's text and in
   the cards are chips: hovering one lights it in the view, clicking a mark
@@ -1491,11 +1497,14 @@ When Claude Code would stop, torno holds it back for what the turn itself did:
 once for each reason, and twice in a turn at most. Every reason is for a build
 Claude caused in the turn: one made of a save that one of the turn's tool calls
 accounts for (an edit of the file, or a command while it ran; the same rule that
-says whose a build is, in the chat's turn line and the history). When a build is
-made does not matter. Your own saves, in the middle of a turn too, even one that
-fails to build, never hold it back, and neither does the first build of a project
-you have just opened or a build an earlier prompt's work made. They are told to
-the agent as ever. A command of Claude's takes the saves made while it runs for
+says whose a build is, in the chat's turn line and the history). The call must
+have been made for a prompt of the turn; where torno can name no prompt for a
+save, its build must have started after the turn did. A build that had ended
+before the turn began never counts. Your own saves, in the middle of a turn too,
+even one that fails to build, never hold it back, and neither does the first
+build of a project you have just opened or a build an earlier prompt's work made.
+They are told to the agent as ever. A build during which torno's kernel stopped
+holds nothing back either. A command of Claude's takes the saves made while it runs for
 its own, so a save of yours then counts as Claude's. In the chat, a prompt that
 Claude Code takes into a turn already at work does not start the turn over: what
 the turn built before it still counts, and so do the holds already made. In a
@@ -1507,7 +1516,9 @@ Claude's, whatever was built since, and by the first that applies:
 1. A build of Claude's is still running. It is asked to read the result with
    `wait_build` and to look.
 2. It failed (`The build after r7 failed: ...`), and no build since has worked:
-   the agent is asked to fix it or say it is still broken.
+   the agent is asked to fix it or say it is still broken. If a later build has
+   worked, the failure is let go, and what follows is judged on the newest build
+   of Claude's in the turn that worked.
 3. A part has a defect the build the turn began with had not (above).
 4. A dimension that passed on the build the turn began with fails on it:
    `M4 passed on r7 and fails on r9 (6 mm, expected 8 ± 0.05). Fix it, or say

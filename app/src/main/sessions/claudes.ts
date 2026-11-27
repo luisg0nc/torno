@@ -8,19 +8,22 @@ import type { Scene } from '../../shared/scene'
 /** How many of Claude's builds are kept for each project: far more than a `Stop` looks back over. */
 const MOST_KEPT = 20
 
-/** What a turn is told by: when it began (ms epoch) and the prompts its tool calls were made for. */
+/** What a turn is told by: when it began (ms epoch, and as a count of builds ended) and the prompts its tool calls were made for. */
 export interface TurnOfBuilds {
   startedAt: number
+  since: number
   prompts: ReadonlySet<string>
 }
 
 /**
- * Whether a build that began at `startedAt` is Claude's in a turn. One that names a prompt of the turn is its whenever
- * it began; only one with no prompt to name must have begun since the turn did.
+ * Whether a build that began at `startedAt` is Claude's in a turn. One made of a save for a prompt of the turn is its
+ * whenever it began; one that is only of saves with no prompt to name must have begun since the turn did.
  */
 export function claudesIn(made: KeptCause | undefined, startedAt: number, turn: TurnOfBuilds): boolean {
   if (made?.cause !== 'agent') return false
-  return made.turn ? turn.prompts.has(made.turn.prompt) : startedAt >= turn.startedAt
+  const named = [...(made.turn ? [made.turn.prompt] : []), ...(made.also ?? [])]
+  if (named.some((prompt) => turn.prompts.has(prompt))) return true
+  return (named.length === 0 || made.unnamed === true) && startedAt >= turn.startedAt
 }
 
 /** A build of Claude's that ended. */
@@ -62,13 +65,26 @@ export class ClaudesBuilds {
     this.kept.set(state.objectId, list)
   }
 
-  /** The newest build of Claude's in a turn that has ended. */
-  newest(objectId: string, turn: TurnOfBuilds): ClaudesBuild | undefined {
-    return this.kept.get(objectId)?.findLast((one) => claudesIn(one.made, one.startedAt, turn))
+  /**
+   * What a `Stop` judges: the newest build of Claude's that ended in the turn. A failure that a later build drew past
+   * is nothing to mend any more, and then it is the newest of Claude's in the turn that worked: what it changed may
+   * still be there, unlooked at.
+   */
+  judged(objectId: string, turn: TurnOfBuilds): ClaudesBuild | undefined {
+    const newest = this.find(objectId, turn, () => true)
+    return newest?.status === 'failed' && newest.redrawn ? this.find(objectId, turn, (one) => one.status === 'ok') : newest
   }
 
   /** The good build of that revision, if it is Claude's in the turn. */
   of(objectId: string, turn: TurnOfBuilds, revision: number): ClaudesBuild | undefined {
-    return this.kept.get(objectId)?.findLast((one) => one.status === 'ok' && one.revision === revision && claudesIn(one.made, one.startedAt, turn))
+    return this.find(objectId, turn, (one) => one.status === 'ok' && one.revision === revision)
+  }
+
+  /**
+   * The newest that is wanted of Claude's builds in the turn. One that had ended before the turn began is not in it,
+   * whatever it names: a terminal's resumed conversation names its prompts anew.
+   */
+  private find(objectId: string, turn: TurnOfBuilds, wanted: (one: ClaudesBuild) => boolean): ClaudesBuild | undefined {
+    return this.kept.get(objectId)?.findLast((one) => one.ended > turn.since && claudesIn(one.made, one.startedAt, turn) && wanted(one))
   }
 }

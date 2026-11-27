@@ -141,6 +141,8 @@ interface Session {
  */
 interface TurnState {
   startedAt: number
+  /** The count of builds ended when it began: a build that ended before is not its. */
+  since: number
   /** The prompts its tool calls were made for, as a build's cause names one: more than one when prompts were folded into it. */
   prompts: Set<string>
   /** The count of builds ended (`Sessions.finished`) when the turn last looked at the model: a build that ended after it was not looked at. */
@@ -742,7 +744,8 @@ export class Sessions {
    * but hold nothing back. First it waits (up to `STOP_WAIT_MS`) for such a build that is still running, and for the
    * dimensions to be measured on the newest that ended, then judges by the first of these:
    * - a build of Claude's is still running (`running`);
-   * - its newest failed, and no build since has worked (`failed`);
+   * - its newest failed, and no build since has worked (`failed`); one that a later build drew past holds nothing of
+   *   itself, and the rest is then judged on its newest that worked (`ClaudesBuilds.judged`);
    * - its newest has a hard defect (`hardDefects`: not valid, inside out, more solids than before, a mesh that
    *   disagrees with its volume) that the build the turn began with had not (`defect`), which the agent may answer is
    *   meant; one a later build mended is let go;
@@ -769,7 +772,7 @@ export class Sessions {
     // Nothing is waited for that a reason already held would have waited for: it was told, and the next Stop is let go at once.
     if (!turn.held.has('running')) while (runs() && Date.now() < deadline) await this.nextBuild(deadline)
     // Judged on Claude's newest build once it has ended, with its dimensions measured as far as they are in the time left.
-    const ended = this.claudes.newest(objectId, turn)
+    const ended = this.claudes.judged(objectId, turn)
     if (!turn.held.has('dimension') && ended?.status === 'ok' && turn.beforeVerdicts && [...turn.beforeVerdicts.values()].includes('pass')) {
       await this.deps.settled?.(objectId, ended.revision, deadline)
     }
@@ -785,11 +788,10 @@ export class Sessions {
     if (runs()) {
       return hold('running', `A build begun in this turn is still running (r${state.revision + 1}). Call ${toolName('wait_build')} for its result, then ${toolName('look')}, before finishing.`)
     }
-    const own = this.claudes.newest(objectId, turn)
+    const own = this.claudes.judged(objectId, turn)
     if (!own) return null
     if (own.status === 'failed') {
-      // A failure that a later build has drawn past is nothing of Claude's to mend any more.
-      return own.redrawn ? null : hold('failed', `The ${failedAfter(own.revision)} failed: ${(own.error ?? 'no reason was given').trim()}. Fix it, or say it is still broken.`)
+      return hold('failed', `The ${failedAfter(own.revision)} failed: ${(own.error ?? 'no reason was given').trim()}. Fix it, or say it is still broken.`)
     }
     const last = own.scene
     const digest = last ? sanity(turn.before, last) : undefined
@@ -1459,7 +1461,7 @@ export class Sessions {
     const objectId = session.object.id
     const before = this.deps.scene?.(objectId)
     const beforeVerdicts = before ? this.deps.verdicts?.(objectId, before.revision) : undefined
-    return { startedAt: Date.now(), prompts: new Set(), lookedAt: this.finished, measuredAt: this.finished, ...(before ? { before } : {}), ...(beforeVerdicts ? { beforeVerdicts } : {}), held: new Set(), holds: 0, editing: new Map(), bashing: new Map() }
+    return { startedAt: Date.now(), since: this.finished, prompts: new Set(), lookedAt: this.finished, measuredAt: this.finished, ...(before ? { before } : {}), ...(beforeVerdicts ? { beforeVerdicts } : {}), held: new Set(), holds: 0, editing: new Map(), bashing: new Map() }
   }
 
   /**

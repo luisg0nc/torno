@@ -1574,28 +1574,41 @@ describe('whose save a build came of (#384)', () => {
     expect(l.scenes[2]!.made).toEqual({ cause: 'person' })
   })
 
-  // The Stop goes by the prompt a build names (#397): an earlier prompt's must not hide the one whose save came after.
-  it("names the later prompt of two of Claude's saves that one build is made of", async () => {
-    let prompt = 'u6'
-    const l = setup({ causeNow: () => causeOfSave({ turn: { conversation: 'c1', prompt } }) })
+  // The Stop goes by every prompt a build is of (#397), so that none hides another, in whatever order the saves are heard.
+  it.each([
+    ['u6', 'u7'],
+    ['u7', 'u6']
+  ])("keeps both prompts of Claude's saves that one build is made of (%s heard first), and names the first", async (first, second) => {
+    let prompt: string | undefined = first
+    const l = setup({ causeNow: () => causeOfSave(prompt ? { turn: { conversation: 'c1', prompt } } : {}) })
     l.builds.open(bracket)
     l.kernel.succeed(0)
     await flush()
     const save = () => l.watched.get('/ws/bracket')!(['/ws/bracket/bracket.py'])
-    // A build of u6's, started over by a save of u7's.
+    const made = () => l.builds.state('bracket')!.made
+    const both = { cause: 'agent', turn: { conversation: 'c1', prompt: first }, also: [second] }
+    // A build started over by a save of another prompt's.
     save()
-    prompt = 'u7'
+    prompt = second
     save()
+    expect(made()).toEqual(both)
     l.kernel.succeed(2)
     await flush()
-    expect(l.scenes[1]!.made).toEqual({ cause: 'agent', turn: { conversation: 'c1', prompt: 'u7' } })
-    // Two saves of one burst.
-    prompt = 'u8'
-    l.seen.get('/ws/bracket')!('/ws/bracket/bracket.py')
-    prompt = 'u9'
-    l.seen.get('/ws/bracket')!('/ws/bracket/gen.py')
+    // Two saves of one burst, and the first of them heard twice.
+    for (const [file, of] of [['bracket.py', first], ['gen.py', second], ['more.py', first]] as const) {
+      prompt = of
+      l.seen.get('/ws/bracket')!(`/ws/bracket/${file}`)
+    }
     save()
-    expect(l.builds.state('bracket')!.made).toEqual({ cause: 'agent', turn: { conversation: 'c1', prompt: 'u9' } })
+    expect(made()).toEqual(both)
+    l.kernel.succeed(3)
+    await flush()
+    // A save of Claude's with no prompt to name is told apart: only when the build began says whose turn it is.
+    prompt = first
+    save()
+    prompt = undefined
+    save()
+    expect(made()).toEqual({ cause: 'agent', turn: { conversation: 'c1', prompt: first }, unnamed: true })
   })
 
   it('keeps the cause of a build displaced by another project\'s, which is started again', async () => {
