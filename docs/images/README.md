@@ -2,8 +2,8 @@
 
 The pictures here are made, not taken: `app/e2e/readme.spec.ts` drives the built app in a hidden window to each
 state below and captures it once a launch, with the stand-in agent speaking a scripted turn (the one cosmetic edit,
-the words of the person's prompt, is said in the spec), and `app/scripts/readme-images.py` crops, quantizes and
-composes the social preview.
+the words of the person's prompt, is said in the spec), and `app/scripts/readme-images.py` crops and quantizes
+them. The social preview is drawn by `app/scripts/social-preview.mjs`, with no capture in it.
 
 The projects on screen are real ones from the author's own workshop, which is not in this repository: an airbox
 for a cone filter, fitted to a 3D scan of the engine bay it goes in (`intake`, whose tub wall is `wall: float = 2.8`
@@ -27,8 +27,7 @@ nothing after), so that no path of the author's machine is on screen. The worksp
 project, the name a part is engraved with, is emptied in the copy, so that no name is on a part in any picture. The
 marks of a copied project are cleared for the shots of a sketch, a review and a tracing, which make their own. `docs/images/raw/` (the whole-window
 captures) is not committed. The shots below that are not in the README (`objects.png`, `export.png`,
-`first-screen.png`, `social-preview.png`) are made all the same, for the manual, for issues, and for the
-repository's social preview.
+`first-screen.png`) are made all the same, for the manual and for issues.
 
 ## How to take them
 
@@ -86,5 +85,5 @@ anywhere but is large (keep it under 10 MB, 800 px wide, 10–15 fps). Speed up 
 
 | # | File | What it shows |
 |---|---|---|
-| 11 | `social-preview.png` | **1280 × 640**, for Settings → General → Social preview on GitHub: the logo, "torno", the one-line description, and a crop of shot 1. Not used in the README. |
+| 11 | `social-preview.png` | **1280 × 640**, for Settings → General → Social preview on GitHub, drawn with no capture in it: the site's hero on the dye, the logo, "torno" and the line at the left, the critter at the bench with the vise holding the part at the right. `app/scripts/social-preview.html`, rendered by `node app/scripts/social-preview.mjs` in headless Chromium in Instrument Sans and Martian Mono from `@fontsource` (it fails when a face did not load). Not used in the README; upload it by hand after a change. |
 | 12 | `site-preview.png` | **1200 × 1200**, the link preview of torno.luisg.me (`og:image`): the logo and "torno", centred on the paper grey, so a chat app that crops it to a square thumbnail keeps the logo. Drawn from `scripts/torno.svg` in Instrument Sans 600 and screenshotted in headless Chromium. |
