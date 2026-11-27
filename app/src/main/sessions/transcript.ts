@@ -420,6 +420,11 @@ export class Transcript {
     if (item?.kind === 'user' && item.state === 'queued') this.takeUp(item)
   }
 
+  /** Whether the CLI has begun a turn (its `init`) and not ended it (its `result`). */
+  underWay(): boolean {
+    return this.turnStarted !== null
+  }
+
   /** The prompt the last hook (or command) took up, for whoever says which prompt a turn is of; undefined before any. */
   taken(): { item: string; text: string } | undefined {
     return this.promptTaken

@@ -107,8 +107,11 @@ function statOf(path: string): FileStat | undefined {
 
 const stampOf = (stat: FileStat | undefined): string => (stat ? `${stat.mtimeMs}:${stat.size}` : '')
 
-/** When a command could have written it: a copy, an archive or a move may keep an older mtime, and none keeps its ctime. */
-const writtenWhen = (stat: FileStat): number => Math.max(stat.mtimeMs, stat.ctimeMs)
+/**
+ * When a command could have written it: a copy, an archive or a move may keep an older mtime, and none keeps its ctime.
+ * In whole milliseconds, as the ledger's clock counts: a file changed in the one a command ended in is still its.
+ */
+const writtenWhen = (stat: FileStat): number => Math.floor(Math.max(stat.mtimeMs, stat.ctimeMs))
 
 const keyOf = (project: string, file: string): string => `${project}\n${file}`
 
